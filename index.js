@@ -12,6 +12,14 @@ if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 8000;
+
+// Simple Keep-Alive Server for Koyeb
+app.get('/', (req, res) => res.send('Bot is healthy and running! 🚀'));
+app.listen(port, () => console.log(`Server listening on port ${port}`));
+
 async function getGPTResponse(message) {
     try {
         // Using Hercai Free API - Reliable for simple GPT responses
