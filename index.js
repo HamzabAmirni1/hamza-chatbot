@@ -76,10 +76,11 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
     const context = getContext(jid);
     const activeImage = imageBuffer || context.lastImage?.buffer;
 
-    // 🆓 LIST OF 100% FREE MODELS on OpenRouter
+    // Ordered list of reliable free models
+    // Llama 3 90b is often most stable free model on OpenRouter
     const freeModels = [
+        "meta-llama/llama-3.2-11b-vision-instruct:free",
         "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3.2-11b-vision-instruct:free", // Good for vision
         "nousresearch/hermes-3-llama-3.1-405b:free",
         "qwen/qwen-2-7b-instruct:free",
     ];
@@ -109,15 +110,15 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
                     "Content-Type": "application/json",
                     "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
                     "X-Title": "Hamza Chatbot"
-                }
+                },
+                timeout: 20000 // 20s timeout
             });
 
             const reply = response.data?.choices?.[0]?.message?.content;
             if (reply) return reply;
 
         } catch (error) {
-            // Debug log (optional)
-            // console.log(chalk.yellow(`⚠️ Model ${model} failed/limited. Trying next...`));
+            console.log(chalk.yellow(`⚠️ OpenRouter Model ${model} failed: ${error.message}`));
             continue;
         }
     }
@@ -130,15 +131,14 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Trying 'gemini-pro' on 'v1' endpoint which is most widely available for free keys
-    // Then 1.5-flash on v1beta
+    // Trying 'gemini-1.5-flash' on 'v1beta' (best)
+    // Fallback 'gemini-pro' on 'v1' (legacy stable)
     const models = [
         { name: "gemini-1.5-flash", version: "v1beta" },
-        { name: "gemini-pro", version: "v1" } // Fallback for text
+        { name: "gemini-pro", version: "v1" }
     ];
 
     for (const model of models) {
-        // gemini-pro (legacy v1 text) does not support images
         if (model.name === 'gemini-pro' && activeImage) continue;
 
         try {
@@ -160,17 +160,15 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
                 });
             }
 
-            const response = await axios.post(url, { contents });
+            const response = await axios.post(url, { contents }, { timeout: 20000 });
             const result = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (result) return result;
 
         } catch (error) {
-            // console.log(`Failed with ${model.name}: ${error.message}`);
+            console.log(chalk.red(`⚠️ Gemini Direct Error (${model.name}): ${error.response?.data?.error?.message || error.message}`));
             continue;
         }
     }
-
-    // If all fail, return null so we fall back to Pollinations or OpenRouter
     return null;
 }
 
@@ -224,7 +222,7 @@ async function startBot() {
         getMessage: async (key) => { return { conversation: config.botName } },
         defaultQueryTimeoutMs: 60000,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 60000, // Increased to 60s for stability against 428/515 errors
+        keepAliveIntervalMs: 10000,
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
         syncFullHistory: false,
