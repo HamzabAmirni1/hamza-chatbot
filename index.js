@@ -70,8 +70,8 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
         messages.push({ role: "user", content: userContent });
 
         const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-            // Using Gemini 1.5 Flash for better stability and higher rate limits
-            model: "google/gemini-flash-1.5",
+            // Using Gemini 2.0 Flash Exp (Free) - Most reliable for now
+            model: "google/gemini-2.0-flash-exp:free",
             messages: messages
         }, {
             headers: {
@@ -98,7 +98,7 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${config.geminiApiKey}`;
 
         let fullPrompt = systemPromptText + "\n\n";
         context.messages.forEach(m => {
