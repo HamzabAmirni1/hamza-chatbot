@@ -120,40 +120,42 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Added 'gemini-pro' as it is the most stable for legacy/free keys
-    const models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-pro"];
+    // Simple, direct model choice. 1.5-flash is best for all-round free tier.
+    const modelName = "gemini-1.5-flash";
 
-    for (const modelName of models) {
-        try {
-            // gemini-pro (vision free) doesn't support images text-only, so handle that
-            if (modelName === 'gemini-pro' && activeImage) continue;
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
+        let fullPrompt = systemPromptText + "\n\n";
+        // Send last 10 messages for better context vs token usage
+        context.messages.slice(-10).forEach(m => {
+            fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
+        });
+        fullPrompt += `User: ${text}`;
 
-            let fullPrompt = systemPromptText + "\n\n";
-            context.messages.slice(-10).forEach(m => {
-                fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
+        const contents = [{
+            parts: [{ text: fullPrompt }]
+        }];
+
+        if (activeImage) {
+            contents[0].parts.push({
+                inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
             });
-            fullPrompt += `User: ${text}`;
-
-            const contents = [{
-                parts: [{ text: fullPrompt }]
-            }];
-
-            if (activeImage && modelName !== 'gemini-pro') {
-                contents[0].parts.push({
-                    inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
-                });
-            }
-
-            const response = await axios.post(url, { contents });
-            return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        } catch (error) {
-            continue;
         }
+
+        const response = await axios.post(url, { contents });
+        return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    } catch (error) {
+        // Log the actual error to help debugging
+        const errData = error.response?.data || error.message;
+        console.error(chalk.red(`⚠️ Gemini API Error (${modelName}):`), JSON.stringify(errData, null, 2));
+        return null;
     }
-    return null;
 }
+
+// ...
+
+
 
 async function getGPTResponse(jid, message) {
     try {
