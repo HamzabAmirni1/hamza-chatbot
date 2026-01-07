@@ -130,41 +130,49 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Simple, direct model choice. 1.5-flash is best for all-round free tier.
-    const modelName = "gemini-1.5-flash";
+    // Trying 'gemini-pro' on 'v1' endpoint which is most widely available for free keys
+    // Then 1.5-flash on v1beta
+    const models = [
+        { name: "gemini-1.5-flash", version: "v1beta" },
+        { name: "gemini-pro", version: "v1" } // Fallback for text
+    ];
 
-    try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
+    for (const model of models) {
+        // gemini-pro (legacy v1 text) does not support images
+        if (model.name === 'gemini-pro' && activeImage) continue;
 
-        let fullPrompt = systemPromptText + "\n\n";
-        // Send last 10 messages for better context vs token usage
-        context.messages.slice(-10).forEach(m => {
-            fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
-        });
-        fullPrompt += `User: ${text}`;
+        try {
+            const url = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${config.geminiApiKey}`;
 
-        const contents = [{
-            parts: [{ text: fullPrompt }]
-        }];
-
-        if (activeImage) {
-            contents[0].parts.push({
-                inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
+            let fullPrompt = systemPromptText + "\n\n";
+            context.messages.slice(-10).forEach(m => {
+                fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
             });
+            fullPrompt += `User: ${text}`;
+
+            const contents = [{
+                parts: [{ text: fullPrompt }]
+            }];
+
+            if (activeImage && model.name !== 'gemini-pro') {
+                contents[0].parts.push({
+                    inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
+                });
+            }
+
+            const response = await axios.post(url, { contents });
+            const result = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (result) return result;
+
+        } catch (error) {
+            // console.log(`Failed with ${model.name}: ${error.message}`);
+            continue;
         }
-
-        const response = await axios.post(url, { contents });
-        return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    } catch (error) {
-        // Log the actual error to help debugging
-        const errData = error.response?.data || error.message;
-        console.error(chalk.red(`⚠️ Gemini API Error (${modelName}):`), JSON.stringify(errData, null, 2));
-        return null;
     }
+
+    // If all fail, return null so we fall back to Pollinations or OpenRouter
+    return null;
 }
-
-// ...
-
 
 
 async function getGPTResponse(jid, message) {
