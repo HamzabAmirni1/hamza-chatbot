@@ -364,6 +364,52 @@ async function startBot() {
                     continue;
                 }
 
+                if (body.toLowerCase() === '.credits' || body.toLowerCase() === '.quota') {
+                    let status = "📊 *حالة API ديالك:*\n\n";
+
+                    // Check Gemini
+                    if (config.geminiApiKey) {
+                        try {
+                            const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${config.geminiApiKey}`;
+                            await axios.post(testUrl, { contents: [{ parts: [{ text: "test" }] }] }, { timeout: 5000 });
+                            status += "✅ *Gemini API:* شغال\n";
+                        } catch (error) {
+                            if (error.response?.status === 429 || error.response?.data?.error?.message?.includes('quota')) {
+                                status += "⚠️ *Gemini API:* Quota نفذ (0 requests)\n";
+                            } else {
+                                status += "❌ *Gemini API:* فيه مشكل\n";
+                            }
+                        }
+                    } else {
+                        status += "⚪ *Gemini API:* ما مفعلش\n";
+                    }
+
+                    // Check OpenRouter
+                    if (config.openRouterKey) {
+                        try {
+                            const testResponse = await axios.get("https://openrouter.ai/api/v1/auth/key", {
+                                headers: { "Authorization": `Bearer ${config.openRouterKey}` },
+                                timeout: 5000
+                            });
+                            const credits = testResponse.data?.data?.limit_remaining || 0;
+                            status += `✅ *OpenRouter:* ${credits} requests باقيين\n`;
+                        } catch (error) {
+                            status += "❌ *OpenRouter:* فيه مشكل\n";
+                        }
+                    } else {
+                        status += "⚪ *OpenRouter:* ما مفعلش\n";
+                    }
+
+                    // Pollinations & HuggingFace (always available)
+                    status += "✅ *Pollinations AI:* Unlimited (شغال)\n";
+                    status += "✅ *HuggingFace:* Unlimited (شغال)\n";
+
+                    status += "\n💡 البوت خدام ب 4 APIs، حتى واحد يوقف، الباقي يكملو!";
+
+                    await sock.sendMessage(sender, { text: status }, { quoted: msg });
+                    continue;
+                }
+
                 // AI Processing
                 // 1. Try Image Analysis (if Image Message)
                 if (type === 'imageMessage') {
