@@ -374,12 +374,13 @@ async function startBot() {
                         (type === 'imageMessage') ? msg.message.imageMessage.caption :
                             (type === 'videoMessage') ? msg.message.videoMessage.caption : '';
 
-                if (!body) continue;
+                // If no body and not a media message, skip
+                if (!body && type !== 'imageMessage' && type !== 'videoMessage') continue;
 
                 // Ignore Status Updates, Newsletters AND Groups (Private Only)
                 if (msg.key.remoteJid === 'status@broadcast' || msg.key.remoteJid.includes('@newsletter') || msg.key.remoteJid.endsWith('@g.us')) continue;
 
-                console.log(chalk.cyan(`Thinking response for: ${body.substring(0, 30)}...`));
+                console.log(chalk.cyan(`Thinking response for: ${body ? body.substring(0, 30) : 'Media File'}...`));
 
                 // Anti-Ban: Mark read and Type
                 await sock.readMessages([msg.key]);
@@ -393,14 +394,14 @@ async function startBot() {
                 const sender = msg.key.remoteJid;
 
                 // 🚀 SUPER FAST COMMANDS (Running locally)
-                if (body.toLowerCase() === '.ping') {
+                if (body && body.toLowerCase() === '.ping') {
                     const start = Date.now();
                     await delayPromise;
                     await sock.sendMessage(sender, { text: `🏓 Pong! Speed: ${Date.now() - start}ms` }, { quoted: msg });
                     continue;
                 }
 
-                if (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help') {
+                if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help')) {
                     const menu = `╭─── *💎 ${config.botName} 💎* ───╮
 │
 │ *🤖 أوامر الذكاء الاصطناعي:*
@@ -436,32 +437,32 @@ async function startBot() {
                 }
 
                 // 🚀 SOCIAL MEDIA COMMANDS
-                if (body.toLowerCase() === '.ig') {
+                if (body && body.toLowerCase() === '.ig') {
                     await sock.sendMessage(sender, { text: `📸 *Instagram:* ${config.instagram}\n📸 *Instagram 2:* ${config.instagram2}` }, { quoted: msg });
                     continue;
                 }
-                if (body.toLowerCase() === '.tg') {
+                if (body && body.toLowerCase() === '.tg') {
                     await sock.sendMessage(sender, { text: `✈️ *Telegram:* ${config.telegram}` }, { quoted: msg });
                     continue;
                 }
-                if (body.toLowerCase() === '.yt') {
+                if (body && body.toLowerCase() === '.yt') {
                     await sock.sendMessage(sender, { text: `📺 *YouTube:* ${config.youtube}` }, { quoted: msg });
                     continue;
                 }
-                if (body.toLowerCase() === '.fb') {
+                if (body && body.toLowerCase() === '.fb') {
                     await sock.sendMessage(sender, { text: `📘 *Facebook:* ${config.facebook}\n📘 *Page:* ${config.facebookPage}` }, { quoted: msg });
                     continue;
                 }
-                if (body.toLowerCase() === '.channel') {
+                if (body && body.toLowerCase() === '.channel') {
                     await sock.sendMessage(sender, { text: `📢 *WhatsApp Channel:* ${config.officialChannel}` }, { quoted: msg });
                     continue;
                 }
-                if (body.toLowerCase() === '.web') {
+                if (body && body.toLowerCase() === '.web') {
                     await sock.sendMessage(sender, { text: `🌐 *Portfolio:* ${config.portfolio}` }, { quoted: msg });
                     continue;
                 }
 
-                if (body.toLowerCase() === '.credits' || body.toLowerCase() === '.quota') {
+                if (body && (body.toLowerCase() === '.credits' || body.toLowerCase() === '.quota')) {
                     let status = "📊 *حالة API ديالك:*\n\n";
 
                     // Check Gemini
@@ -518,25 +519,22 @@ async function startBot() {
                         let mime;
 
                         if (isVideo) {
-                            // For videos, we just respond to the caption text for now as most free APIs don't do video vision well
-                            caption = msg.message.videoMessage.caption || "Describe this video.";
+                            caption = msg.message.videoMessage.caption || "ماذا يوجد في هذا الفيديو؟";
                             mime = msg.message.videoMessage.mimetype;
-                            // skip buffer download for speed on large videos, just use text context
                             reply = await getPollinationsResponse(sender, caption);
                         } else {
                             buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-                            caption = msg.message.imageMessage.caption || "Describe this image.";
+                            caption = msg.message.imageMessage.caption || "ما الموجود في هذه الصورة؟ وذكر اسم الشخصية إن وجدت";
                             mime = msg.message.imageMessage.mimetype;
 
-                            // Priority 1: Obito Analyze (Best for Anime/Characters - No Key needed)
                             reply = await getObitoAnalyze(buffer, caption, mime);
+                            if (reply) {
+                                reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*Dev by ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
+                            }
 
-                            // Priority 2: OpenRouter (Vision)
                             if (!reply) {
                                 reply = await getOpenRouterResponse(sender, caption, buffer);
                             }
-
-                            // Priority 3: Gemini Direct (Vision)
                             if (!reply) {
                                 reply = await getGeminiResponse(sender, caption, buffer, mime);
                             }
@@ -549,7 +547,6 @@ async function startBot() {
                         }
 
                         if (reply) {
-                            // Update history with media info
                             addToHistory(sender, 'user', caption, buffer ? { buffer, mime } : null);
                             addToHistory(sender, 'assistant', reply);
                         }
@@ -558,7 +555,7 @@ async function startBot() {
                         console.error("Media Processing Error:", err);
                         reply = "❌ فشل معالجة الوسائط.";
                     }
-                } else if (/^(حلل|حلل-صور|تحليل|.hl)$/i.test(body)) {
+                } else if (body && /^(حلل|حلل-صور|تحليل|.hl)$/i.test(body)) {
                     // Dedicated Analyze Command Logic
                     const q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
                     const quotedType = Object.keys(q || {})[0];
