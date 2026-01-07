@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers, downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers, downloadMediaMessage, jidDecode } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs-extra');
 const axios = require('axios');
@@ -10,6 +10,30 @@ const config = require('./config');
 const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
+// Memory monitoring - Restart if RAM gets too high
+setInterval(() => {
+    const used = process.memoryUsage().rss / 1024 / 1024;
+    if (used > 450) {
+        console.log(chalk.red('⚠️ RAM too high (>450MB), restarting bot...'));
+        process.exit(1);
+    }
+}, 30000);
+
+// Filter console logs to suppress Baileys noise
+const originalConsoleError = console.error;
+const originalConsoleLog = console.log;
+
+const silencePatterns = ['Bad MAC', 'Session error', 'Failed to decrypt', 'Closing session', 'Closing open session', 'Conflict', 'Stream Errored'];
+
+function shouldSilence(args) {
+    const msg = args[0];
+    if (typeof msg === 'string') return silencePatterns.some(pattern => msg.includes(pattern));
+    return false;
+}
+
+console.error = (...args) => { if (!shouldSilence(args)) originalConsoleError.apply(console, args); };
+console.log = (...args) => { if (!shouldSilence(args)) originalConsoleLog.apply(console, args); };
+
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 
@@ -18,10 +42,9 @@ const app = express();
 const port = process.env.PORT || 8000;
 
 // Simple Keep-Alive Server for Koyeb
-app.get('/', (req, res) => res.send('Bot is healthy and running! 🚀'));
+app.get('/', (req, res) => res.send(`Bot ${config.botName} is Running! 🚀`));
 app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
-    // Keep-Alive: Ping self every 5 mins
+    console.log(chalk.green(`Server listening on port ${port}`));
     setInterval(() => {
         axios.get(`http://localhost:${port}`).catch(() => { });
     }, 5 * 60 * 1000);
@@ -149,14 +172,23 @@ async function getGPTResponse(jid, message) {
 }
 
 async function startBot() {
-    // 🔄 Clean Session Folder if no SESSION_ID provided to avoid "Bad MAC" errors
-    if (!process.env.SESSION_ID) {
-        console.log(chalk.yellow("⚠️ No SESSION_ID found. Cleaning session folder for fresh login..."));
+    // 🔄 Sync Session (Base64 Support)
+    const sessionID = process.env.SESSION_ID;
+    if (sessionID && !fs.existsSync(path.join(sessionDir, 'creds.json'))) {
+        try {
+            console.log(chalk.cyan('🔄 SESSION_ID detected, syncing session...'));
+            const encodedData = sessionID.split('Session~')[1] || sessionID;
+            const decodedData = Buffer.from(encodedData, 'base64').toString('utf-8');
+            const creds = JSON.parse(decodedData);
+            fs.ensureDirSync(sessionDir);
+            fs.writeFileSync(path.join(sessionDir, 'creds.json'), JSON.stringify(creds, null, 2));
+            console.log(chalk.green('✅ Session successfully restored from SESSION_ID'));
+        } catch (e) {
+            // Fallback to raw if not Base64 JSON
+            fs.writeFileSync(path.join(sessionDir, 'creds.json'), sessionID);
+        }
+    } else if (!sessionID) {
         if (fs.existsSync(sessionDir)) fs.emptyDirSync(sessionDir);
-    } else if (!fs.existsSync(path.join(sessionDir, 'creds.json'))) {
-        console.log(chalk.yellow("🔄 Restoring Session from SESSION_ID..."));
-        fs.ensureDirSync(sessionDir);
-        fs.writeFileSync(path.join(sessionDir, 'creds.json'), process.env.SESSION_ID);
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -166,15 +198,18 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.ubuntu('Chrome'), // Standard Chrome ID is best for Notifications
+        browser: Browsers.ubuntu('Chrome'),
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
-        markOnlineOnConnect: true,
+        getMessage: async (key) => { return { conversation: config.botName } },
+        defaultQueryTimeoutMs: 90000,
         connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: undefined,
-        getMessage: async (key) => { return { conversation: 'Thinking...' } }
+        keepAliveIntervalMs: 30000,
+        generateHighQualityLinkPreview: true,
+        markOnlineOnConnect: true,
+        retryRequestDelayMs: 5000,
     });
 
     // Pairing Code Login (Only if not registered and not already requesting)
