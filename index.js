@@ -278,9 +278,10 @@ async function startBot() {
             if (statusCode === 401) {
                 console.log(chalk.red("🔐 Session Expired or Logged Out. Clearing session..."));
                 if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
-                setTimeout(() => startBot(), 2000); // fast restart
+                setTimeout(() => startBot(), 2000);
             } else if (shouldReconnect) {
-                const delayReconnect = (statusCode === 428 || statusCode === 515) ? 3000 : 5000;
+                // FIXED: Increased delay to 10-15s to definitively stop the loop
+                const delayReconnect = (statusCode === 428 || statusCode === 515) ? 10000 : 15000;
                 console.log(chalk.yellow(`♻️ Reconnecting in ${delayReconnect}ms...`));
                 setTimeout(() => startBot(), delayReconnect);
             } else {
