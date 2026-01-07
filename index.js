@@ -97,14 +97,26 @@ async function getPollinationsResponse(jid, message) {
         const context = getContext(jid);
         let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
         const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
-        // Use a more specific model for Pollinations to avoid generic 429
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=qwen-7b-chat`, { timeout: 30000 });
+        // Correct parameter is 'model', and we remove the model name from prompt if needed, but simple prompt is safer
+        const { data } = await axios.get(`https://text.pollinations.ai/prompt/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error(chalk.red("Pollinations API Error:"), error.message);
         return null;
     }
 }
+
+async function getDuckDuckGoResponse(jid, message) {
+    try {
+        // Using a reliable public AI proxy for DuckDuckGo/Llama
+        const { data } = await axios.get(`https://api.vreden.web.id/api/ai/duckduckgo?query=${encodeURIComponent(message)}`, { timeout: 30000 });
+        return data.result || null;
+    } catch (error) {
+        console.error(chalk.red("DuckDuckGo AI Error:"), error.message);
+        return null;
+    }
+}
+
 
 async function getNexraResponse(jid, message) {
     try {
@@ -657,23 +669,29 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: Nexra (GPT-4 - Very Stable)
-                    reply = await getNexraResponse(sender, body);
+                    // Priority 1: DuckDuckGo AI (New & Very Stable)
+                    reply = await getDuckDuckGoResponse(sender, body);
 
-                    // Priority 2: Vreden (Llama-3 - Strong Fallback)
+                    // Priority 2: Nexra (GPT-4)
                     if (!reply) {
-                        reply = await getVredenResponse(sender, body);
+                        reply = await getNexraResponse(sender, body);
                     }
 
-                    // Priority 3: Pollinations (Model specific)
+                    // Priority 3: Pollinations (Corrected Endpoint)
                     if (!reply) {
                         reply = await getPollinationsResponse(sender, body);
                     }
 
-                    // Priority 4: Hercai (If 503 is over)
+                    // Priority 4: Vreden (Llama-3)
+                    if (!reply) {
+                        reply = await getVredenResponse(sender, body);
+                    }
+
+                    // Priority 5: Hercai (Basic)
                     if (!reply) {
                         reply = await getHercaiResponse(sender, body);
                     }
+
 
                     // Priority 5: HuggingFace (Mistral)
                     if (!reply) {
