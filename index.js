@@ -120,16 +120,17 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Updated models list and endpoint version (v1beta is generally required for these models)
-    const models = ["gemini-1.5-flash", "gemini-2.0-flash-exp"];
+    // Added 'gemini-pro' as it is the most stable for legacy/free keys
+    const models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-pro"];
 
     for (const modelName of models) {
         try {
-            // IMPORTANT: Using v1beta
+            // gemini-pro (vision free) doesn't support images text-only, so handle that
+            if (modelName === 'gemini-pro' && activeImage) continue;
+
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
 
             let fullPrompt = systemPromptText + "\n\n";
-            // Send last 10 messages for better context vs token usage
             context.messages.slice(-10).forEach(m => {
                 fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
             });
@@ -139,7 +140,7 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
                 parts: [{ text: fullPrompt }]
             }];
 
-            if (activeImage) {
+            if (activeImage && modelName !== 'gemini-pro') {
                 contents[0].parts.push({
                     inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
                 });
@@ -148,12 +149,6 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
             const response = await axios.post(url, { contents });
             return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         } catch (error) {
-            if (error.response?.status === 429) {
-                // console.log(chalk.yellow(`⚠️ ${modelName} rate limited, trying next model...`));
-                continue;
-            }
-            // console.error(`${modelName} API Error:`, error.response?.data || error.message);
-            // If 404, valid model name issue, but we just try next
             continue;
         }
     }
@@ -209,12 +204,10 @@ async function startBot() {
         getMessage: async (key) => { return { conversation: config.botName } },
         defaultQueryTimeoutMs: 60000,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000, // Reduced to 10s
-        emitOwnEvents: true,
-        fireInitQueries: true,
+        keepAliveIntervalMs: 30000, // Back to standard 30s
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
-        retryRequestDelayMs: 2000,
+        retryRequestDelayMs: 5000, // Back to 5000
         syncFullHistory: false,
         patchMessageBeforeSending: (message) => {
             const requiresPatch = !!(message.buttonsMessage || message.templateMessage || message.listMessage);
