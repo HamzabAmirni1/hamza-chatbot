@@ -97,10 +97,21 @@ async function getPollinationsResponse(jid, message) {
         const context = getContext(jid);
         let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
         const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`, { timeout: 30000 });
+        // Try with a different model if default is busy
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error(chalk.red("Pollinations API Error:"), error.message);
+        return null;
+    }
+}
+
+async function getHercaiResponse(jid, message) {
+    try {
+        const { data } = await axios.get(`https://hercai.onrender.com/v3/hercai?question=${encodeURIComponent(message)}`, { timeout: 30000 });
+        return data.reply || null;
+    } catch (error) {
+        console.error(chalk.red("Hercai API Error:"), error.message);
         return null;
     }
 }
@@ -115,7 +126,7 @@ async function getHuggingFaceResponse(jid, text) {
         prompt += `User: ${text}\nAssistant:`;
 
         const response = await axios.post(
-            "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
             { inputs: prompt, parameters: { max_new_tokens: 500, temperature: 0.7 } },
             { timeout: 30000 }
         );
@@ -623,20 +634,25 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: Pollinations (Unlimited & Free)
-                    reply = await getPollinationsResponse(sender, body);
+                    // Priority 1: Hercai (New stable provider)
+                    reply = await getHercaiResponse(sender, body);
 
-                    // Priority 2: HuggingFace (Free, no key needed)
+                    // Priority 2: Pollinations (Unlimited & Free)
+                    if (!reply) {
+                        reply = await getPollinationsResponse(sender, body);
+                    }
+
+                    // Priority 3: HuggingFace (Free, updated model)
                     if (!reply) {
                         reply = await getHuggingFaceResponse(sender, body);
                     }
 
-                    // Priority 3: OpenRouter (if key exists and not rate limited)
+                    // Priority 4: OpenRouter (if key exists)
                     if (!reply && config.openRouterKey) {
                         reply = await getOpenRouterResponse(sender, body);
                     }
 
-                    // Priority 4: Gemini Direct (if key exists and not quota exceeded)
+                    // Priority 5: Gemini Direct (if key exists)
                     if (!reply && config.geminiApiKey) {
                         reply = await getGeminiResponse(sender, body);
                     }
