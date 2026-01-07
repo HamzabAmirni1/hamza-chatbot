@@ -199,7 +199,7 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.macOS('Desktop'), // macOS is often more stable for pairing
+        browser: ["Ubuntu", "Chrome", "20.0.04"], // Stable browser for pairing
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -235,7 +235,7 @@ async function startBot() {
             console.log(chalk.cyan(`🔢 Initializing Pairing Code for: ${phoneNumber}...`));
 
             (async () => {
-                await delay(12000); // Wait for socket to be fully stable
+                await delay(6000); // Reduced delay to 6s for faster execution
                 try {
                     console.log(chalk.yellow(`📡 Requesting code for ${phoneNumber}...`));
                     let code = await sock.requestPairingCode(phoneNumber);
@@ -246,7 +246,8 @@ async function startBot() {
                     console.log(chalk.cyan(`👉 Step 3: Enter: ${code}`));
                 } catch (e) {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
-                    global.pairingLastRequested = 0; // Reset on error to allow retry
+                    // Don't limit retries so strictly on error
+                    global.pairingLastRequested = 0;
                 }
             })();
         } else {
