@@ -149,13 +149,15 @@ async function getGPTResponse(jid, message) {
 }
 
 async function startBot() {
-    // 🔄 Restore Session from Env Var (Persistence)
-    if (process.env.SESSION_ID && !fs.existsSync(path.join(sessionDir, 'creds.json'))) {
+    // 🔄 Clean Session Folder if no SESSION_ID provided to avoid "Bad MAC" errors
+    if (!process.env.SESSION_ID) {
+        console.log(chalk.yellow("⚠️ No SESSION_ID found. Cleaning session folder for fresh login..."));
+        if (fs.existsSync(sessionDir)) fs.emptyDirSync(sessionDir);
+    } else if (!fs.existsSync(path.join(sessionDir, 'creds.json'))) {
         console.log(chalk.yellow("🔄 Restoring Session from SESSION_ID..."));
         fs.ensureDirSync(sessionDir);
         fs.writeFileSync(path.join(sessionDir, 'creds.json'), process.env.SESSION_ID);
     }
-    // Removed automatic emptyDirSync from here to prevent loops during pairing
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
@@ -164,39 +166,15 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.macOS('Desktop'), // macOS works better for pairing notifications sometimes
+        browser: Browsers.ubuntu('Chrome'), // Standard Chrome ID is best for Notifications
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
         markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: true,
-        connectTimeoutMs: 120000, // 2 minutes timeout for slow connections
-        keepAliveIntervalMs: 30000,
-        retryRequestDelayMs: 10000, // Wait 10s before retry
-        defaultQueryTimeoutMs: 0,
-        // Add stability patches for Koyeb/Server environments
-        patchMessageBeforeSending: (message) => {
-            const requiresPatch = !!(
-                message.buttonsMessage ||
-                message.templateMessage ||
-                message.listMessage
-            );
-            if (requiresPatch) {
-                message = {
-                    viewOnceMessage: {
-                        message: {
-                            messageContextInfo: {
-                                deviceListMetadata: {},
-                                deviceListMetadataVersion: 2
-                            },
-                            ...message
-                        }
-                    }
-                };
-            }
-            return message;
-        }
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: undefined,
+        getMessage: async (key) => { return { conversation: 'Thinking...' } }
     });
 
     // Pairing Code Login (Only if not registered and not already requesting)
@@ -215,14 +193,14 @@ async function startBot() {
                     const code = await sock.requestPairingCode(phoneNumber);
                     const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
                     console.log(chalk.black.bgGreen(` ✅ PAIRING CODE: `), chalk.bold.red(formattedCode));
-                    console.log(chalk.yellow("1. Open WhatsApp > Linked Devices"));
-                    console.log(chalk.yellow("2. Tap 'Link with phone number instead'"));
-                    console.log(chalk.yellow(`3. Enter the code above for number: ${phoneNumber}`));
+                    console.log(chalk.cyan("1. Open WhatsApp > Linked Devices"));
+                    console.log(chalk.cyan("2. Tap 'Link with phone number instead'"));
+                    console.log(chalk.cyan(`3. Enter the code above for number: ${phoneNumber}`));
                 } catch (e) {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
-                    global.pairingRequested = false; // Reset on error to allow retry
+                    global.pairingRequested = false;
                 }
-            }, 10000); // 10s wait to ensure connection is solid
+            }, 10000);
         } else {
             console.log(chalk.red("❌ Please set PAIRING_NUMBER in Koyeb Environment Variables to login!"));
         }
