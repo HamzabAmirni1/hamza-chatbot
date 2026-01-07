@@ -97,31 +97,42 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${config.geminiApiKey}`;
+    // Models to try in order to avoid 429
+    const models = ["gemini-2.0-flash-exp", "gemini-1.5-flash"];
 
-        let fullPrompt = systemPromptText + "\n\n";
-        context.messages.forEach(m => {
-            fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
-        });
-        fullPrompt += `User: ${text}`;
+    for (const modelName of models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
 
-        const contents = [{
-            parts: [{ text: fullPrompt }]
-        }];
-
-        if (activeImage) {
-            contents[0].parts.push({
-                inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
+            let fullPrompt = systemPromptText + "\n\n";
+            // Send last 10 messages for better context vs token usage
+            context.messages.slice(-10).forEach(m => {
+                fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
             });
-        }
+            fullPrompt += `User: ${text}`;
 
-        const response = await axios.post(url, { contents });
-        return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    } catch (error) {
-        console.error("Gemini API Error:", error.response?.data || error.message);
-        return null;
+            const contents = [{
+                parts: [{ text: fullPrompt }]
+            }];
+
+            if (activeImage) {
+                contents[0].parts.push({
+                    inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
+                });
+            }
+
+            const response = await axios.post(url, { contents });
+            return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        } catch (error) {
+            if (error.response?.status === 429) {
+                console.log(chalk.yellow(`⚠️ ${modelName} rate limited, trying next model...`));
+                continue;
+            }
+            console.error(`${modelName} API Error:`, error.response?.data || error.message);
+            return null;
+        }
     }
+    return null;
 }
 
 async function getGPTResponse(jid, message) {
@@ -160,7 +171,8 @@ async function startBot() {
         generateHighQualityLinkPreview: true,
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 30000,
-        defaultQueryTimeoutMs: undefined,
+        retryRequestDelayMs: 5000,
+        defaultQueryTimeoutMs: 0,
     });
 
     // Pairing Code Login
