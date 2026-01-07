@@ -55,7 +55,7 @@ async function startBot() {
 
         // 👇👇 اكتب نمرتك هنا (بين علامات التنصيص) إذا معرفتيش دير Environment Variable
         // مثال: '212600000000'
-        const hardcodedNumber = '';
+        const hardcodedNumber = '212656918407';
 
         let phoneNumber = process.env.PAIRING_NUMBER || hardcodedNumber;
 
