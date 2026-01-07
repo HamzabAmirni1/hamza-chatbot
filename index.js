@@ -200,7 +200,7 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.ubuntu('Chrome'), // standardizing browser
+        browser: ["Ubuntu", "Chrome", "20.0.04"], // Hardcoded for better compatibility
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -208,10 +208,12 @@ async function startBot() {
         getMessage: async (key) => { return { conversation: config.botName } },
         defaultQueryTimeoutMs: 60000,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000,
+        keepAliveIntervalMs: 10000, // Reduced to 10s
+        emitOwnEvents: true,
+        fireInitQueries: true,
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
-        retryRequestDelayMs: 5000,
+        retryRequestDelayMs: 2000,
         syncFullHistory: false,
         patchMessageBeforeSending: (message) => {
             const requiresPatch = !!(message.buttonsMessage || message.templateMessage || message.listMessage);
@@ -243,7 +245,7 @@ async function startBot() {
                 } catch (e) {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
                 }
-            }, 6000); // Wait 6s to ensure socket readiness
+            }, 10000); // 10s Delay strictly for stability
         } else {
             console.log(chalk.red("❌ Please set PAIRING_NUMBER in config.js or Environment Variables!"));
         }
