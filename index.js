@@ -1,10 +1,11 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
 const axios = require('axios');
 const chalk = require('chalk');
 const readline = require('readline');
 const path = require('path');
+const config = require('./config');
 
 const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
@@ -26,10 +27,39 @@ app.listen(port, () => {
     }, 5 * 60 * 1000);
 });
 
+const systemPromptText = `You are ${config.botName}, a helpful WhatsApp assistant developed by ${config.botOwner}. Answer in the same language as the user.`;
+
+async function getGeminiResponse(text, imageBuffer = null, mimeType = 'image/jpeg') {
+    if (!config.geminiApiKey) return null;
+
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`;
+
+        const contents = [{
+            parts: [{ text: systemPromptText + "\n\nUser: " + text }]
+        }];
+
+        if (imageBuffer) {
+            contents[0].parts.push({
+                inline_data: {
+                    mime_type: mimeType,
+                    data: imageBuffer.toString('base64')
+                }
+            });
+        }
+
+        const response = await axios.post(url, { contents });
+        return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    } catch (error) {
+        console.error("Gemini API Error:", error.response?.data || error.message);
+        return null;
+    }
+}
+
 async function getGPTResponse(message) {
     try {
-        // Using Pollinations AI
-        const systemPrompt = "You are Hamza Amirni, a helpful WhatsApp assistant. Answer the following message: ";
+        // Fallback to Pollinations AI
+        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. Output language: same as user. Query: `;
         const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`);
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
@@ -67,7 +97,9 @@ async function startBot() {
 
         // 👇👇 اكتب نمرتك هنا (بين علامات التنصيص) إذا معرفتيش دير Environment Variable
         // مثال: '212600000000'
-        const hardcodedNumber = '212656918407';
+        // 👇👇 اكتب نمرتك هنا (بين علامات التنصيص) إذا معرفتيش دير Environment Variable
+        // مثال: '212600000000'
+        const hardcodedNumber = config.pairingNumber;
 
         let phoneNumber = process.env.PAIRING_NUMBER || hardcodedNumber;
 
@@ -104,11 +136,17 @@ async function startBot() {
                 startBot();
             }
         } else if (connection === 'open') {
-            console.log(chalk.green('✅ Hamza Amirni Bot Connected! Auto-Reply is active.'));
+            console.log(chalk.green(`✅ ${config.botName} Connected! Auto-Reply is active.`));
             // Send Session (creds.json) to Self
             try {
                 const creds = fs.readFileSync('./session/creds.json');
-                await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك. خبيها عندك!' });
+                // Send as file
+                await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك (ملف احتياطي).' });
+
+                // Send as Text for SESSION_ID
+                const sessionStr = creds.toString();
+                await sock.sendMessage(sock.user.id, { text: sessionStr });
+                await sock.sendMessage(sock.user.id, { text: '⚠️ مهم جداً: الرسالة اللي فوق 👆 هي الـ SESSION_ID ديالك.\nكوبي هاد الكود كامل وحطو ف Environment Variables ف Koyeb بسمية `SESSION_ID` باش البوت ميبقاش يطلب سكان كل مرة.' });
             } catch (e) { }
         }
     });
@@ -143,8 +181,37 @@ async function startBot() {
                 await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
                 await new Promise(resolve => setTimeout(resolve, 3000)); // 3s Delay
 
-                // Get GPT Response
-                const reply = await getGPTResponse(body);
+                let reply;
+
+                // 1. Try Image Analysis (if Image Message)
+                if (type === 'imageMessage') {
+                    console.log(chalk.yellow("📸 Downloading Image..."));
+                    try {
+                        const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                        const caption = msg.message.imageMessage.caption || "Describe this image.";
+
+                        // Try Gemini Vision
+                        reply = await getGeminiResponse(caption, buffer, msg.message.imageMessage.mimetype);
+
+                        if (!reply) {
+                            reply = "⚠️ عافاك دير Gemini API Key ف config.js باش نقدر نشوف التصاور.";
+                        }
+
+                    } catch (err) {
+                        console.error("Image Download Error:", err);
+                        reply = "❌ فشل تحميل الصورة.";
+                    }
+                } else {
+                    // 2. Text Message
+                    // Try Gemini First
+                    reply = await getGeminiResponse(body);
+
+                    // Fallback to Pollinations
+                    if (!reply) {
+                        console.log(chalk.gray("⚠️ Gemini Failed or No Key. Using Pollinations..."));
+                        reply = await getGPTResponse(body);
+                    }
+                }
 
                 // Reply to user
                 await sock.sendMessage(msg.key.remoteJid, { text: reply }, { quoted: msg });
