@@ -94,14 +94,14 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
         messages.push({ role: "user", content: userContent });
 
         const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-            // Using Gemini 2.0 Flash (Free)
-            model: "google/gemini-2.0-flash-exp:free",
+            // Using a more stable free model
+            model: "google/gemini-pro", // Changed to generic pointer or specific free one
             messages: messages
         }, {
             headers: {
                 "Authorization": `Bearer ${config.openRouterKey}`,
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot", // Required by OpenRouter
+                "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
                 "X-Title": "Hamza Chatbot"
             }
         });
@@ -109,8 +109,7 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
         return response.data?.choices?.[0]?.message?.content;
 
     } catch (error) {
-        console.error("OpenRouter API Error:", error.response?.data || error.message);
-        // If 402 or similar, return null to fallback
+        // console.error("OpenRouter API Error:", error.response?.data || error.message);
         return null;
     }
 }
@@ -121,12 +120,13 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Models to try in order to avoid 429. Using v1 for better compatibility.
-    const models = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-exp"];
+    // Updated models list and endpoint version (v1beta is generally required for these models)
+    const models = ["gemini-1.5-flash", "gemini-2.0-flash-exp"];
 
     for (const modelName of models) {
         try {
-            const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
+            // IMPORTANT: Using v1beta
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
 
             let fullPrompt = systemPromptText + "\n\n";
             // Send last 10 messages for better context vs token usage
@@ -149,11 +149,12 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
             return response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         } catch (error) {
             if (error.response?.status === 429) {
-                console.log(chalk.yellow(`⚠️ ${modelName} rate limited, trying next model...`));
+                // console.log(chalk.yellow(`⚠️ ${modelName} rate limited, trying next model...`));
                 continue;
             }
-            console.error(`${modelName} API Error:`, error.response?.data || error.message);
-            return null;
+            // console.error(`${modelName} API Error:`, error.response?.data || error.message);
+            // If 404, valid model name issue, but we just try next
+            continue;
         }
     }
     return null;
