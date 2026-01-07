@@ -216,7 +216,7 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ["Ubuntu", "Chrome", "20.0.04"], // Hardcoded for better compatibility
+        browser: ["Ubuntu", "Chrome", "20.0.04"],
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -224,10 +224,9 @@ async function startBot() {
         getMessage: async (key) => { return { conversation: config.botName } },
         defaultQueryTimeoutMs: 60000,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000, // Back to standard 30s
+        keepAliveIntervalMs: 60000, // Increased to 60s for stability against 428/515 errors
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
-        retryRequestDelayMs: 5000, // Back to 5000
         syncFullHistory: false,
         patchMessageBeforeSending: (message) => {
             const requiresPatch = !!(message.buttonsMessage || message.templateMessage || message.listMessage);
