@@ -116,6 +116,16 @@ async function getHercaiResponse(jid, message) {
     }
 }
 
+async function getAoyoResponse(jid, message) {
+    try {
+        const { data } = await axios.get(`https://api.aoyo.li/v1/chat?text=${encodeURIComponent(message)}`, { timeout: 30000 });
+        return data.result || null;
+    } catch (error) {
+        console.error(chalk.red("Aoyo API Error:"), error.message);
+        return null;
+    }
+}
+
 async function getHuggingFaceResponse(jid, text) {
     try {
         const context = getContext(jid);
@@ -634,15 +644,20 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: Hercai (New stable provider)
+                    // Priority 1: Hercai (Very stable)
                     reply = await getHercaiResponse(sender, body);
 
-                    // Priority 2: Pollinations (Unlimited & Free)
+                    // Priority 2: Aoyo (Fast & Good for Arabic)
+                    if (!reply) {
+                        reply = await getAoyoResponse(sender, body);
+                    }
+
+                    // Priority 3: Pollinations (Unlimited)
                     if (!reply) {
                         reply = await getPollinationsResponse(sender, body);
                     }
 
-                    // Priority 3: HuggingFace (Free, updated model)
+                    // Priority 4: HuggingFace (Updated model)
                     if (!reply) {
                         reply = await getHuggingFaceResponse(sender, body);
                     }
