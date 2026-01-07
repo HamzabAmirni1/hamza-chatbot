@@ -27,29 +27,47 @@ app.listen(port, () => {
     }, 5 * 60 * 1000);
 });
 
-const systemPromptText = `You are ${config.botName}, a helpful WhatsApp assistant developed by ${config.botOwner}. Answer in the same language as the user.`;
+const systemPromptText = `You are ${config.botName}, a helpful WhatsApp assistant developed by ${config.botOwner}. Answer in the same language as the user. You have memory of the conversation and can see images provided previously.`;
 
-async function getOpenRouterResponse(text, imageBuffer = null) {
+// Conversation Memory Storage
+const chatMemory = new Map();
+const MAX_HISTORY = 10; // Number of previous messages to remember
+
+function getContext(jid) {
+    if (!chatMemory.has(jid)) {
+        chatMemory.set(jid, { messages: [], lastImage: null });
+    }
+    return chatMemory.get(jid);
+}
+
+function addToHistory(jid, role, content, image = null) {
+    const context = getContext(jid);
+    context.messages.push({ role, content });
+    if (image) context.lastImage = image;
+    if (context.messages.length > MAX_HISTORY) context.messages.shift();
+}
+
+async function getOpenRouterResponse(jid, text, imageBuffer = null) {
     if (!config.openRouterKey) return null;
+    const context = getContext(jid);
+    const activeImage = imageBuffer || context.lastImage?.buffer;
 
     try {
         const messages = [
             { role: "system", content: systemPromptText },
-            { role: "user", content: [] }
+            ...context.messages.map(m => ({ role: m.role, content: m.content }))
         ];
 
-        // Add Text
-        messages[1].content.push({ type: "text", text: text });
-
-        // Add Image if exists
-        if (imageBuffer) {
-            messages[1].content.push({
+        // Add current or remembered image to the latest user message context
+        const userContent = [{ type: "text", text: text }];
+        if (activeImage) {
+            userContent.push({
                 type: "image_url",
-                image_url: {
-                    url: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`
-                }
+                image_url: { url: `data:image/jpeg;base64,${activeImage.toString('base64')}` }
             });
         }
+
+        messages.push({ role: "user", content: userContent });
 
         const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
             // Using Gemini 1.5 Flash for better stability and higher rate limits
@@ -73,22 +91,28 @@ async function getOpenRouterResponse(text, imageBuffer = null) {
     }
 }
 
-async function getGeminiResponse(text, imageBuffer = null, mimeType = 'image/jpeg') {
+async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'image/jpeg') {
     if (!config.geminiApiKey) return null;
+    const context = getContext(jid);
+    const activeImage = imageBuffer || context.lastImage?.buffer;
+    const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`;
 
+        let fullPrompt = systemPromptText + "\n\n";
+        context.messages.forEach(m => {
+            fullPrompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
+        });
+        fullPrompt += `User: ${text}`;
+
         const contents = [{
-            parts: [{ text: systemPromptText + "\n\nUser: " + text }]
+            parts: [{ text: fullPrompt }]
         }];
 
-        if (imageBuffer) {
+        if (activeImage) {
             contents[0].parts.push({
-                inline_data: {
-                    mime_type: mimeType,
-                    data: imageBuffer.toString('base64')
-                }
+                inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
             });
         }
 
@@ -100,15 +124,16 @@ async function getGeminiResponse(text, imageBuffer = null, mimeType = 'image/jpe
     }
 }
 
-async function getGPTResponse(message) {
+async function getGPTResponse(jid, message) {
     try {
-        // Fallback to Pollinations AI
-        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. Output language: same as user. Query: `;
+        const context = getContext(jid);
+        let historyText = context.messages.map(m => `${m.role}: ${m.content}`).join("\n");
+        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
         const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`);
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error("GPT API Error:", error.message);
-        return "⚠️ I'm having trouble connecting to my brain server.";
+        return null;
     }
 }
 
@@ -233,23 +258,29 @@ async function startBot() {
 
                 let reply;
 
+                const sender = msg.key.remoteJid;
                 // 1. Try Image Analysis (if Image Message)
                 if (type === 'imageMessage') {
                     console.log(chalk.yellow("📸 Downloading Image..."));
                     try {
                         const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                         const caption = msg.message.imageMessage.caption || "Describe this image.";
+                        const mime = msg.message.imageMessage.mimetype;
 
                         // Priority 1: OpenRouter (Vision)
-                        reply = await getOpenRouterResponse(caption, buffer);
+                        reply = await getOpenRouterResponse(sender, caption, buffer);
 
                         // Priority 2: Gemini Direct (Vision)
                         if (!reply) {
-                            reply = await getGeminiResponse(caption, buffer, msg.message.imageMessage.mimetype);
+                            reply = await getGeminiResponse(sender, caption, buffer, mime);
                         }
 
                         if (!reply) {
                             reply = "⚠️ عافاك دير API Key (OpenRouter or Gemini) ف config.js باش نقدر نشوف التصاور.";
+                        } else {
+                            // Update history with image info
+                            addToHistory(sender, 'user', caption, { buffer, mime });
+                            addToHistory(sender, 'assistant', reply);
                         }
 
                     } catch (err) {
@@ -259,18 +290,23 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: OpenRouter (Supports Text & Vision)
-                    reply = await getOpenRouterResponse(body);
+                    // Priority 1: OpenRouter (Supports Text & Vision History)
+                    reply = await getOpenRouterResponse(sender, body);
 
                     // Priority 2: Gemini Direct
                     if (!reply) {
-                        reply = await getGeminiResponse(body);
+                        reply = await getGeminiResponse(sender, body);
                     }
 
                     // Priority 3: Pollinations (Fallback)
                     if (!reply) {
                         console.log(chalk.gray("⚠️ AI Providers Failed. Using Pollinations..."));
-                        reply = await getGPTResponse(body);
+                        reply = await getGPTResponse(sender, body);
+                    }
+
+                    if (reply) {
+                        addToHistory(sender, 'user', body);
+                        addToHistory(sender, 'assistant', reply);
                     }
                 }
 
