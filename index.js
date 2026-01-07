@@ -77,12 +77,13 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
     const activeImage = imageBuffer || context.lastImage?.buffer;
 
     // Ordered list of reliable free models
-    // Llama 3 90b is often most stable free model on OpenRouter
+    // Llama 3 8b is often the most reliable free model
     const freeModels = [
-        "meta-llama/llama-3.2-11b-vision-instruct:free",
-        "google/gemini-2.0-flash-exp:free",
+        "google/gemini-2.0-flash-exp:free", // Best if not rate limited
+        "meta-llama/llama-3.1-70b-instruct:free",
+        "meta-llama/llama-3.1-8b-instruct:free",
         "nousresearch/hermes-3-llama-3.1-405b:free",
-        "qwen/qwen-2-7b-instruct:free",
+        "microsoft/phi-3-mini-128k-instruct:free"
     ];
 
     const messages = [
@@ -111,14 +112,14 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
                     "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
                     "X-Title": "Hamza Chatbot"
                 },
-                timeout: 20000 // 20s timeout
+                timeout: 30000 // 30s timeout
             });
 
             const reply = response.data?.choices?.[0]?.message?.content;
             if (reply) return reply;
 
         } catch (error) {
-            console.log(chalk.yellow(`⚠️ OpenRouter Model ${model} failed: ${error.message}`));
+            console.log(chalk.yellow(`⚠️ OpenRouter Model ${model} failed: ${error.response?.data?.error?.message || error.message}`));
             continue;
         }
     }
@@ -131,13 +132,13 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Trying 'gemini-1.5-flash' (New standard)
-    // Fallback to 'gemini-1.0-pro' (Legacy free)
+    // Trying 'gemini-2.0-flash-exp' (Newest, User Requested?)
+    // Then 1.5-flash
     const models = [
+        { name: "gemini-2.0-flash-exp", version: "v1beta" },
         { name: "gemini-1.5-flash", version: "v1beta" },
-        { name: "gemini-1.5-flash-8b", version: "v1beta" }, // Super fast & free
-        { name: "gemini-1.0-pro", version: "v1beta" },
-        { name: "gemini-pro", version: "v1" }
+        { name: "gemini-1.5-flash-8b", version: "v1beta" },
+        { name: "gemini-1.0-pro", version: "v1beta" }
     ];
 
     for (const model of models) {
@@ -224,7 +225,8 @@ async function startBot() {
         getMessage: async (key) => { return { conversation: config.botName } },
         defaultQueryTimeoutMs: 60000,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000,
+        keepAliveIntervalMs: 30000, // Standard stable value
+        retryRequestDelayMs: 5000,
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
         syncFullHistory: false,
