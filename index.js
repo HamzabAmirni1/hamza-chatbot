@@ -537,56 +537,46 @@ async function startBot() {
                             mime = msg.message.imageMessage.mimetype;
 
                             const isQuestion = caption.length > 2;
+                            const prompt = isQuestion ? caption : "ما الموجود في هذه الصورة؟ وذكر اسم الشخصية إن وجدت";
 
-                            // If it's a specific question, prioritize powerful reasoning models (Gemini/OpenRouter)
-                            if (isQuestion) {
-                                // Priority 1: OpenRouter (Conversational Vision)
-                                reply = await getOpenRouterResponse(sender, caption, buffer);
-                                if (reply) console.log(chalk.green("✅ OpenRouter responded to question."));
-
-                                // Priority 2: Gemini Direct (Conversational Vision)
-                                if (!reply) {
-                                    reply = await getGeminiResponse(sender, caption, buffer, mime);
-                                    if (reply) console.log(chalk.green("✅ Gemini responded to question."));
-                                }
-
-                                // Priority 3: Obito (Fast Identification Fallback)
-                                if (!reply) {
-                                    reply = await getObitoAnalyze(buffer, caption, mime);
-                                    if (reply) {
-                                        console.log(chalk.green("✅ Obito responded (Fallback)."));
-                                        reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*${config.botName} - ${config.botOwner}*`;
-                                    }
-                                }
-                            } else {
-                                // Default/Empty caption: Just identify what it is using Obito (Fast)
-                                const prompt = "ما الموجود في هذه الصورة؟";
-                                reply = await getObitoAnalyze(buffer, prompt, mime);
-                                if (reply) {
-                                    console.log(chalk.green("✅ Obito identified image."));
+                            // 🚀 Priority 1: Obito (Optimized for fast answering)
+                            reply = await getObitoAnalyze(buffer, prompt, mime);
+                            if (reply) {
+                                console.log(chalk.green("✅ Obito responded."));
+                                // If it's a question, give a direct answer. If not, give the framed analysis.
+                                if (isQuestion) {
+                                    reply = `${reply}\n\n*${config.botName}*`;
+                                } else {
                                     reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*${config.botName} - ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
                                 }
+                            }
 
-                                if (!reply) {
-                                    reply = await getOpenRouterResponse(sender, prompt, buffer);
-                                }
+                            // 🚀 Priority 2: Fallbacks (OpenRouter/Gemini) if Obito fails
+                            if (!reply) {
+                                reply = await getOpenRouterResponse(sender, prompt, buffer);
+                                if (!reply) reply = await getGeminiResponse(sender, prompt, buffer, mime);
+                                if (reply) console.log(chalk.green("✅ Fallback Vision responded."));
                             }
                         }
 
                         if (!reply && !isVideo) {
-                            reply = "⚠️ عافاك دير API Key (OpenRouter or Gemini) ف config.js باش نقدر نشوف التصاور.";
+                            // Professional error message instead of just "need key"
+                            if (buffer && buffer.length > 3 * 1024 * 1024) {
+                                reply = "⚠️ هاد التصويرة كبيرة بزاف على الخدمة المجانية. جرب تصورها بجودة قل أو سكرين ليها وصيفطها باش نقدر نجاوبك! 🙏";
+                            } else {
+                                reply = "⚠️ عافاك دير API Key (OpenRouter or Gemini) ف config.js باش نقدر نقرا التصاور اللي بجودة عالية بزاف.";
+                            }
                         } else if (!reply && isVideo) {
                             reply = await getPollinationsResponse(sender, caption);
                         }
 
                         if (reply) {
-                            addToHistory(sender, 'user', caption, buffer ? { buffer, mime } : null);
+                            addToHistory(sender, 'user', caption || "Sent an image", buffer ? { buffer, mime } : null);
                             addToHistory(sender, 'assistant', reply);
                         }
 
                     } catch (err) {
                         console.error("Media Processing Error:", err);
-                        reply = "❌ فشل معالجة الوسائط.";
                     }
                 } else if (body && /^(حلل|حلل-صور|تحليل|.hl)$/i.test(body)) {
                     // Dedicated Analyze Command Logic
