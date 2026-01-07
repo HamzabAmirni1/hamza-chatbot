@@ -164,7 +164,7 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.ubuntu('Chrome'), // Standard browser identity usually works better for pairing
+        browser: Browsers.macOS('Desktop'), // macOS works better for pairing notifications sometimes
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -199,22 +199,12 @@ async function startBot() {
         }
     });
 
-    // Pairing Code Login
-    if (!sock.authState.creds.registered) {
+    // Pairing Code Login (Only if not registered and not already requesting)
+    if (!sock.authState.creds.registered && !global.pairingRequested) {
+        global.pairingRequested = true;
 
-        // 👇👇 اكتب نمرتك هنا (بين علامات التنصيص) إذا معرفتيش دير Environment Variable
-        // مثال: '212600000000'
-        // 👇👇 اكتب نمرتك هنا (بين علامات التنصيص) إذا معرفتيش دير Environment Variable
-        // مثال: '212600000000'
         const hardcodedNumber = config.pairingNumber;
-
         let phoneNumber = process.env.PAIRING_NUMBER || hardcodedNumber;
-
-        if (!phoneNumber) {
-            console.log(chalk.yellow("⚠️ No PAIRING_NUMBER env var found."));
-            // If running locally, we can ask. If on server, this might hang or fail.
-            // But for now, we prioritize the Env Var.
-        }
 
         if (phoneNumber) {
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
@@ -230,8 +220,9 @@ async function startBot() {
                     console.log(chalk.yellow(`3. Enter the code above for number: ${phoneNumber}`));
                 } catch (e) {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
+                    global.pairingRequested = false; // Reset on error to allow retry
                 }
-            }, 5000); // 5s delay to ensure socket is ready
+            }, 10000); // 10s wait to ensure connection is solid
         } else {
             console.log(chalk.red("❌ Please set PAIRING_NUMBER in Koyeb Environment Variables to login!"));
         }
