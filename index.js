@@ -97,8 +97,8 @@ async function getPollinationsResponse(jid, message) {
         const context = getContext(jid);
         let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
         const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
-        // Correct parameter is 'model', and we remove the model name from prompt if needed, but simple prompt is safer
-        const { data } = await axios.get(`https://text.pollinations.ai/prompt/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
+        // Correcting URL to standard pollination format
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error(chalk.red("Pollinations API Error:"), error.message);
@@ -106,17 +106,26 @@ async function getPollinationsResponse(jid, message) {
     }
 }
 
-async function getDuckDuckGoResponse(jid, message) {
+async function getVredenResponse(jid, message) {
     try {
-        // Using a reliable public AI proxy for DuckDuckGo/Llama
-        const { data } = await axios.get(`https://api.vreden.web.id/api/ai/duckduckgo?query=${encodeURIComponent(message)}`, { timeout: 30000 });
+        // Updated to Vreden's most stable general AI endpoint
+        const { data } = await axios.get(`https://api.vreden.web.id/api/ai/chatgpt?query=${encodeURIComponent(message)}`, { timeout: 30000 });
         return data.result || null;
     } catch (error) {
-        console.error(chalk.red("DuckDuckGo AI Error:"), error.message);
+        console.error(chalk.red("Vreden API Error:"), error.message);
         return null;
     }
 }
 
+async function getBlackboxResponse(jid, message) {
+    try {
+        const { data } = await axios.get(`https://api.vreden.web.id/api/ai/blackbox?query=${encodeURIComponent(message)}`, { timeout: 30000 });
+        return data.result || null;
+    } catch (error) {
+        console.error(chalk.red("Blackbox AI Error:"), error.message);
+        return null;
+    }
+}
 
 async function getNexraResponse(jid, message) {
     try {
@@ -128,19 +137,10 @@ async function getNexraResponse(jid, message) {
         return data.gpt || null;
     } catch (error) {
         console.error(chalk.red("Nexra API Error:"), error.message);
-        return null;
+        return null; // Don't crash, just skip
     }
 }
 
-async function getVredenResponse(jid, message) {
-    try {
-        const { data } = await axios.get(`https://api.vreden.web.id/api/llama3?query=${encodeURIComponent(message)}`, { timeout: 30000 });
-        return data.result || null;
-    } catch (error) {
-        console.error(chalk.red("Vreden API Error:"), error.message);
-        return null;
-    }
-}
 
 async function getHercaiResponse(jid, message) {
     try {
@@ -669,44 +669,28 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: DuckDuckGo AI (New & Very Stable)
-                    reply = await getDuckDuckGoResponse(sender, body);
+                    // Priority 1: Vreden ChatGPT (Fast)
+                    reply = await getVredenResponse(sender, body);
 
-                    // Priority 2: Nexra (GPT-4)
-                    if (!reply) {
-                        reply = await getNexraResponse(sender, body);
-                    }
+                    // Priority 2: Nexra GPT-4
+                    if (!reply) reply = await getNexraResponse(sender, body);
 
-                    // Priority 3: Pollinations (Corrected Endpoint)
-                    if (!reply) {
-                        reply = await getPollinationsResponse(sender, body);
-                    }
+                    // Priority 3: Blackbox
+                    if (!reply) reply = await getBlackboxResponse(sender, body);
 
-                    // Priority 4: Vreden (Llama-3)
-                    if (!reply) {
-                        reply = await getVredenResponse(sender, body);
-                    }
+                    // Priority 4: Pollinations (Fixed)
+                    if (!reply) reply = await getPollinationsResponse(sender, body);
 
-                    // Priority 5: Hercai (Basic)
-                    if (!reply) {
-                        reply = await getHercaiResponse(sender, body);
-                    }
+                    // Priority 5: Hercai
+                    if (!reply) reply = await getHercaiResponse(sender, body);
 
+                    // Priority 6: HuggingFace
+                    if (!reply) reply = await getHuggingFaceResponse(sender, body);
 
-                    // Priority 5: HuggingFace (Mistral)
-                    if (!reply) {
-                        reply = await getHuggingFaceResponse(sender, body);
-                    }
+                    // Last Resorts: Keys
+                    if (!reply && config.openRouterKey) reply = await getOpenRouterResponse(sender, body);
+                    if (!reply && config.geminiApiKey) reply = await getGeminiResponse(sender, body);
 
-                    // Priority 4: OpenRouter (if key exists)
-                    if (!reply && config.openRouterKey) {
-                        reply = await getOpenRouterResponse(sender, body);
-                    }
-
-                    // Priority 5: Gemini Direct (if key exists)
-                    if (!reply && config.geminiApiKey) {
-                        reply = await getGeminiResponse(sender, body);
-                    }
 
                     if (reply) {
                         addToHistory(sender, 'user', body);
