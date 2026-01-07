@@ -39,6 +39,12 @@ async function getGPTResponse(message) {
 }
 
 async function startBot() {
+    // 🔄 Restore Session from Env Var (Persistence)
+    if (process.env.SESSION_ID && !fs.existsSync(path.join(sessionDir, 'creds.json'))) {
+        console.log(chalk.yellow("🔄 Restoring Session from SESSION_ID..."));
+        fs.writeFileSync(path.join(sessionDir, 'creds.json'), process.env.SESSION_ID);
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
