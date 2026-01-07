@@ -1,6 +1,6 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const fs = require('fs');
+const fs = require('fs-extra');
 const axios = require('axios');
 const chalk = require('chalk');
 const readline = require('readline');
