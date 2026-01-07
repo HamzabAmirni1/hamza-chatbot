@@ -199,18 +199,19 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.ubuntu('Chrome'),
+        browser: Browsers.macOS('Desktop'), // macOS is often more stable for pairing
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
         getMessage: async (key) => { return { conversation: config.botName } },
-        defaultQueryTimeoutMs: 90000,
-        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        connectTimeoutMs: 120000,
         keepAliveIntervalMs: 30000,
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
         retryRequestDelayMs: 5000,
+        syncFullHistory: false,
     });
 
     // Pairing Code Login (Only if not registered and not already requesting)
@@ -253,16 +254,18 @@ async function startBot() {
             const reason = lastDisconnect?.error?.message || (new Boom(lastDisconnect?.error)?.output?.payload?.message) || 'not specified';
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-            console.log(chalk.red(`❌ Connection closed. Status: ${statusCode} | Reason: ${reason} | Reconnecting: ${shouldReconnect}`));
+            console.log(chalk.red(`❌ Connection closed. Status: ${statusCode} | Reason: ${reason}`));
 
             if (statusCode === 401) {
+                console.log(chalk.red("🔐 Session Expired or Logged Out. Clearing session..."));
                 if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
                 setTimeout(() => startBot(), 5000);
-            } else if (shouldReconnect || statusCode === 515 || statusCode === 428 || statusCode === 408) {
-                const delayReconnect = statusCode === 428 ? 2000 : 10000;
-                console.log(chalk.yellow(`⚠️ Reconnecting automatically in ${delayReconnect}ms...`));
+            } else if (shouldReconnect) {
+                const delayReconnect = (statusCode === 428 || statusCode === 515) ? 5000 : 10000;
+                console.log(chalk.yellow(`♻️ Reconnecting in ${delayReconnect}ms... (Reason: ${reason})`));
                 setTimeout(() => startBot(), delayReconnect);
             } else {
+                console.log(chalk.red("🛑 Reconnection disabled for this error. Exit."));
                 process.exit(1);
             }
         } else if (connection === 'open') {
