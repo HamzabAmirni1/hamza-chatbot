@@ -28,8 +28,9 @@ app.listen(port, () => {
 
 async function getGPTResponse(message) {
     try {
-        // Using Pollinations AI - Reliable & Free
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(message)}`);
+        // Using Pollinations AI
+        const systemPrompt = "You are Hamza Amirni, a helpful WhatsApp assistant. Answer the following message: ";
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`);
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error("GPT API Error:", error.message);
@@ -97,7 +98,7 @@ async function startBot() {
                 startBot();
             }
         } else if (connection === 'open') {
-            console.log(chalk.green('✅ Bot Connected! GPT Auto-Reply is active for ALL messages.'));
+            console.log(chalk.green('✅ Hamza Amirni Bot Connected! Auto-Reply is active.'));
             // Send Session (creds.json) to Self
             try {
                 const creds = fs.readFileSync('./session/creds.json');
