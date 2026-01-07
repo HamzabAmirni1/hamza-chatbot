@@ -71,24 +71,56 @@ function addToHistory(jid, role, content, image = null) {
     if (context.messages.length > MAX_HISTORY) context.messages.shift();
 }
 
+async function getPollinationsResponse(jid, message) {
+    try {
+        const context = getContext(jid);
+        let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
+        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`, { timeout: 30000 });
+        return typeof data === 'string' ? data : JSON.stringify(data);
+    } catch (error) {
+        console.error(chalk.red("Pollinations API Error:"), error.message);
+        return null;
+    }
+}
+
+async function getHuggingFaceResponse(jid, text) {
+    try {
+        const context = getContext(jid);
+        let prompt = systemPromptText + "\n\n";
+        context.messages.slice(-5).forEach(m => {
+            prompt += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
+        });
+        prompt += `User: ${text}\nAssistant:`;
+
+        const response = await axios.post(
+            "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+            { inputs: prompt, parameters: { max_new_tokens: 500, temperature: 0.7 } },
+            { timeout: 30000 }
+        );
+
+        const reply = response.data?.[0]?.generated_text?.split('Assistant:').pop()?.trim();
+        return reply || null;
+    } catch (error) {
+        console.error(chalk.red("HuggingFace API Error:"), error.message);
+        return null;
+    }
+}
+
 async function getOpenRouterResponse(jid, text, imageBuffer = null) {
     if (!config.openRouterKey) return null;
     const context = getContext(jid);
     const activeImage = imageBuffer || context.lastImage?.buffer;
 
-    // Ordered list of reliable free models
-    // Llama 3 8b is often the most reliable free model
+    // Only try models that are actually working
     const freeModels = [
-        "google/gemini-2.0-flash-exp:free", // Best if not rate limited
-        "meta-llama/llama-3.1-70b-instruct:free",
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "nousresearch/hermes-3-llama-3.1-405b:free",
-        "microsoft/phi-3-mini-128k-instruct:free"
+        "google/gemini-2.0-flash-exp:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free"
     ];
 
     const messages = [
         { role: "system", content: systemPromptText },
-        ...context.messages.map(m => ({ role: m.role, content: m.content }))
+        ...context.messages.slice(-10).map(m => ({ role: m.role, content: m.content }))
     ];
 
     const userContent = [{ type: "text", text: text }];
@@ -112,14 +144,14 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
                     "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
                     "X-Title": "Hamza Chatbot"
                 },
-                timeout: 30000 // 30s timeout
+                timeout: 30000
             });
 
             const reply = response.data?.choices?.[0]?.message?.content;
             if (reply) return reply;
 
         } catch (error) {
-            console.log(chalk.yellow(`⚠️ OpenRouter Model ${model} failed: ${error.response?.data?.error?.message || error.message}`));
+            // Silently skip if rate limited
             continue;
         }
     }
@@ -132,18 +164,12 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Trying 'gemini-2.0-flash-exp' (Newest, User Requested?)
-    // Then 1.5-flash
+    // Only try gemini-2.0-flash-exp since that's what the user's key supports
     const models = [
-        { name: "gemini-2.0-flash-exp", version: "v1beta" },
-        { name: "gemini-1.5-flash", version: "v1beta" },
-        { name: "gemini-1.5-flash-8b", version: "v1beta" },
-        { name: "gemini-1.0-pro", version: "v1beta" }
+        { name: "gemini-2.0-flash-exp", version: "v1beta" }
     ];
 
     for (const model of models) {
-        if (model.name === 'gemini-pro' && activeImage) continue;
-
         try {
             const url = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${config.geminiApiKey}`;
 
@@ -157,7 +183,7 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
                 parts: [{ text: fullPrompt }]
             }];
 
-            if (activeImage && model.name !== 'gemini-pro') {
+            if (activeImage) {
                 contents[0].parts.push({
                     inline_data: { mime_type: activeMime, data: activeImage.toString('base64') }
                 });
@@ -168,25 +194,11 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
             if (result) return result;
 
         } catch (error) {
-            console.log(chalk.red(`⚠️ Gemini Direct Error (${model.name}): ${error.response?.data?.error?.message || error.message}`));
+            // Silently skip if quota exceeded
             continue;
         }
     }
     return null;
-}
-
-
-async function getGPTResponse(jid, message) {
-    try {
-        const context = getContext(jid);
-        let historyText = context.messages.map(m => `${m.role}: ${m.content}`).join("\n");
-        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`);
-        return typeof data === 'string' ? data : JSON.stringify(data);
-    } catch (error) {
-        console.error("GPT API Error:", error.message);
-        return null;
-    }
 }
 
 async function startBot() {
@@ -384,23 +396,29 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: OpenRouter (Supports Text & Vision History)
-                    reply = await getOpenRouterResponse(sender, body);
+                    // Priority 1: Pollinations (Unlimited & Free)
+                    reply = await getPollinationsResponse(sender, body);
 
-                    // Priority 2: Gemini Direct
+                    // Priority 2: HuggingFace (Free, no key needed)
                     if (!reply) {
-                        reply = await getGeminiResponse(sender, body);
+                        reply = await getHuggingFaceResponse(sender, body);
                     }
 
-                    // Priority 3: Pollinations (Fallback)
-                    if (!reply) {
-                        console.log(chalk.gray("⚠️ AI Providers Failed. Using Pollinations..."));
-                        reply = await getGPTResponse(sender, body);
+                    // Priority 3: OpenRouter (if key exists and not rate limited)
+                    if (!reply && config.openRouterKey) {
+                        reply = await getOpenRouterResponse(sender, body);
+                    }
+
+                    // Priority 4: Gemini Direct (if key exists and not quota exceeded)
+                    if (!reply && config.geminiApiKey) {
+                        reply = await getGeminiResponse(sender, body);
                     }
 
                     if (reply) {
                         addToHistory(sender, 'user', body);
                         addToHistory(sender, 'assistant', reply);
+                    } else {
+                        reply = "⚠️ جميع خدمات الذكاء الاصطناعي مشغولة حالياً. حاول مرة أخرى بعد قليل.";
                     }
                 }
 
