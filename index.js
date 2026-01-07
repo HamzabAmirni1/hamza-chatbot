@@ -18,7 +18,13 @@ const port = process.env.PORT || 8000;
 
 // Simple Keep-Alive Server for Koyeb
 app.get('/', (req, res) => res.send('Bot is healthy and running! 🚀'));
-app.listen(port, () => console.log(`Server listening on port ${port}`));
+app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+    // Keep-Alive: Ping self every 5 mins
+    setInterval(() => {
+        axios.get(`http://localhost:${port}`).catch(() => { });
+    }, 5 * 60 * 1000);
+});
 
 async function getGPTResponse(message) {
     try {
@@ -92,6 +98,11 @@ async function startBot() {
             }
         } else if (connection === 'open') {
             console.log(chalk.green('✅ Bot Connected! GPT Auto-Reply is active for ALL messages.'));
+            // Send Session (creds.json) to Self
+            try {
+                const creds = fs.readFileSync('./session/creds.json');
+                await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك. خبيها عندك!' });
+            } catch (e) { }
         }
     });
 
@@ -120,8 +131,10 @@ async function startBot() {
 
                 console.log(chalk.cyan(`Thinking response for: ${body.substring(0, 30)}...`));
 
-                // Send "typing..." status
+                // Anti-Ban: Mark read, Type, Delay
+                await sock.readMessages([msg.key]);
                 await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
+                await new Promise(resolve => setTimeout(resolve, 3000)); // 3s Delay
 
                 // Get GPT Response
                 const reply = await getGPTResponse(body);
