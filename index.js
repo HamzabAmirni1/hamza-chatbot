@@ -127,51 +127,27 @@ async function getPollinationsResponse(jid, message) {
     }
 }
 
-
-
-async function getVredenResponse(jid, message) {
+async function getHectormanuelAI(jid, message, model = 'gpt-4o') {
     try {
-        // Updated to Vreden's most stable general AI endpoint
-        const { data } = await axios.get(`https://api.vreden.web.id/api/ai/chatgpt?query=${encodeURIComponent(message)}`, { timeout: 30000 });
-        return data.result || null;
+        const { data } = await axios.get(`https://all-in-1-ais.officialhectormanuel.workers.dev/?query=${encodeURIComponent(message)}&model=${model}`, { timeout: 35000 });
+        if (data && data.success && data.message?.content) {
+            return data.message.content;
+        }
+        return null;
     } catch (error) {
-        console.error(chalk.red("Vreden API Error:"), error.message);
+        console.error(chalk.red(`Hectormanuel AI (${model}) Error:`), error.message);
         return null;
     }
 }
 
-async function getBlackboxResponse(jid, message) {
-    try {
-        const { data } = await axios.get(`https://api.vreden.web.id/api/ai/blackbox?query=${encodeURIComponent(message)}`, { timeout: 30000 });
-        return data.result || null;
-    } catch (error) {
-        console.error(chalk.red("Blackbox AI Error:"), error.message);
-        return null;
+async function getAutoGPTResponse(jid, message) {
+    // Priority order for auto-responses: 4o is best, others as fallbacks
+    const models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-3.5-turbo'];
+    for (const model of models) {
+        const res = await getHectormanuelAI(jid, message, model);
+        if (res) return res;
     }
-}
-
-async function getNexraResponse(jid, message) {
-    try {
-        const { data } = await axios.post("https://nexra.aryahcr.cc/api/ai/gpt4", {
-            prompt: message,
-            model: "gpt-4",
-            markdown: false
-        }, { timeout: 30000 });
-        return data.gpt || null;
-    } catch (error) {
-        console.error(chalk.red("Nexra API Error:"), error.message);
-        return null; // Don't crash, just skip
-    }
-}
-
-
-async function getHercaiResponse(jid, message) {
-    try {
-        const { data } = await axios.get(`https://hercai.onrender.com/v3/hercai?question=${encodeURIComponent(message)}`, { timeout: 30000 });
-        return data.reply || null;
-    } catch (error) {
-        return null; // Silent skip as it's unreliable lately
-    }
+    return null;
 }
 
 async function getHuggingFaceResponse(jid, text) {
@@ -490,8 +466,15 @@ async function startBot() {
                 if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help')) {
                     const menu = `╭─── *💎 ${config.botName} 💎* ───╮
 │
-│ *🤖 أوامر الذكاء الاصطناعي:*
-│ ├ صيفط سؤال عادي (درجة، فصحى...)
+│ *🤖 موديلات ChatGPT:*
+│ ├ *.gpt4o* - GPT-4o (أقوى موديل)
+│ ├ *.gpt4om* - GPT-4o Mini (السريع)
+│ ├ *.gpt4* - GPT-4 (الدقة العالية)
+│ ├ *.gpt3* - GPT-3.5 Turbo
+│ ├ *.o1* - OpenAI O1 (المفكر)
+│ └ صيفط سؤال عادي (Auto Reponse)
+│
+│ *🔍 أوامر ذكية:*
 │ ├ صيفط تصويرة مع وصف (شرح...)
 │ ├ *.hl* - تحليل ذكي للصور (Anime/Characters)
 │ └ البوت كيعقل على الهضرة (Context)
@@ -520,6 +503,29 @@ async function startBot() {
                     await delayPromise;
                     await sock.sendMessage(sender, { text: menu }, { quoted: msg });
                     continue;
+                }
+
+                // 🚀 ChatGPT Model specific commands
+                const modelMatch = body ? body.match(/^\.(gpt4o|gpt4om|gpt4|gpt3|o1)\s+(.*)/i) : null;
+                if (modelMatch) {
+                    const cmd = modelMatch[1].toLowerCase();
+                    const query = modelMatch[2];
+                    const modelMap = {
+                        'gpt3': 'gpt-3.5-turbo',
+                        'gpt4': 'gpt-4',
+                        'gpt4o': 'gpt-4o',
+                        'gpt4om': 'gpt-4o-mini',
+                        'o1': 'o1-preview'
+                    };
+                    const model = modelMap[cmd];
+                    await delayPromise;
+                    const res = await getHectormanuelAI(sender, query, model);
+                    if (res) {
+                        await sock.sendMessage(sender, { text: `🤖 *GPT (${model}):*\n\n${res}` }, { quoted: msg });
+                        addToHistory(sender, 'user', query);
+                        addToHistory(sender, 'assistant', res);
+                        continue;
+                    }
                 }
 
                 // 🚀 SOCIAL MEDIA COMMANDS
@@ -690,21 +696,22 @@ async function startBot() {
                     }
                     continue;
                 } else {
-                    // 2. Text Message
+                    // 2. Text Message (Auto-Reply)
 
-                    // Priority 1: LuminAI (Stable, GPT-based, fast)
-                    reply = await getLuminAIResponse(sender, body);
+                    // Priority 1: Hectormanuel AI (GPT-4o, 4o-mini, 4, 3.5)
+                    reply = await getAutoGPTResponse(sender, body);
 
-                    // Priority 2: AIDEV (Reliable ChatGPT provider)
+                    // Priority 2: LuminAI (Stable Fallback)
+                    if (!reply) reply = await getLuminAIResponse(sender, body);
+
+                    // Priority 3: AIDEV (Reliable ChatGPT provider)
                     if (!reply) reply = await getAIDEVResponse(sender, body);
 
-                    // Priority 3: Pollinations
+                    // Priority 4: Pollinations
                     if (!reply) reply = await getPollinationsResponse(sender, body);
 
-                    // Priority 4: HuggingFace (Last resort)
+                    // Priority 5: HuggingFace (Last resort)
                     if (!reply) reply = await getHuggingFaceResponse(sender, body);
-
-
 
                     // Last Resorts: Keys
                     if (!reply && config.openRouterKey) reply = await getOpenRouterResponse(sender, body);
