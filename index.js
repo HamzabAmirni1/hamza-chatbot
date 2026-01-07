@@ -126,13 +126,15 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.ubuntu('Chrome'),
+        browser: Browsers.macOS('Desktop'),
         auth: {
             creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
         markOnlineOnConnect: true,
         generateHighQualityLinkPreview: true,
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 30000,
         defaultQueryTimeoutMs: undefined,
     });
 
@@ -177,7 +179,8 @@ async function startBot() {
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             console.log(chalk.red(`Connection closed. Reconnecting: ${shouldReconnect}`));
             if (shouldReconnect) {
-                startBot();
+                // Wait 5 seconds before reconnecting to avoid spam/loops
+                setTimeout(() => startBot(), 5000);
             }
         } else if (connection === 'open') {
             console.log(chalk.green(`✅ ${config.botName} Connected! Auto-Reply is active.`));
