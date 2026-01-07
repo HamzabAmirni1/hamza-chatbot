@@ -579,11 +579,7 @@ async function startBot() {
                         }
 
                         if (!reply && !isVideo) {
-                            if (buffer && buffer.length > 4 * 1024 * 1024) {
-                                reply = "⚠️ هاد التصويرة كبيرة بزاف على السيرفر المجاني. حاول تصغرها شوية (سكرين شوت) وصيفطها وغادي نجاوبك فالحين! 🙏";
-                            } else {
-                                reply = "أعتذر، حالياً كاين ضغط على السيرفر وما قدرتش نقرا التصويرة. جرب تعاود تصيفطها دابا. ⭐";
-                            }
+                            reply = "⚠️ عذراً، ما قدرتش نقرا هاد التصويرة مزيان. عافاك دير ليها لقطة شاشة (Screenshot / la9tat chacha) وعاود صيفطها باش نقدر نجاوبك فالحين! 🙏";
                         } else if (!reply && isVideo) {
                             reply = await getPollinationsResponse(sender, caption);
                         }
