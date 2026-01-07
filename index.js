@@ -189,7 +189,8 @@ async function startBot() {
             fs.writeFileSync(path.join(sessionDir, 'creds.json'), sessionID);
         }
     } else if (!sessionID) {
-        if (fs.existsSync(sessionDir)) fs.emptyDirSync(sessionDir);
+        // Only clear if empty or invalid structure, but here we trust the previous cleanup step or existing logic
+        if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -199,7 +200,7 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ["Ubuntu", "Chrome", "20.0.04"], // Stable for Linux/Koyeb env
+        browser: Browsers.ubuntu('Chrome'), // standardizing browser
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -221,12 +222,8 @@ async function startBot() {
         }
     });
 
-    // Pairing Code Logic (Only if not registered and not already handled in last 3 mins)
-    const currentTimeMillis = Date.now();
-    if (!sock.authState.creds.registered && (!global.pairingLastRequested || currentTimeMillis - global.pairingLastRequested > 180000)) {
-        global.pairingRequested = true;
-        global.pairingLastRequested = currentTimeMillis;
-
+    // Pairing Code Logic
+    if (!sock.authState.creds.registered) {
         const hardcodedNumber = config.pairingNumber;
         let phoneNumber = process.env.PAIRING_NUMBER || hardcodedNumber;
 
@@ -234,8 +231,7 @@ async function startBot() {
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
             console.log(chalk.cyan(`🔢 Initializing Pairing Code for: ${phoneNumber}...`));
 
-            (async () => {
-                await delay(10000); // Wait 10s to ensure socket is ready to accept handshake
+            setTimeout(async () => {
                 try {
                     console.log(chalk.yellow(`📡 Requesting code for ${phoneNumber}...`));
                     let code = await sock.requestPairingCode(phoneNumber);
@@ -246,12 +242,10 @@ async function startBot() {
                     console.log(chalk.cyan(`👉 Step 3: Enter: ${code}`));
                 } catch (e) {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
-                    // Don't limit retries so strictly on error
-                    global.pairingLastRequested = 0;
                 }
-            })();
+            }, 6000); // Wait 6s to ensure socket readiness
         } else {
-            console.log(chalk.red("❌ Please set PAIRING_NUMBER in Koyeb Environment Variables to login!"));
+            console.log(chalk.red("❌ Please set PAIRING_NUMBER in config.js or Environment Variables!"));
         }
     }
 
@@ -259,10 +253,7 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
 
         if (connection === 'close') {
-            // Only reset pairingRequested if it's a real logout/auth error
             const statusCode = (lastDisconnect?.error?.output?.statusCode) || (lastDisconnect?.error?.code);
-            if (statusCode === 401) global.pairingLastRequested = 0;
-
             const reason = lastDisconnect?.error?.message || (new Boom(lastDisconnect?.error)?.output?.payload?.message) || 'not specified';
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
@@ -271,10 +262,10 @@ async function startBot() {
             if (statusCode === 401) {
                 console.log(chalk.red("🔐 Session Expired or Logged Out. Clearing session..."));
                 if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
-                setTimeout(() => startBot(), 5000);
+                setTimeout(() => startBot(), 2000); // fast restart
             } else if (shouldReconnect) {
-                const delayReconnect = (statusCode === 428 || statusCode === 515) ? 5000 : 10000;
-                console.log(chalk.yellow(`♻️ Reconnecting in ${delayReconnect}ms... (Reason: ${reason})`));
+                const delayReconnect = (statusCode === 428 || statusCode === 515) ? 3000 : 5000;
+                console.log(chalk.yellow(`♻️ Reconnecting in ${delayReconnect}ms...`));
                 setTimeout(() => startBot(), delayReconnect);
             } else {
                 console.log(chalk.red("🛑 Reconnection disabled for this error. Exit."));
@@ -283,18 +274,18 @@ async function startBot() {
         } else if (connection === 'open') {
             console.log(chalk.green(`✅ ${config.botName} Connected! Auto-Reply is active.`));
             // Send Session (creds.json) to Self
-            // Send if no SESSION_ID env var OR if we just finished a fresh pairing flow
-            if (!process.env.SESSION_ID || global.pairingRequested) {
-                try {
-                    const creds = fs.readFileSync('./session/creds.json');
-                    // Send as file
-                    await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك (ملف احتياطي).' });
+            try {
+                const creds = fs.readFileSync(path.join(sessionDir, 'creds.json'));
+                // Send as file
+                await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك (ملف احتياطي).' });
 
-                    // Send as Text for SESSION_ID
-                    const sessionStr = creds.toString();
-                    await sock.sendMessage(sock.user.id, { text: sessionStr });
-                    await sock.sendMessage(sock.user.id, { text: '⚠️ مهم جداً: الرسالة اللي فوق 👆 هي الـ SESSION_ID ديالك.\nكوبي هاد الكود كامل وحطو ف Environment Variables ف Koyeb بسمية `SESSION_ID` باش البوت ميبقاش يطلب سكان كل مرة.' });
-                } catch (e) { }
+                // Send as Text for SESSION_ID
+                const sessionStr = creds.toString();
+                // Avoid sending huge texts if possible, but keeping logic
+                await sock.sendMessage(sock.user.id, { text: sessionStr });
+                await sock.sendMessage(sock.user.id, { text: '⚠️ مهم جداً: الرسالة اللي فوق 👆 هي الـ SESSION_ID ديالك.\nكوبي هاد الكود كامل وحطو ف Environment Variables ف Koyeb بسمية `SESSION_ID` باش البوت ميبقاش يطلب سكان كل مرة.' });
+            } catch (e) {
+                console.error("Failed to send session file:", e.message);
             }
         }
     });
@@ -330,8 +321,8 @@ async function startBot() {
                 await new Promise(resolve => setTimeout(resolve, 3000)); // 3s Delay
 
                 let reply;
-
                 const sender = msg.key.remoteJid;
+
                 // 1. Try Image Analysis (if Image Message)
                 if (type === 'imageMessage') {
                     console.log(chalk.yellow("📸 Downloading Image..."));
@@ -394,7 +385,6 @@ async function startBot() {
             console.error('Error in message handler:', err);
         }
     });
-
 }
 
 // Handle unhandled rejections to prevent crash (Global Scope - Fix Memory Leak)
