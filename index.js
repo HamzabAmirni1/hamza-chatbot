@@ -22,10 +22,9 @@ app.listen(port, () => console.log(`Server listening on port ${port}`));
 
 async function getGPTResponse(message) {
     try {
-        // Using Hercai Free API - Reliable for simple GPT responses
-        // You can swap this for any other API (e.g. OpenAI)
-        const { data } = await axios.get(`https://hercai.zaide.op/v2/hercai?question=${encodeURIComponent(message)}`);
-        return data.reply;
+        // Using Pollinations AI - Reliable & Free
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(message)}`);
+        return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error("GPT API Error:", error.message);
         return "⚠️ I'm having trouble connecting to my brain server.";
