@@ -76,42 +76,52 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
     const context = getContext(jid);
     const activeImage = imageBuffer || context.lastImage?.buffer;
 
-    try {
-        const messages = [
-            { role: "system", content: systemPromptText },
-            ...context.messages.map(m => ({ role: m.role, content: m.content }))
-        ];
+    // 🆓 LIST OF 100% FREE MODELS on OpenRouter
+    const freeModels = [
+        "google/gemini-2.0-flash-exp:free",
+        "meta-llama/llama-3.2-11b-vision-instruct:free", // Good for vision
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "qwen/qwen-2-7b-instruct:free",
+    ];
 
-        // Add current or remembered image to the latest user message context
-        const userContent = [{ type: "text", text: text }];
-        if (activeImage) {
-            userContent.push({
-                type: "image_url",
-                image_url: { url: `data:image/jpeg;base64,${activeImage.toString('base64')}` }
-            });
-        }
+    const messages = [
+        { role: "system", content: systemPromptText },
+        ...context.messages.map(m => ({ role: m.role, content: m.content }))
+    ];
 
-        messages.push({ role: "user", content: userContent });
-
-        const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-            // Using a more stable free model
-            model: "google/gemini-pro", // Changed to generic pointer or specific free one
-            messages: messages
-        }, {
-            headers: {
-                "Authorization": `Bearer ${config.openRouterKey}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
-                "X-Title": "Hamza Chatbot"
-            }
+    const userContent = [{ type: "text", text: text }];
+    if (activeImage) {
+        userContent.push({
+            type: "image_url",
+            image_url: { url: `data:image/jpeg;base64,${activeImage.toString('base64')}` }
         });
-
-        return response.data?.choices?.[0]?.message?.content;
-
-    } catch (error) {
-        // console.error("OpenRouter API Error:", error.response?.data || error.message);
-        return null;
     }
+    messages.push({ role: "user", content: userContent });
+
+    for (const model of freeModels) {
+        try {
+            const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+                model: model,
+                messages: messages
+            }, {
+                headers: {
+                    "Authorization": `Bearer ${config.openRouterKey}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
+                    "X-Title": "Hamza Chatbot"
+                }
+            });
+
+            const reply = response.data?.choices?.[0]?.message?.content;
+            if (reply) return reply;
+
+        } catch (error) {
+            // Debug log (optional)
+            // console.log(chalk.yellow(`⚠️ Model ${model} failed/limited. Trying next...`));
+            continue;
+        }
+    }
+    return null;
 }
 
 async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'image/jpeg') {
