@@ -92,23 +92,25 @@ function addToHistory(jid, role, content, image = null) {
     if (context.messages.length > MAX_HISTORY) context.messages.shift();
 }
 
-async function getSandipResponse(jid, message) {
+async function getLuminAIResponse(jid, message) {
     try {
-        const { data } = await axios.get(`https://sandipbaruwal.onrender.com/gpt?query=${encodeURIComponent(message)}`, { timeout: 30000 });
-        return data.answer || null;
+        const { data } = await axios.post("https://luminai.my.id/", {
+            content: message,
+            user: jid
+        }, { timeout: 30000 });
+        return data.result || null;
     } catch (error) {
-        console.error(chalk.red("Sandip API Error:"), error.message);
+        console.error(chalk.red("LuminAI Error:"), error.message);
         return null;
     }
 }
 
-async function getAstroResponse(jid, message) {
+async function getAIDEVResponse(jid, message) {
     try {
-        // Astro GPT-4 is usually very stable
-        const { data } = await axios.get(`https://api.astro.id/api/ai/gpt4?text=${encodeURIComponent(message)}`, { timeout: 30000 });
+        const { data } = await axios.get(`https://api.maher-zubair.tech/ai/chatgpt?q=${encodeURIComponent(message)}`, { timeout: 30000 });
         return data.result || null;
     } catch (error) {
-        // Silent skip
+        console.error(chalk.red("AIDEV Error:"), error.message);
         return null;
     }
 }
@@ -117,14 +119,14 @@ async function getPollinationsResponse(jid, message) {
     try {
         const context = getContext(jid);
         let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
-        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
-        // Using the most standard Pollinations endpoint again
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}`, { timeout: 30000 });
+        const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. Respond in Darija/Arabic. History:\n${historyText}\n\nQuery: `;
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         return null;
     }
 }
+
 
 
 async function getVredenResponse(jid, message) {
@@ -690,24 +692,18 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: Astro GPT (Very Stable)
-                    reply = await getAstroResponse(sender, body);
+                    // Priority 1: LuminAI (Stable, GPT-based, fast)
+                    reply = await getLuminAIResponse(sender, body);
 
-                    // Priority 2: Sandip GPT-4
-                    if (!reply) reply = await getSandipResponse(sender, body);
+                    // Priority 2: AIDEV (Reliable ChatGPT provider)
+                    if (!reply) reply = await getAIDEVResponse(sender, body);
 
-                    // Priority 3: Nexra GPT-4 (Retry check)
-                    if (!reply) reply = await getNexraResponse(sender, body);
-
-                    // Priority 4: Pollinations
+                    // Priority 3: Pollinations
                     if (!reply) reply = await getPollinationsResponse(sender, body);
 
-                    // Priority 5: Blackbox Fallback
-                    if (!reply) reply = await getBlackboxResponse(sender, body);
-
-                    // Priority 6: Hercai / HuggingFace
-                    if (!reply) reply = await getHercaiResponse(sender, body);
+                    // Priority 4: HuggingFace (Last resort)
                     if (!reply) reply = await getHuggingFaceResponse(sender, body);
+
 
 
                     // Last Resorts: Keys
