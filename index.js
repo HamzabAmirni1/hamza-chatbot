@@ -52,15 +52,27 @@ async function startBot() {
 
     // Pairing Code Login
     if (!sock.authState.creds.registered) {
-        console.log(chalk.yellow("⚠️ No session found. Please pair."));
-        try {
-            const phoneNumber = await question(chalk.green('Enter your WhatsApp number (e.g., 2126...): '));
-            if (phoneNumber) {
-                const code = await sock.requestPairingCode(phoneNumber.replace(/[^0-9]/g, ''));
-                console.log(chalk.bgGreen.black(` Your Pairing Code: `), chalk.bold.red(code));
-            }
-        } catch (e) {
-            console.error("Pairing Error:", e);
+        let phoneNumber = process.env.PAIRING_NUMBER;
+
+        if (!phoneNumber) {
+            console.log(chalk.yellow("⚠️ No PAIRING_NUMBER env var found."));
+            // If running locally, we can ask. If on server, this might hang or fail.
+            // But for now, we prioritize the Env Var.
+        }
+
+        if (phoneNumber) {
+            // Remove special chars
+            phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
+            setTimeout(async () => {
+                try {
+                    const code = await sock.requestPairingCode(phoneNumber);
+                    console.log(chalk.bgGreen.black(`🚀 PAIRING CODE: `), chalk.bold.red(code));
+                } catch (e) {
+                    console.error("Pairing Error:", e.message);
+                }
+            }, 3000);
+        } else {
+            console.log(chalk.red("❌ Please set PAIRING_NUMBER in Koyeb Environment Variables to login!"));
         }
     }
 
