@@ -25,7 +25,8 @@ const settings = {
     botThumbnail: './media/hamza.jpg',
 
     // API KEYS
-    geminiApiKey: process.env.GEMINI_API_KEY || '', // Put your Gemini API Key here or in Environment Variables
+    geminiApiKey: process.env.GEMINI_API_KEY || '', // Google AI Studio Key (Optional if you have OpenRouter)
+    openRouterKey: process.env.OPENROUTER_API_KEY || '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', // Added OpenRouter Key
 
     AUTO_STATUS_REACT: 'true',
     AUTO_STATUS_REPLY: 'false',

@@ -29,6 +29,51 @@ app.listen(port, () => {
 
 const systemPromptText = `You are ${config.botName}, a helpful WhatsApp assistant developed by ${config.botOwner}. Answer in the same language as the user.`;
 
+async function getOpenRouterResponse(text, imageBuffer = null) {
+    if (!config.openRouterKey) return null;
+
+    try {
+        const messages = [
+            { role: "system", content: systemPromptText },
+            { role: "user", content: [] }
+        ];
+
+        // Add Text
+        messages[1].content.push({ type: "text", text: text });
+
+        // Add Image if exists
+        if (imageBuffer) {
+            messages[1].content.push({
+                type: "image_url",
+                image_url: {
+                    url: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`
+                }
+            });
+        }
+
+        const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+            // Use a free/cheap versatile model. 
+            // "google/gemini-2.0-flash-exp:free" is a good option if available, or "google/gemini-flash-1.5"
+            model: "google/gemini-2.0-flash-exp:free",
+            messages: messages
+        }, {
+            headers: {
+                "Authorization": `Bearer ${config.openRouterKey}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot", // Required by OpenRouter
+                "X-Title": "Hamza Chatbot"
+            }
+        });
+
+        return response.data?.choices?.[0]?.message?.content;
+
+    } catch (error) {
+        console.error("OpenRouter API Error:", error.response?.data || error.message);
+        // If 402 or similar, return null to fallback
+        return null;
+    }
+}
+
 async function getGeminiResponse(text, imageBuffer = null, mimeType = 'image/jpeg') {
     if (!config.geminiApiKey) return null;
 
@@ -138,16 +183,19 @@ async function startBot() {
         } else if (connection === 'open') {
             console.log(chalk.green(`✅ ${config.botName} Connected! Auto-Reply is active.`));
             // Send Session (creds.json) to Self
-            try {
-                const creds = fs.readFileSync('./session/creds.json');
-                // Send as file
-                await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك (ملف احتياطي).' });
+            // BUT ONLY IF WE DID NOT RESTORE FROM ENV (Prevents spam on auto-restarts)
+            if (!process.env.SESSION_ID) {
+                try {
+                    const creds = fs.readFileSync('./session/creds.json');
+                    // Send as file
+                    await sock.sendMessage(sock.user.id, { document: creds, mimetype: 'application/json', fileName: 'creds.json', caption: '📂 هادي Session ديالك (ملف احتياطي).' });
 
-                // Send as Text for SESSION_ID
-                const sessionStr = creds.toString();
-                await sock.sendMessage(sock.user.id, { text: sessionStr });
-                await sock.sendMessage(sock.user.id, { text: '⚠️ مهم جداً: الرسالة اللي فوق 👆 هي الـ SESSION_ID ديالك.\nكوبي هاد الكود كامل وحطو ف Environment Variables ف Koyeb بسمية `SESSION_ID` باش البوت ميبقاش يطلب سكان كل مرة.' });
-            } catch (e) { }
+                    // Send as Text for SESSION_ID
+                    const sessionStr = creds.toString();
+                    await sock.sendMessage(sock.user.id, { text: sessionStr });
+                    await sock.sendMessage(sock.user.id, { text: '⚠️ مهم جداً: الرسالة اللي فوق 👆 هي الـ SESSION_ID ديالك.\nكوبي هاد الكود كامل وحطو ف Environment Variables ف Koyeb بسمية `SESSION_ID` باش البوت ميبقاش يطلب سكان كل مرة.' });
+                } catch (e) { }
+            }
         }
     });
 
@@ -190,11 +238,16 @@ async function startBot() {
                         const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                         const caption = msg.message.imageMessage.caption || "Describe this image.";
 
-                        // Try Gemini Vision
-                        reply = await getGeminiResponse(caption, buffer, msg.message.imageMessage.mimetype);
+                        // Priority 1: OpenRouter (Vision)
+                        reply = await getOpenRouterResponse(caption, buffer);
+
+                        // Priority 2: Gemini Direct (Vision)
+                        if (!reply) {
+                            reply = await getGeminiResponse(caption, buffer, msg.message.imageMessage.mimetype);
+                        }
 
                         if (!reply) {
-                            reply = "⚠️ عافاك دير Gemini API Key ف config.js باش نقدر نشوف التصاور.";
+                            reply = "⚠️ عافاك دير API Key (OpenRouter or Gemini) ف config.js باش نقدر نشوف التصاور.";
                         }
 
                     } catch (err) {
@@ -203,12 +256,18 @@ async function startBot() {
                     }
                 } else {
                     // 2. Text Message
-                    // Try Gemini First
-                    reply = await getGeminiResponse(body);
 
-                    // Fallback to Pollinations
+                    // Priority 1: OpenRouter (Supports Text & Vision)
+                    reply = await getOpenRouterResponse(body);
+
+                    // Priority 2: Gemini Direct
                     if (!reply) {
-                        console.log(chalk.gray("⚠️ Gemini Failed or No Key. Using Pollinations..."));
+                        reply = await getGeminiResponse(body);
+                    }
+
+                    // Priority 3: Pollinations (Fallback)
+                    if (!reply) {
+                        console.log(chalk.gray("⚠️ AI Providers Failed. Using Pollinations..."));
                         reply = await getGPTResponse(body);
                     }
                 }
@@ -222,9 +281,10 @@ async function startBot() {
         }
     });
 
-    // Handle unhandled rejections to prevent crash
-    process.on('uncaughtException', console.error);
-    process.on('unhandledRejection', console.error);
 }
+
+// Handle unhandled rejections to prevent crash (Global Scope - Fix Memory Leak)
+process.on('uncaughtException', console.error);
+process.on('unhandledRejection', console.error);
 
 startBot();
