@@ -98,7 +98,7 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${config.geminiApiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${config.geminiApiKey}`;
 
         let fullPrompt = systemPromptText + "\n\n";
         context.messages.forEach(m => {
