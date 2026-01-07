@@ -1,13 +1,14 @@
-FROM node:20-bullseye-slim
+FROM node:20-bullseye
 
 WORKDIR /app
 
-# Removed all apt-get installs/ffmpeg as they are not needed for text-only GPT bot
-# This will make the build extremely fast and fix the timeout/failure.
+# Using the full Node image (not slim) to ensure all build tools (Python, make, g++) 
+# are available for any dependencies that need compilation.
 
 COPY package*.json ./
 
-RUN npm install
+# Install dependencies with legacy peer deps to avoid conflicts
+RUN npm install --legacy-peer-deps
 
 COPY . .
 
