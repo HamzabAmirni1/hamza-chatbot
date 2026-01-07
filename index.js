@@ -389,14 +389,22 @@ async function startBot() {
                     const menu = `╭─── *💎 ${config.botName} 💎* ───╮
 │
 │ *🤖 أوامر الذكاء الاصطناعي:*
-│ ├ صيفط سؤال عادي (درجة، فصحى، Eng...)
-│ ├ صيفط تصويرة مع وصف (شرح، ترجمة...)
+│ ├ صيفط سؤال عادي (درجة، فصحى...)
+│ ├ صيفط تصويرة مع وصف (شرح...)
 │ └ البوت كيعقل على الهضرة (Context)
 │
 │ *🔧 أوامر الخدمة:*
 │ ├ *.ping* - سرعة البوت
 │ ├ *.credits* - حالة الـ APIs
 │ └ *.menu* - هذه القائمة
+│
+│ *📱 حساباتي الشخصية:*
+│ ├ 📸 *Instagram:* ${config.instagram}
+│ ├ ✈️ *Telegram:* ${config.telegram}
+│ ├ 📺 *YouTube:* ${config.youtube}
+│ ├ 📘 *Facebook:* ${config.facebookPage}
+│ ├ 📢 *WhatsApp Channel:* ${config.officialChannel}
+│ └ 🌐 *Portfolio:* ${config.portfolio}
 │
 │ *🌍 اللغات المدعومة:*
 │ ├ الدارجة المغربية 🇲🇦
@@ -408,6 +416,32 @@ async function startBot() {
 `;
                     await delayPromise;
                     await sock.sendMessage(sender, { text: menu }, { quoted: msg });
+                    continue;
+                }
+
+                // 🚀 SOCIAL MEDIA COMMANDS
+                if (body.toLowerCase() === '.ig') {
+                    await sock.sendMessage(sender, { text: `📸 *Instagram:* ${config.instagram}\n📸 *Instagram 2:* ${config.instagram2}` }, { quoted: msg });
+                    continue;
+                }
+                if (body.toLowerCase() === '.tg') {
+                    await sock.sendMessage(sender, { text: `✈️ *Telegram:* ${config.telegram}` }, { quoted: msg });
+                    continue;
+                }
+                if (body.toLowerCase() === '.yt') {
+                    await sock.sendMessage(sender, { text: `📺 *YouTube:* ${config.youtube}` }, { quoted: msg });
+                    continue;
+                }
+                if (body.toLowerCase() === '.fb') {
+                    await sock.sendMessage(sender, { text: `📘 *Facebook:* ${config.facebook}\n📘 *Page:* ${config.facebookPage}` }, { quoted: msg });
+                    continue;
+                }
+                if (body.toLowerCase() === '.channel') {
+                    await sock.sendMessage(sender, { text: `📢 *WhatsApp Channel:* ${config.officialChannel}` }, { quoted: msg });
+                    continue;
+                }
+                if (body.toLowerCase() === '.web') {
+                    await sock.sendMessage(sender, { text: `🌐 *Portfolio:* ${config.portfolio}` }, { quoted: msg });
                     continue;
                 }
 
