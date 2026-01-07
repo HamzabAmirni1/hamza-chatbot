@@ -6,6 +6,7 @@ const chalk = require('chalk');
 const readline = require('readline');
 const path = require('path');
 const config = require('./config');
+const { Boom } = require('@hapi/boom');
 
 const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
@@ -223,11 +224,13 @@ async function startBot() {
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
             console.log(chalk.cyan(`🔢 Requesting Pairing Code for: ${phoneNumber}...`));
 
-            setTimeout(async () => {
+            // Wait for socket to stabilize
+            (async () => {
+                await delay(8000);
                 try {
-                    const code = await sock.requestPairingCode(phoneNumber);
-                    const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
-                    console.log(chalk.black.bgGreen(` ✅ PAIRING CODE: `), chalk.bold.red(formattedCode));
+                    let code = await sock.requestPairingCode(phoneNumber);
+                    code = code?.match(/.{1,4}/g)?.join("-") || code;
+                    console.log(chalk.black.bgGreen(` ✅ PAIRING CODE: `), chalk.black.bgRed(` ${code} `));
                     console.log(chalk.cyan("1. Open WhatsApp > Linked Devices"));
                     console.log(chalk.cyan("2. Tap 'Link with phone number instead'"));
                     console.log(chalk.cyan(`3. Enter the code above for number: ${phoneNumber}`));
@@ -235,7 +238,7 @@ async function startBot() {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
                     global.pairingRequested = false;
                 }
-            }, 10000);
+            })();
         } else {
             console.log(chalk.red("❌ Please set PAIRING_NUMBER in Koyeb Environment Variables to login!"));
         }
@@ -243,12 +246,24 @@ async function startBot() {
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
+
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log(chalk.red(`Connection closed. Reconnecting: ${shouldReconnect}`));
-            if (shouldReconnect) {
-                // Wait 5 seconds before reconnecting to avoid spam/loops
+            global.pairingRequested = false; // Allow re-requesting code if it closes
+            const statusCode = (lastDisconnect?.error?.output?.statusCode) || (lastDisconnect?.error?.code);
+            const reason = lastDisconnect?.error?.message || (new Boom(lastDisconnect?.error)?.output?.payload?.message) || 'not specified';
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+            console.log(chalk.red(`❌ Connection closed. Status: ${statusCode} | Reason: ${reason} | Reconnecting: ${shouldReconnect}`));
+
+            if (statusCode === 401) {
+                if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
                 setTimeout(() => startBot(), 5000);
+            } else if (shouldReconnect || statusCode === 515 || statusCode === 428 || statusCode === 408) {
+                const delayReconnect = statusCode === 428 ? 2000 : 10000;
+                console.log(chalk.yellow(`⚠️ Reconnecting automatically in ${delayReconnect}ms...`));
+                setTimeout(() => startBot(), delayReconnect);
+            } else {
+                process.exit(1);
             }
         } else if (connection === 'open') {
             console.log(chalk.green(`✅ ${config.botName} Connected! Auto-Reply is active.`));
