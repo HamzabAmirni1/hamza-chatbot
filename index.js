@@ -31,7 +31,7 @@ const systemPromptText = `You are ${config.botName}, a helpful WhatsApp assistan
 
 // Conversation Memory Storage
 const chatMemory = new Map();
-const MAX_HISTORY = 10; // Number of previous messages to remember
+const MAX_HISTORY = 30; // Number of previous messages to remember (increased from 10)
 
 function getContext(jid) {
     if (!chatMemory.has(jid)) {
