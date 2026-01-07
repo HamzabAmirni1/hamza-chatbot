@@ -97,11 +97,35 @@ async function getPollinationsResponse(jid, message) {
         const context = getContext(jid);
         let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
         const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. History:\n${historyText}\n\nQuery: `;
-        // Try with a different model if default is busy
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
+        // Use a more specific model for Pollinations to avoid generic 429
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=qwen-7b-chat`, { timeout: 30000 });
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
         console.error(chalk.red("Pollinations API Error:"), error.message);
+        return null;
+    }
+}
+
+async function getNexraResponse(jid, message) {
+    try {
+        const { data } = await axios.post("https://nexra.aryahcr.cc/api/ai/gpt4", {
+            prompt: message,
+            model: "gpt-4",
+            markdown: false
+        }, { timeout: 30000 });
+        return data.gpt || null;
+    } catch (error) {
+        console.error(chalk.red("Nexra API Error:"), error.message);
+        return null;
+    }
+}
+
+async function getVredenResponse(jid, message) {
+    try {
+        const { data } = await axios.get(`https://api.vreden.web.id/api/llama3?query=${encodeURIComponent(message)}`, { timeout: 30000 });
+        return data.result || null;
+    } catch (error) {
+        console.error(chalk.red("Vreden API Error:"), error.message);
         return null;
     }
 }
@@ -111,18 +135,7 @@ async function getHercaiResponse(jid, message) {
         const { data } = await axios.get(`https://hercai.onrender.com/v3/hercai?question=${encodeURIComponent(message)}`, { timeout: 30000 });
         return data.reply || null;
     } catch (error) {
-        console.error(chalk.red("Hercai API Error:"), error.message);
-        return null;
-    }
-}
-
-async function getAoyoResponse(jid, message) {
-    try {
-        const { data } = await axios.get(`https://api.aoyo.li/v1/chat?text=${encodeURIComponent(message)}`, { timeout: 30000 });
-        return data.result || null;
-    } catch (error) {
-        console.error(chalk.red("Aoyo API Error:"), error.message);
-        return null;
+        return null; // Silent skip as it's unreliable lately
     }
 }
 
@@ -644,20 +657,25 @@ async function startBot() {
                 } else {
                     // 2. Text Message
 
-                    // Priority 1: Hercai (Very stable)
-                    reply = await getHercaiResponse(sender, body);
+                    // Priority 1: Nexra (GPT-4 - Very Stable)
+                    reply = await getNexraResponse(sender, body);
 
-                    // Priority 2: Aoyo (Fast & Good for Arabic)
+                    // Priority 2: Vreden (Llama-3 - Strong Fallback)
                     if (!reply) {
-                        reply = await getAoyoResponse(sender, body);
+                        reply = await getVredenResponse(sender, body);
                     }
 
-                    // Priority 3: Pollinations (Unlimited)
+                    // Priority 3: Pollinations (Model specific)
                     if (!reply) {
                         reply = await getPollinationsResponse(sender, body);
                     }
 
-                    // Priority 4: HuggingFace (Updated model)
+                    // Priority 4: Hercai (If 503 is over)
+                    if (!reply) {
+                        reply = await getHercaiResponse(sender, body);
+                    }
+
+                    // Priority 5: HuggingFace (Mistral)
                     if (!reply) {
                         reply = await getHuggingFaceResponse(sender, body);
                     }
