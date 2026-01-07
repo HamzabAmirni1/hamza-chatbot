@@ -24,9 +24,11 @@ const settings = {
     portfolio: 'https://hamzaamirni.netlify.app',
     botThumbnail: './media/hamza.jpg',
 
-    // API KEYS (Set these in Environment Variables for security)
-    geminiApiKey: process.env.GEMINI_API_KEY || '', // Google AI Studio Key (Optional)
-    openRouterKey: process.env.OPENROUTER_API_KEY || '', // OpenRouter API Key (REQUIRED - Set in Koyeb Env Vars)
+    // API KEYS (IMPORTANT: Set these in Koyeb Environment Variables for security!)
+    // GEMINI_API_KEY = AIzaSyA5opI81--yylbqFNgnsvOAQ1u9Q71TWN4
+    // OPENROUTER_API_KEY = (your key)
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    openRouterKey: process.env.OPENROUTER_API_KEY || '',
 
     AUTO_STATUS_REACT: 'true',
     AUTO_STATUS_REPLY: 'false',
