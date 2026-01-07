@@ -199,16 +199,16 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ["Windows", "Chrome", "10.15.7"], // Mimic Windows for better pairing acceptance
+        browser: ["Ubuntu", "Chrome", "20.0.04"], // Stable for Linux/Koyeb env
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
         getMessage: async (key) => { return { conversation: config.botName } },
-        defaultQueryTimeoutMs: 60000, // Reduced slightly to fail faster if stuck
+        defaultQueryTimeoutMs: 60000,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000, // Ping faster to keep connection alive
-        generateHighQualityLinkPreview: false, // Save resources during initial sync
+        keepAliveIntervalMs: 30000,
+        generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
         retryRequestDelayMs: 5000,
         syncFullHistory: false,
@@ -235,7 +235,7 @@ async function startBot() {
             console.log(chalk.cyan(`🔢 Initializing Pairing Code for: ${phoneNumber}...`));
 
             (async () => {
-                await delay(6000); // Reduced delay to 6s for faster execution
+                await delay(10000); // Wait 10s to ensure socket is ready to accept handshake
                 try {
                     console.log(chalk.yellow(`📡 Requesting code for ${phoneNumber}...`));
                     let code = await sock.requestPairingCode(phoneNumber);
