@@ -199,18 +199,18 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ["Ubuntu", "Chrome", "20.0.04"], // Stable browser for pairing
+        browser: ["Windows", "Chrome", "10.15.7"], // Mimic Windows for better pairing acceptance
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
         getMessage: async (key) => { return { conversation: config.botName } },
-        defaultQueryTimeoutMs: 120000,
-        connectTimeoutMs: 120000,
-        keepAliveIntervalMs: 30000,
-        generateHighQualityLinkPreview: true,
+        defaultQueryTimeoutMs: 60000, // Reduced slightly to fail faster if stuck
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 10000, // Ping faster to keep connection alive
+        generateHighQualityLinkPreview: false, // Save resources during initial sync
         markOnlineOnConnect: true,
-        retryRequestDelayMs: 10000,
+        retryRequestDelayMs: 5000,
         syncFullHistory: false,
         patchMessageBeforeSending: (message) => {
             const requiresPatch = !!(message.buttonsMessage || message.templateMessage || message.listMessage);
