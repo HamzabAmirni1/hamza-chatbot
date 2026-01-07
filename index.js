@@ -52,9 +52,8 @@ async function getOpenRouterResponse(text, imageBuffer = null) {
         }
 
         const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-            // Use a free/cheap versatile model. 
-            // "google/gemini-2.0-flash-exp:free" is a good option if available, or "google/gemini-flash-1.5"
-            model: "google/gemini-2.0-flash-exp:free",
+            // Using a more stable model (less rate-limited)
+            model: "google/gemini-flash-1.5",
             messages: messages
         }, {
             headers: {
