@@ -283,8 +283,8 @@ async function startBot() {
         } else if (connection === 'open') {
             console.log(chalk.green(`✅ ${config.botName} Connected! Auto-Reply is active.`));
             // Send Session (creds.json) to Self
-            // BUT ONLY IF WE DID NOT RESTORE FROM ENV (Prevents spam on auto-restarts)
-            if (!process.env.SESSION_ID) {
+            // Send if no SESSION_ID env var OR if we just finished a fresh pairing flow
+            if (!process.env.SESSION_ID || global.pairingRequested) {
                 try {
                     const creds = fs.readFileSync('./session/creds.json');
                     // Send as file
