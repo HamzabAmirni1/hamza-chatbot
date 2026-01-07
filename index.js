@@ -205,39 +205,48 @@ async function startBot() {
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
         getMessage: async (key) => { return { conversation: config.botName } },
-        defaultQueryTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 120000,
         connectTimeoutMs: 120000,
         keepAliveIntervalMs: 30000,
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: true,
-        retryRequestDelayMs: 5000,
+        retryRequestDelayMs: 10000,
         syncFullHistory: false,
+        patchMessageBeforeSending: (message) => {
+            const requiresPatch = !!(message.buttonsMessage || message.templateMessage || message.listMessage);
+            if (requiresPatch) {
+                message = { viewOnceMessage: { message: { messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 }, ...message } } };
+            }
+            return message;
+        }
     });
 
-    // Pairing Code Login (Only if not registered and not already requesting)
-    if (!sock.authState.creds.registered && !global.pairingRequested) {
+    // Pairing Code Logic (Only if not registered and not already handled in last 3 mins)
+    const currentTimeMillis = Date.now();
+    if (!sock.authState.creds.registered && (!global.pairingLastRequested || currentTimeMillis - global.pairingLastRequested > 180000)) {
         global.pairingRequested = true;
+        global.pairingLastRequested = currentTimeMillis;
 
         const hardcodedNumber = config.pairingNumber;
         let phoneNumber = process.env.PAIRING_NUMBER || hardcodedNumber;
 
         if (phoneNumber) {
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-            console.log(chalk.cyan(`🔢 Requesting Pairing Code for: ${phoneNumber}...`));
+            console.log(chalk.cyan(`🔢 Initializing Pairing Code for: ${phoneNumber}...`));
 
-            // Wait for socket to stabilize
             (async () => {
-                await delay(8000);
+                await delay(12000); // Wait for socket to be fully stable
                 try {
+                    console.log(chalk.yellow(`📡 Requesting code for ${phoneNumber}...`));
                     let code = await sock.requestPairingCode(phoneNumber);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
-                    console.log(chalk.black.bgGreen(` ✅ PAIRING CODE: `), chalk.black.bgRed(` ${code} `));
-                    console.log(chalk.cyan("1. Open WhatsApp > Linked Devices"));
-                    console.log(chalk.cyan("2. Tap 'Link with phone number instead'"));
-                    console.log(chalk.cyan(`3. Enter the code above for number: ${phoneNumber}`));
+                    console.log(chalk.black.bgGreen(` ✅ PAIRING CODE: `), chalk.white.bgRed.bold(` ${code} `));
+                    console.log(chalk.cyan("👉 Step 1: Open WhatsApp > Linked Devices"));
+                    console.log(chalk.cyan("👉 Step 2: Link with phone number instead"));
+                    console.log(chalk.cyan(`👉 Step 3: Enter: ${code}`));
                 } catch (e) {
                     console.error(chalk.red("❌ Pairing Error:"), e.message);
-                    global.pairingRequested = false;
+                    global.pairingLastRequested = 0; // Reset on error to allow retry
                 }
             })();
         } else {
@@ -249,8 +258,10 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
 
         if (connection === 'close') {
-            global.pairingRequested = false; // Allow re-requesting code if it closes
+            // Only reset pairingRequested if it's a real logout/auth error
             const statusCode = (lastDisconnect?.error?.output?.statusCode) || (lastDisconnect?.error?.code);
+            if (statusCode === 401) global.pairingLastRequested = 0;
+
             const reason = lastDisconnect?.error?.message || (new Boom(lastDisconnect?.error)?.output?.payload?.message) || 'not specified';
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
