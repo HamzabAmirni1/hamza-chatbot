@@ -332,14 +332,26 @@ async function startBot() {
 
                 console.log(chalk.cyan(`Thinking response for: ${body.substring(0, 30)}...`));
 
-                // Anti-Ban: Mark read, Type, Delay
+                // Anti-Ban: Mark read and Type
                 await sock.readMessages([msg.key]);
                 await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
-                await new Promise(resolve => setTimeout(resolve, 3000)); // 3s Delay
+
+                // Speed Optimization: Start "Thinking" immediately, don't wait 3s blocks
+                // We run the delay concurrently with the AI request to ensure minimum "human-like" feel but max speed
+                const delayPromise = new Promise(resolve => setTimeout(resolve, 500)); // Just 0.5s minimum delay
 
                 let reply;
                 const sender = msg.key.remoteJid;
 
+                // 🚀 SUPER FAST COMMANDS (Running locally)
+                if (body.toLowerCase() === '.ping') {
+                    const start = Date.now();
+                    await delayPromise;
+                    await sock.sendMessage(sender, { text: `🏓 Pong! Speed: ${Date.now() - start}ms` }, { quoted: msg });
+                    continue;
+                }
+
+                // AI Processing
                 // 1. Try Image Analysis (if Image Message)
                 if (type === 'imageMessage') {
                     console.log(chalk.yellow("📸 Downloading Image..."));
@@ -391,11 +403,13 @@ async function startBot() {
                     }
                 }
 
-                // Add a small delay for anti-ban and stability
-                await delay(2000);
+                // Wait for the minimum delay if AI was super fast (unlikely, but good for UX)
+                await delayPromise;
 
                 // Reply to user
-                await sock.sendMessage(msg.key.remoteJid, { text: reply }, { quoted: msg });
+                if (reply) {
+                    await sock.sendMessage(msg.key.remoteJid, { text: reply }, { quoted: msg });
+                }
             }
 
         } catch (err) {
