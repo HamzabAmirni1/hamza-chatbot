@@ -222,6 +222,21 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     return null;
 }
 
+async function getObitoAnalyze(imageBuffer, prompt = "ما الموجود في هذه الصورة؟ وذكر اسم الشخصية إن وجدت", mime = "image/jpeg") {
+    try {
+        const base64Image = `data:${mime};base64,${imageBuffer.toString('base64')}`;
+        const { data } = await axios.post("https://obito-mr-apis.vercel.app/api/ai/analyze", {
+            image: base64Image,
+            prompt: prompt,
+            lang: "ar"
+        }, { timeout: 35000 });
+        return data.results?.description || null;
+    } catch (error) {
+        console.error(chalk.red("Obito Analyze API Error:"), error.message);
+        return null;
+    }
+}
+
 async function startBot() {
     // 🔄 Sync Session (Base64 Support)
     const sessionID = process.env.SESSION_ID;
@@ -391,6 +406,7 @@ async function startBot() {
 │ *🤖 أوامر الذكاء الاصطناعي:*
 │ ├ صيفط سؤال عادي (درجة، فصحى...)
 │ ├ صيفط تصويرة مع وصف (شرح...)
+│ ├ *.hl* - تحليل ذكي للصور (Anime/Characters)
 │ └ البوت كيعقل على الهضرة (Context)
 │
 │ *🔧 أوامر الخدمة:*
@@ -512,10 +528,15 @@ async function startBot() {
                             caption = msg.message.imageMessage.caption || "Describe this image.";
                             mime = msg.message.imageMessage.mimetype;
 
-                            // Priority 1: OpenRouter (Vision)
-                            reply = await getOpenRouterResponse(sender, caption, buffer);
+                            // Priority 1: Obito Analyze (Best for Anime/Characters - No Key needed)
+                            reply = await getObitoAnalyze(buffer, caption, mime);
 
-                            // Priority 2: Gemini Direct (Vision)
+                            // Priority 2: OpenRouter (Vision)
+                            if (!reply) {
+                                reply = await getOpenRouterResponse(sender, caption, buffer);
+                            }
+
+                            // Priority 3: Gemini Direct (Vision)
                             if (!reply) {
                                 reply = await getGeminiResponse(sender, caption, buffer, mime);
                             }
@@ -537,6 +558,32 @@ async function startBot() {
                         console.error("Media Processing Error:", err);
                         reply = "❌ فشل معالجة الوسائط.";
                     }
+                } else if (/^(حلل|حلل-صور|تحليل|.hl)$/i.test(body)) {
+                    // Dedicated Analyze Command Logic
+                    const q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
+                    const quotedType = Object.keys(q || {})[0];
+
+                    if (quotedType === 'imageMessage') {
+                        await sock.sendPresenceUpdate('composing', sender);
+                        try {
+                            const quotedMsg = { message: q };
+                            const buffer = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                            const caption = body.split(' ').slice(1).join(' ') || "ما الموجود في هذه الصورة؟ وذكر اسم الشخصية إن وجدت";
+                            const mime = q.imageMessage.mimetype;
+
+                            const result = await getObitoAnalyze(buffer, caption, mime);
+                            if (result) {
+                                await sock.sendMessage(sender, { text: `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${result}\n\n𝐎𝐁𝐈𝐓𝐎 𝐁𝐎𝐓 - 𝐎𝐁𝐈𝐓𝐎 𝐌𝐑 𝐃𝐄𝐕\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*` }, { quoted: msg });
+                            } else {
+                                await sock.sendMessage(sender, { text: "❌ فشل تحليل الصورة." }, { quoted: msg });
+                            }
+                        } catch (e) {
+                            await sock.sendMessage(sender, { text: "❌ خطأ في تحميل الصورة." }, { quoted: msg });
+                        }
+                    } else {
+                        await sock.sendMessage(sender, { text: "📝 *طريقة الاستخدام:* \nأرسل صورة مع سؤال أو رد على صورة مكتوباً:\n.hl من هذه الشخصية؟" }, { quoted: msg });
+                    }
+                    continue;
                 } else {
                     // 2. Text Message
 
