@@ -385,6 +385,32 @@ async function startBot() {
                     continue;
                 }
 
+                if (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help') {
+                    const menu = `╭─── *💎 ${config.botName} 💎* ───╮
+│
+│ *🤖 أوامر الذكاء الاصطناعي:*
+│ ├ صيفط سؤال عادي (درجة، فصحى، Eng...)
+│ ├ صيفط تصويرة مع وصف (شرح، ترجمة...)
+│ └ البوت كيعقل على الهضرة (Context)
+│
+│ *🔧 أوامر الخدمة:*
+│ ├ *.ping* - سرعة البوت
+│ ├ *.credits* - حالة الـ APIs
+│ └ *.menu* - هذه القائمة
+│
+│ *🌍 اللغات المدعومة:*
+│ ├ الدارجة المغربية 🇲🇦
+│ ├ العربية الفصحى 🇸🇦
+│ ├ English 🇺🇸
+│ └ Français 🇫🇷
+│
+╰─── *Dev by ${config.botOwner}* ───╯
+`;
+                    await delayPromise;
+                    await sock.sendMessage(sender, { text: menu }, { quoted: msg });
+                    continue;
+                }
+
                 if (body.toLowerCase() === '.credits' || body.toLowerCase() === '.quota') {
                     let status = "📊 *حالة API ديالك:*\n\n";
 
@@ -433,32 +459,49 @@ async function startBot() {
 
                 // AI Processing
                 // 1. Try Image Analysis (if Image Message)
-                if (type === 'imageMessage') {
-                    console.log(chalk.yellow("📸 Downloading Image..."));
+                if (type === 'imageMessage' || type === 'videoMessage') {
+                    const isVideo = type === 'videoMessage';
+                    console.log(chalk.yellow(`📸 Downloading ${isVideo ? 'Video' : 'Image'}...`));
                     try {
-                        const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-                        const caption = msg.message.imageMessage.caption || "Describe this image.";
-                        const mime = msg.message.imageMessage.mimetype;
+                        let buffer;
+                        let caption;
+                        let mime;
 
-                        // Priority 1: OpenRouter (Vision)
-                        reply = await getOpenRouterResponse(sender, caption, buffer);
+                        if (isVideo) {
+                            // For videos, we just respond to the caption text for now as most free APIs don't do video vision well
+                            caption = msg.message.videoMessage.caption || "Describe this video.";
+                            mime = msg.message.videoMessage.mimetype;
+                            // skip buffer download for speed on large videos, just use text context
+                            reply = await getPollinationsResponse(sender, caption);
+                        } else {
+                            buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                            caption = msg.message.imageMessage.caption || "Describe this image.";
+                            mime = msg.message.imageMessage.mimetype;
 
-                        // Priority 2: Gemini Direct (Vision)
-                        if (!reply) {
-                            reply = await getGeminiResponse(sender, caption, buffer, mime);
+                            // Priority 1: OpenRouter (Vision)
+                            reply = await getOpenRouterResponse(sender, caption, buffer);
+
+                            // Priority 2: Gemini Direct (Vision)
+                            if (!reply) {
+                                reply = await getGeminiResponse(sender, caption, buffer, mime);
+                            }
                         }
 
-                        if (!reply) {
+                        if (!reply && !isVideo) {
                             reply = "⚠️ عافاك دير API Key (OpenRouter or Gemini) ف config.js باش نقدر نشوف التصاور.";
-                        } else {
-                            // Update history with image info
-                            addToHistory(sender, 'user', caption, { buffer, mime });
+                        } else if (!reply && isVideo) {
+                            reply = await getPollinationsResponse(sender, caption);
+                        }
+
+                        if (reply) {
+                            // Update history with media info
+                            addToHistory(sender, 'user', caption, buffer ? { buffer, mime } : null);
                             addToHistory(sender, 'assistant', reply);
                         }
 
                     } catch (err) {
-                        console.error("Image Download Error:", err);
-                        reply = "❌ فشل تحميل الصورة.";
+                        console.error("Media Processing Error:", err);
+                        reply = "❌ فشل معالجة الوسائط.";
                     }
                 } else {
                     // 2. Text Message
