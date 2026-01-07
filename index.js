@@ -131,10 +131,12 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Trying 'gemini-1.5-flash' on 'v1beta' (best)
-    // Fallback 'gemini-pro' on 'v1' (legacy stable)
+    // Trying 'gemini-1.5-flash' (New standard)
+    // Fallback to 'gemini-1.0-pro' (Legacy free)
     const models = [
         { name: "gemini-1.5-flash", version: "v1beta" },
+        { name: "gemini-1.5-flash-8b", version: "v1beta" }, // Super fast & free
+        { name: "gemini-1.0-pro", version: "v1beta" },
         { name: "gemini-pro", version: "v1" }
     ];
 
