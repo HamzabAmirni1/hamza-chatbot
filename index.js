@@ -71,7 +71,9 @@ async function startBot() {
             setTimeout(async () => {
                 try {
                     const code = await sock.requestPairingCode(phoneNumber);
-                    console.log(chalk.bgGreen.black(`🚀 PAIRING CODE: `), chalk.bold.red(code));
+                    const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
+                    console.log(chalk.bgGreen.black(`🚀 PAIRING CODE: `), chalk.bold.red(formattedCode));
+                    console.log(chalk.cyan("👉 سير دابا لـ WhatsApp > Linked Devices > Link with phone number وحط هاد الكود!"));
                 } catch (e) {
                     console.error("Pairing Error:", e.message);
                 }
