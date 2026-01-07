@@ -52,7 +52,12 @@ async function startBot() {
 
     // Pairing Code Login
     if (!sock.authState.creds.registered) {
-        let phoneNumber = process.env.PAIRING_NUMBER;
+
+        // 👇👇 اكتب نمرتك هنا (بين علامات التنصيص) إذا معرفتيش دير Environment Variable
+        // مثال: '212600000000'
+        const hardcodedNumber = '';
+
+        let phoneNumber = process.env.PAIRING_NUMBER || hardcodedNumber;
 
         if (!phoneNumber) {
             console.log(chalk.yellow("⚠️ No PAIRING_NUMBER env var found."));
