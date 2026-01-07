@@ -533,22 +533,43 @@ async function startBot() {
                             reply = await getPollinationsResponse(sender, caption);
                         } else {
                             buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-                            caption = msg.message.imageMessage.caption || "ما الموجود في هذه الصورة؟ وذكر اسم الشخصية إن وجدت";
+                            caption = msg.message.imageMessage.caption || "";
                             mime = msg.message.imageMessage.mimetype;
 
-                            reply = await getObitoAnalyze(buffer, caption, mime);
-                            if (reply) {
-                                console.log(chalk.green("✅ Obito API responded."));
-                                reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*${config.botName} - ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
-                            }
+                            const isQuestion = caption.length > 2;
 
-                            if (!reply) {
+                            // If it's a specific question, prioritize powerful reasoning models (Gemini/OpenRouter)
+                            if (isQuestion) {
+                                // Priority 1: OpenRouter (Conversational Vision)
                                 reply = await getOpenRouterResponse(sender, caption, buffer);
-                                if (reply) console.log(chalk.green("✅ OpenRouter responded."));
-                            }
-                            if (!reply) { // Re-check if Obito failed but we want vision
-                                reply = await getGeminiResponse(sender, caption, buffer, mime);
-                                if (reply) console.log(chalk.green("✅ Gemini responded."));
+                                if (reply) console.log(chalk.green("✅ OpenRouter responded to question."));
+
+                                // Priority 2: Gemini Direct (Conversational Vision)
+                                if (!reply) {
+                                    reply = await getGeminiResponse(sender, caption, buffer, mime);
+                                    if (reply) console.log(chalk.green("✅ Gemini responded to question."));
+                                }
+
+                                // Priority 3: Obito (Fast Identification Fallback)
+                                if (!reply) {
+                                    reply = await getObitoAnalyze(buffer, caption, mime);
+                                    if (reply) {
+                                        console.log(chalk.green("✅ Obito responded (Fallback)."));
+                                        reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*${config.botName} - ${config.botOwner}*`;
+                                    }
+                                }
+                            } else {
+                                // Default/Empty caption: Just identify what it is using Obito (Fast)
+                                const prompt = "ما الموجود في هذه الصورة؟";
+                                reply = await getObitoAnalyze(buffer, prompt, mime);
+                                if (reply) {
+                                    console.log(chalk.green("✅ Obito identified image."));
+                                    reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*${config.botName} - ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
+                                }
+
+                                if (!reply) {
+                                    reply = await getOpenRouterResponse(sender, prompt, buffer);
+                                }
                             }
                         }
 
