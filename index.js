@@ -154,11 +154,8 @@ async function startBot() {
         console.log(chalk.yellow("🔄 Restoring Session from SESSION_ID..."));
         fs.ensureDirSync(sessionDir);
         fs.writeFileSync(path.join(sessionDir, 'creds.json'), process.env.SESSION_ID);
-    } else if (!process.env.SESSION_ID && fs.existsSync(sessionDir)) {
-        // If no SESSION_ID env var, and pairing code is failing, it's safer to clear local session
-        console.log(chalk.yellow("⚠️ No SESSION_ID found. Clearing local session to ensure fresh pairing..."));
-        fs.emptyDirSync(sessionDir);
     }
+    // Removed automatic emptyDirSync from here to prevent loops during pairing
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
@@ -174,10 +171,10 @@ async function startBot() {
         },
         markOnlineOnConnect: true,
         generateHighQualityLinkPreview: true,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 25000,
-        retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 30000,
+        connectTimeoutMs: 120000, // 2 minutes timeout for slow connections
+        keepAliveIntervalMs: 30000,
+        retryRequestDelayMs: 10000, // Wait 10s before retry
+        defaultQueryTimeoutMs: 0,
         // Add stability patches for Koyeb/Server environments
         patchMessageBeforeSending: (message) => {
             const requiresPatch = !!(
