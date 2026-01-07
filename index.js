@@ -97,12 +97,12 @@ async function getGeminiResponse(jid, text, imageBuffer = null, mimeType = 'imag
     const activeImage = imageBuffer || context.lastImage?.buffer;
     const activeMime = imageBuffer ? mimeType : (context.lastImage?.mime || 'image/jpeg');
 
-    // Models to try in order to avoid 429
-    const models = ["gemini-2.0-flash-exp", "gemini-1.5-flash"];
+    // Models to try in order to avoid 429. Using v1 for better compatibility.
+    const models = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-exp"];
 
     for (const modelName of models) {
         try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${config.geminiApiKey}`;
 
             let fullPrompt = systemPromptText + "\n\n";
             // Send last 10 messages for better context vs token usage
@@ -170,9 +170,31 @@ async function startBot() {
         markOnlineOnConnect: true,
         generateHighQualityLinkPreview: true,
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000,
+        keepAliveIntervalMs: 25000,
         retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 0,
+        defaultQueryTimeoutMs: 30000,
+        // Add stability patches for Koyeb/Server environments
+        patchMessageBeforeSending: (message) => {
+            const requiresPatch = !!(
+                message.buttonsMessage ||
+                message.templateMessage ||
+                message.listMessage
+            );
+            if (requiresPatch) {
+                message = {
+                    viewOnceMessage: {
+                        message: {
+                            messageContextInfo: {
+                                deviceListMetadata: {},
+                                deviceListMetadataVersion: 2
+                            },
+                            ...message
+                        }
+                    }
+                };
+            }
+            return message;
+        }
     });
 
     // Pairing Code Login
