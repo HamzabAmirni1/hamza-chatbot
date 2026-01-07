@@ -26,7 +26,7 @@ const settings = {
 
     // API KEYS
     geminiApiKey: process.env.GEMINI_API_KEY || '', // Google AI Studio Key (Optional if you have OpenRouter)
-    openRouterKey: process.env.OPENROUTER_API_KEY || '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', // Added OpenRouter Key
+    openRouterKey: process.env.OPENROUTER_API_KEY || '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', // OpenRouter API Key
 
     AUTO_STATUS_REACT: 'true',
     AUTO_STATUS_REPLY: 'false',
