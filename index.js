@@ -152,7 +152,12 @@ async function startBot() {
     // 🔄 Restore Session from Env Var (Persistence)
     if (process.env.SESSION_ID && !fs.existsSync(path.join(sessionDir, 'creds.json'))) {
         console.log(chalk.yellow("🔄 Restoring Session from SESSION_ID..."));
+        fs.ensureDirSync(sessionDir);
         fs.writeFileSync(path.join(sessionDir, 'creds.json'), process.env.SESSION_ID);
+    } else if (!process.env.SESSION_ID && fs.existsSync(sessionDir)) {
+        // If no SESSION_ID env var, and pairing code is failing, it's safer to clear local session
+        console.log(chalk.yellow("⚠️ No SESSION_ID found. Clearing local session to ensure fresh pairing..."));
+        fs.emptyDirSync(sessionDir);
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -162,7 +167,7 @@ async function startBot() {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: Browsers.macOS('Desktop'),
+        browser: Browsers.ubuntu('Chrome'), // Standard browser identity usually works better for pairing
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -215,18 +220,21 @@ async function startBot() {
         }
 
         if (phoneNumber) {
-            // Remove special chars
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
+            console.log(chalk.cyan(`🔢 Requesting Pairing Code for: ${phoneNumber}...`));
+
             setTimeout(async () => {
                 try {
                     const code = await sock.requestPairingCode(phoneNumber);
                     const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
-                    console.log(chalk.bgGreen.black(`🚀 PAIRING CODE: `), chalk.bold.red(formattedCode));
-                    console.log(chalk.cyan("👉 سير دابا لـ WhatsApp > Linked Devices > Link with phone number وحط هاد الكود!"));
+                    console.log(chalk.black.bgGreen(` ✅ PAIRING CODE: `), chalk.bold.red(formattedCode));
+                    console.log(chalk.yellow("1. Open WhatsApp > Linked Devices"));
+                    console.log(chalk.yellow("2. Tap 'Link with phone number instead'"));
+                    console.log(chalk.yellow(`3. Enter the code above for number: ${phoneNumber}`));
                 } catch (e) {
-                    console.error("Pairing Error:", e.message);
+                    console.error(chalk.red("❌ Pairing Error:"), e.message);
                 }
-            }, 3000);
+            }, 5000); // 5s delay to ensure socket is ready
         } else {
             console.log(chalk.red("❌ Please set PAIRING_NUMBER in Koyeb Environment Variables to login!"));
         }
