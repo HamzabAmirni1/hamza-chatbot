@@ -24,9 +24,7 @@ const settings = {
     portfolio: 'https://hamzaamirni.netlify.app',
     botThumbnail: './media/hamza.jpg',
 
-    // API KEYS (IMPORTANT: Set these in Koyeb Environment Variables for security!)
-    // GEMINI_API_KEY = AIzaSyA5opI81--yylbqFNgnsvOAQ1u9Q71TWN4
-    // OPENROUTER_API_KEY = (your key)
+    // API KEYS (Set these in Koyeb Environment Variables for security!)
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     openRouterKey: process.env.OPENROUTER_API_KEY || '',
 
