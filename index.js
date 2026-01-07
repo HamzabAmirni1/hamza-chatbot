@@ -529,13 +529,13 @@ async function startBot() {
 
                             reply = await getObitoAnalyze(buffer, caption, mime);
                             if (reply) {
-                                reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*Dev by ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
+                                reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${reply}\n\n*${config.botName} - ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
                             }
 
                             if (!reply) {
                                 reply = await getOpenRouterResponse(sender, caption, buffer);
                             }
-                            if (!reply) {
+                            if (!reply) { // Re-check if Obito failed but we want vision
                                 reply = await getGeminiResponse(sender, caption, buffer, mime);
                             }
                         }
@@ -560,17 +560,19 @@ async function startBot() {
                     const q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
                     const quotedType = Object.keys(q || {})[0];
 
-                    if (quotedType === 'imageMessage') {
+                    if (quotedType === 'imageMessage' || quotedType === 'documentWithCaptionMessage') {
                         await sock.sendPresenceUpdate('composing', sender);
                         try {
                             const quotedMsg = { message: q };
                             const buffer = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                             const caption = body.split(' ').slice(1).join(' ') || "ما الموجود في هذه الصورة؟ وذكر اسم الشخصية إن وجدت";
-                            const mime = q.imageMessage.mimetype;
+                            const mime = (q.imageMessage || q.documentWithCaptionMessage?.message?.imageMessage)?.mimetype || 'image/jpeg';
 
                             const result = await getObitoAnalyze(buffer, caption, mime);
                             if (result) {
-                                await sock.sendMessage(sender, { text: `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${result}\n\n𝐎𝐁𝐈𝐓𝐎 𝐁𝐎𝐓 - 𝐎𝐁𝐈𝐓𝐎 𝐌𝐑 𝐃𝐄𝐕\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*` }, { quoted: msg });
+                                reply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${result}\n\n*${config.botName} - ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
+                                await sock.sendMessage(sender, { text: reply }, { quoted: msg });
+                                reply = null; // Prevent double send
                             } else {
                                 await sock.sendMessage(sender, { text: "❌ فشل تحليل الصورة." }, { quoted: msg });
                             }
@@ -578,7 +580,7 @@ async function startBot() {
                             await sock.sendMessage(sender, { text: "❌ خطأ في تحميل الصورة." }, { quoted: msg });
                         }
                     } else {
-                        await sock.sendMessage(sender, { text: "📝 *طريقة الاستخدام:* \nأرسل صورة مع سؤال أو رد على صورة مكتوباً:\n.hl من هذه الشخصية؟" }, { quoted: msg });
+                        await sock.sendMessage(sender, { text: `*⎔ ⋅ ───━ •﹝🧠﹞• ━─── ⋅ ⎔*\n\n📝 *طريقة الاستخدام:* \nأرسل صورة مع سؤال أو رد على صورة مكتوباً:\n.hl من هذه الشخصية؟\n\n*${config.botName}*\n*⎔ ⋅ ───━ •﹝🧠﹞• ━─── ⋅ ⎔*` }, { quoted: msg });
                     }
                     continue;
                 } else {
