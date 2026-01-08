@@ -759,10 +759,12 @@ async function startBot() {
                 }
 
                 if (body && body.toLowerCase() === '.status') {
+                    const { enabled } = readAntiCallState();
                     const status = `📈 *Server Status:*
                     
 ⏱️ *Uptime:* ${getUptime()}
 🌐 *Keep-Alive:* ${config.publicUrl ? 'Active ✅' : 'Inactive ❌'}
+📵 *Anti-Call:* ${enabled ? 'Active ✅' : 'Disabled ⚠️'}
 🖥️ *RAM Use:* ${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB / 512MB
 📡 *Version:* ${config.version}`;
                     await sock.sendMessage(sender, { text: status }, { quoted: msg });
