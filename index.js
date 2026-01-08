@@ -741,7 +741,8 @@ async function startBot() {
 
                 // Anti-Ban: Mark read and Type
                 await sock.readMessages([msg.key]);
-                await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
+                await sock.sendPresenceUpdate('available', sender); // Appear Online
+                await sock.sendPresenceUpdate('composing', sender); // Typing...
 
                 // Speed Optimization: Start "Thinking" immediately, don't wait 3s blocks
                 // We run the delay concurrently with the AI request to ensure minimum "human-like" feel but max speed
