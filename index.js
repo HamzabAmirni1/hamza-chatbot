@@ -267,10 +267,11 @@ const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
 // Memory monitoring - Restart if RAM gets too high
+// Memory monitoring - Restart if RAM gets too high (Relaxed limit)
 setInterval(() => {
     const used = process.memoryUsage().rss / 1024 / 1024;
-    if (used > 450) {
-        console.log(chalk.red('⚠️ RAM too high (>450MB), restarting bot...'));
+    if (used > 900) { // Increased from 450 to 900 to avoid premature restart
+        console.log(chalk.red('⚠️ RAM too high (>900MB), restarting bot...'));
         process.exit(1);
     }
 }, 30000);
@@ -308,12 +309,12 @@ function getUptime() {
 }
 
 // Simple Keep-Alive Server for Koyeb
-app.get('/', (req, res) => res.send(`Bot ${config.botName} is Running! 🚀`));
-app.listen(port, () => {
-    console.log(chalk.green(`Server listening on port ${port}`));
+app.get('/', (req, res) => res.send(`Bot ${config.botName} is Running! 🚀\nUptime: ${getUptime()}`));
+app.listen(port, '0.0.0.0', () => {
+    console.log(chalk.green(`Server listening on port ${port} (0.0.0.0)`));
     setInterval(() => {
         // Internal Ping
-        axios.get(`http://localhost:${port}`).catch(() => { });
+        axios.get(`http://127.0.0.1:${port}`).catch(() => { });
 
         // External Ping (Wakes it up/Keeps it awake)
         if (config.publicUrl) {
