@@ -738,6 +738,8 @@ async function startBot() {
                 // Ignore Status Updates, Newsletters AND Groups (Private Only)
                 if (msg.key.remoteJid === 'status@broadcast' || msg.key.remoteJid.includes('@newsletter') || msg.key.remoteJid.endsWith('@g.us')) continue;
 
+                const sender = msg.key.remoteJid;
+
                 console.log(chalk.cyan(`Thinking response for: ${body ? body.substring(0, 30) : 'Media File'}...`));
 
                 // Anti-Ban: Mark read and Type
@@ -750,7 +752,6 @@ async function startBot() {
                 const delayPromise = new Promise(resolve => setTimeout(resolve, 500)); // Just 0.5s minimum delay
 
                 let reply;
-                const sender = msg.key.remoteJid;
 
                 // 🚀 SUPER FAST COMMANDS
                 if (body && body.toLowerCase() === '.ping') {
