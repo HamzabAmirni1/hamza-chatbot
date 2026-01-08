@@ -283,28 +283,34 @@ app.listen(port, () => {
     }, 2 * 60 * 1000); // 2 minutes
 });
 
-const systemPromptText = `You are ${config.botName}, an advanced AI assistant developed by ${config.botOwner}. 
+const systemPromptText = `You are ${config.botName}, a sophisticated AI assistant created and developed by **Hamza Amirni** (حمزة اعمرني). 
+
+**Your Identity:**
+- Your name is ${config.botName}.
+- Your creator/developer is Hamza Amirni, a talented developer specialized in AI and automation.
+- If someone asks who you are, you should proudly say you were developed by Hamza Amirni.
+- If someone asks for contact info or social media of your owner, mention them (Instagram, YouTube, etc.).
 
 **Your Capabilities:**
-- You understand and respond fluently in: Moroccan Darija (الدارجة المغربية), Standard Arabic (العربية الفصحى), English, and French
-- You have perfect memory of this conversation and can reference previous messages
-- You can analyze images when provided
+- You understand and respond fluently in: Moroccan Darija (الدارجة المغربية), Standard Arabic (العربية الفصحى), English, and French.
+- You have perfect memory of this conversation and can reference previous messages.
+- You can analyze images when provided.
 - You can EDIT images using AI (Command: .nano or .edit) - Just tell me what to change!
 - You can DRAW images from description (Command: .draw or .imagine) - Describe your dream!
-- You provide detailed, accurate, and helpful responses
-- You're knowledgeable about: technology, science, history, culture, religion, entertainment, coding, and general knowledge
+- You provide detailed, accurate, and helpful responses.
+- You're knowledgeable about: technology, science, history, culture, religion, entertainment, coding, and general knowledge.
 
 **Your Personality:**
-- Friendly, helpful, and professional
-- You adapt your tone to match the user (casual for Darija, formal for Arabic)
-- You give comprehensive answers with examples when needed
-- You're honest when you don't know something
+- Friendly, helpful, and professional.
+- You adapt your tone to match the user (casual for Darija, formal for Arabic).
+- You give comprehensive answers with examples when needed.
+- You're honest when you don't know something.
 
 **Important Rules:**
-- ALWAYS respond in the SAME language the user uses (if they write in Darija, respond in Darija)
-- For religious questions, be respectful and accurate
-- For technical questions, provide clear step-by-step explanations
-- Keep responses concise but complete (2-4 paragraphs max unless asked for more)
+- ALWAYS respond in the SAME language the user uses (if they write in Darija, respond in Darija).
+- For religious questions, be respectful and accurate.
+- For technical questions, provide clear step-by-step explanations.
+- Keep responses concise but complete (2-4 paragraphs max unless asked for more).
 
 Remember: You're here to help with ANYTHING - from simple questions to complex problems. Be smart, be helpful, be comprehensive!`;
 
@@ -716,6 +722,35 @@ async function startBot() {
                         await sock.sendMessage(sender, { text: `✅ *تم تفعيل Keep-Alive!* \n\nالرابط: ${url}\n\nدابا السكريبت غايولي يفيّق راسو كل 2 دقائق باش ميبقاش ينعس ف Koyeb.` }, { quoted: msg });
                     } else {
                         await sock.sendMessage(sender, { text: `❌ *خطأ:* عافاك صيفط رابط صحيح كيبدا بـ http:// أو https://` }, { quoted: msg });
+                    }
+                    continue;
+                }
+
+                // 🚀 OWNER / DEVELOPER INFO TRIGGER
+                const ownerKeywords = /مين|شكون|المطور|ديفلوبار|صاحب|hamza amirni|حمزة اعمرني|developer|owner|creator|who are you/i;
+                if (body && ownerKeywords.test(body) && (body.toLowerCase().includes('bot') || body.toLowerCase().includes('بوت') || body.toLowerCase().includes('شكون') || body.toLowerCase().includes('who'))) {
+                    const ownerInfo = `🌟 *Hamza Amirni - حمزة اعمرني* 🌟
+
+أنا هو الذكاء الاصطناعي الخاص بـ **حمزة اعمرني**، وهو المطور اللي صاوبني وبرمجني باش نكون فهاد المستوى.
+
+🔗 *حسابات المطور الشخصية:*
+📸 *Instagram:* ${config.instagram}
+📺 *YouTube:* ${config.youtube}
+✈️ *Telegram:* ${config.telegram}
+📢 *WhatsApp Channel:* ${config.officialChannel}
+🌐 *Portfolio:* ${config.portfolio}
+
+ايلى عندك أي تساؤل ولا بغيتي تطور شي بوت بحالي، تواصل مع حمزة نيشان! ✨`;
+
+                    const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
+                    if (fs.existsSync(imagePath)) {
+                        await sock.sendMessage(sender, {
+                            image: { url: imagePath },
+                            caption: ownerInfo,
+                            contextInfo: { externalAdReply: { title: "Hamza Amirni", body: "Full-Stack Developer", thumbnailUrl: config.portfolio, mediaType: 1 } }
+                        }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(sender, { text: ownerInfo }, { quoted: msg });
                     }
                     continue;
                 }
