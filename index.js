@@ -8,6 +8,17 @@ const path = require('path');
 const config = require('./config');
 const { Boom } = require('@hapi/boom');
 const CryptoJS = require("crypto-js");
+const FormData = require('form-data');
+
+// Helper: Translate to English
+async function translateToEn(text) {
+    try {
+        const res = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
+        return res.data?.[0]?.[0]?.[0] || text;
+    } catch (e) {
+        return text;
+    }
+}
 
 const AES_KEY = "ai-enhancer-web__aes-key";
 const AES_IV = "aienhancer-aesiv";
@@ -119,6 +130,97 @@ const aiLabs = {
         }
     }
 };
+
+/**
+ * PhotoEnhancer - HD, Remove BG, Upscale
+ */
+class PhotoEnhancer {
+    constructor() {
+        this.cfg = {
+            base: "https://photoenhancer.pro",
+            end: {
+                enhance: "/api/enhance",
+                status: "/api/status",
+                removeBg: "/api/remove-background",
+                upscale: "/api/upscale"
+            },
+            headers: {
+                accept: "*/*",
+                "content-type": "application/json",
+                origin: "https://photoenhancer.pro",
+                referer: "https://photoenhancer.pro/",
+                "user-agent": "Mozilla/5.0 (Linux; Android 10) Chrome/127.0.0.0 Mobile Safari/537.36"
+            }
+        };
+    }
+    async poll(id) {
+        for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const { data } = await axios.get(`${this.cfg.base}${this.cfg.end.status}?id=${id}`, { headers: this.cfg.headers });
+            if (data?.status === "succeeded") return data;
+            if (data?.status === "failed") throw new Error("Processing failed");
+        }
+        throw new Error("Processing timeout");
+    }
+    async generate({ imageBuffer, type }) {
+        const imageData = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
+        let endpoint = this.cfg.end.enhance;
+        let body = { imageData, mode: "ultra", fileName: "image.png" };
+        if (type === "remove-bg") { endpoint = this.cfg.end.removeBg; body = { imageData }; }
+        if (type === "upscale") { endpoint = this.cfg.end.upscale; body = { imageData, targetResolution: "4K" }; }
+
+        const init = await axios.post(`${this.cfg.base}${endpoint}`, body, { headers: this.cfg.headers });
+        if (init.data?.predictionId) return await this.poll(init.data.predictionId).then(r => r.resultUrl);
+        return init.data?.resultUrl;
+    }
+}
+
+/**
+ * ImageColorizer - Colorize B&W Photos
+ */
+class ImageColorizer {
+    constructor() {
+        this.cfg = {
+            upUrl: "https://photoai.imglarger.com/api/PhoAi/Upload",
+            ckUrl: "https://photoai.imglarger.com/api/PhoAi/CheckStatus",
+            headers: {
+                accept: "application/json, text/plain, */*",
+                origin: "https://imagecolorizer.com",
+                referer: "https://imagecolorizer.com/",
+                "user-agent": "Mozilla/5.0 (Linux; Android 10) Chrome/127.0.0.0 Mobile Safari/537.36"
+            }
+        };
+    }
+    async upload(buffer, prompt = "") {
+        const form = new FormData();
+        form.append("file", buffer, { filename: "image.jpg", contentType: "image/jpeg" });
+        form.append("type", 17);
+        form.append("restore_face", "false");
+        form.append("upscale", "false");
+        form.append("positive_prompts", Buffer.from(prompt + ", masterpiece, high quality").toString("base64"));
+        form.append("negative_prompts", Buffer.from("low quality, blur").toString("base64"));
+        form.append("scratches", "false");
+        form.append("portrait", "false");
+        form.append("color_mode", "2");
+
+        const res = await axios.post(this.cfg.upUrl, form, { headers: { ...this.cfg.headers, ...form.getHeaders() } });
+        return res?.data?.data;
+    }
+    async check(code, type) {
+        const res = await axios.post(this.cfg.ckUrl, { code, type }, { headers: { ...this.cfg.headers, "content-type": "application/json" } });
+        return res?.data;
+    }
+    async generate(buffer, prompt) {
+        const task = await this.upload(buffer, prompt);
+        if (!task?.code) throw new Error("Failed to get task code");
+        for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const status = await this.check(task.code, task.type || 17);
+            if (status?.data?.status === "success") return status.data.downloadUrls[0];
+        }
+        throw new Error("Processing timeout");
+    }
+}
 
 const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
@@ -620,74 +722,89 @@ async function startBot() {
 
                 // 🚀 NANO AI - EXTENDED KEYWORDS
                 const nanoKeywords = 'nano|edit|adel|sawb|qad|badel|ghayir|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير';
-                const nanoRegex = new RegExp(`^([\\.!])?(${nanoKeywords})(\\s+.*|$)`, 'i');
-                const nanoMatchArr = body ? body.match(nanoRegex) : null;
+                const enhanceKeywords = 'hd|enhance|upscale|removebg|bg|background|وضح|تصفية|جودة|وضوح|خلفية|حيد-الخلفية';
+                const colorizeKeywords = 'colorize|color|لون|تلوين';
+                const ghibliKeywords = 'ghibli|anime-art|جيبلي|أنمي-فني';
 
-                let isNanoCmd = false;
-                let nanoPrompt = "";
+                const allAIPrefixRegex = new RegExp(`^([\\.!])?(${nanoKeywords}|${enhanceKeywords}|${colorizeKeywords}|${ghibliKeywords})(\\s+.*|$)`, 'i');
+                const aiMatch = body ? body.match(allAIPrefixRegex) : null;
 
-                if (nanoMatchArr) {
-                    const prefix = nanoMatchArr[1];
-                    const rest = (nanoMatchArr[3] || "").trim();
+                let isAicmd = false;
+                let aiPrompt = "";
+                let aiType = "";
+
+                if (aiMatch) {
+                    const prefix = aiMatch[1];
+                    const keyword = aiMatch[2].toLowerCase();
+                    const rest = (aiMatch[3] || "").trim();
                     const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
                     const isMediaReply = quotedMsg && (quotedMsg.imageMessage || quotedMsg.documentWithCaptionMessage?.message?.imageMessage);
 
                     if (prefix || isMediaReply) {
-                        isNanoCmd = true;
-                        nanoPrompt = rest || body.replace(new RegExp(`^([\\.!])?(${nanoKeywords})\\s*`, 'i'), '').trim();
+                        isAicmd = true;
+                        aiPrompt = rest;
+                        if (new RegExp(`^(${nanoKeywords})$`, 'i').test(keyword)) aiType = 'nano';
+                        else if (new RegExp(`^(${enhanceKeywords})$`, 'i').test(keyword)) {
+                            aiType = 'enhance';
+                            if (keyword.includes('bg') || keyword.includes('background') || keyword.includes('خلفية')) aiType = 'remove-bg';
+                            if (keyword.includes('upscale') || keyword.includes('جودة')) aiType = 'upscale';
+                        }
+                        else if (new RegExp(`^(${colorizeKeywords})$`, 'i').test(keyword)) aiType = 'colorize';
+                        else if (new RegExp(`^(${ghibliKeywords})$`, 'i').test(keyword)) aiType = 'ghibli';
                     }
                 }
 
-                if (isNanoCmd) {
+                if (isAicmd) {
                     let targetMsg = msg;
                     if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
                         const q = msg.message.extendedTextMessage.contextInfo;
                         targetMsg = { message: q.quotedMessage };
                     }
-
                     const mime = (targetMsg.message?.imageMessage || targetMsg.message?.documentWithCaptionMessage?.message?.imageMessage)?.mimetype || "";
 
-                    if (!mime.startsWith("image/")) {
-                        await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* adel رد الوجه أنمي\n*✨ ──────────────── ✨*` }, { quoted: msg });
-                    } else if (!nanoPrompt) {
-                        await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*📝 يرجى كتابة وصف التعديل*\n\n*مثال:* sawb تغيير الملابس إلى بدلة رسمية\n*✨ ──────────────── ✨*` }, { quoted: msg });
+                    if (!mime.startsWith("image/") && aiType !== 'ghibli') {
+                        await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* وضح هاد التصويرة\n*✨ ──────────────── ✨*` }, { quoted: msg });
                     } else {
                         await sock.sendMessage(sender, { react: { text: "🕒", key: msg.key } });
-                        const waitMsg = await sock.sendMessage(sender, { text: "🔄 جاري معالجة طلبك وتعديل الصورة بذكاء نانو... يرجى الانتظار." }, { quoted: msg });
+                        const waitMsg = await sock.sendMessage(sender, { text: "� جاري المعالجة... يرجى الانتظار." }, { quoted: msg });
 
                         try {
-                            const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-                            const tmpDir = path.join(__dirname, "tmp");
-                            if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
-                            const filePath = path.join(tmpDir, `${Date.now()}.jpg`);
-                            fs.writeFileSync(filePath, buffer);
-
-                            const result = await processImageAI(filePath, nanoPrompt);
-                            try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
-
-                            const caption = `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n✅ *تم تعديل الصورة بنجاح*\n\n📝 *الوصف:* ${nanoPrompt}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة نـانـو AI*`;
-
-                            await sock.sendMessage(sender, {
-                                image: { url: result.output },
-                                caption: caption,
-                                contextInfo: {
-                                    externalAdReply: {
-                                        title: "Nano AI Image Editor",
-                                        body: config.botOwner,
-                                        thumbnailUrl: result.output,
-                                        sourceUrl: config.officialChannel,
-                                        mediaType: 1,
-                                        renderLargerThumbnail: true
-                                    }
+                            if (aiType === 'ghibli') {
+                                const enPrompt = await translateToEn(aiPrompt || "Studio Ghibli style landscape");
+                                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(enPrompt + ", studio ghibli style, anime art, high quality")}?width=1024&height=1024&nologo=true&model=flux`;
+                                try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
+                                await sock.sendMessage(sender, { image: { url }, caption: `✨ *تم توليد فن جيبلي بنجاح!*\n\n📝 *الوصف:* ${aiPrompt || 'Ghibli Style'}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI Labs*` }, { quoted: msg });
+                            } else {
+                                const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                                let resultUrl;
+                                if (aiType === 'nano') {
+                                    // I will use a temp file for nano
+                                    const tmpFile = path.join(__dirname, 'tmp', `${Date.now()}.jpg`);
+                                    if (!fs.existsSync(path.join(__dirname, 'tmp'))) fs.mkdirSync(path.join(__dirname, 'tmp'));
+                                    fs.writeFileSync(tmpFile, buffer);
+                                    const res = await processImageAI(tmpFile, aiPrompt);
+                                    resultUrl = res.output;
+                                    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+                                } else if (aiType === 'colorize') {
+                                    const colorizer = new ImageColorizer();
+                                    resultUrl = await colorizer.generate(buffer, aiPrompt);
+                                } else { // enhance, remove-bg, upscale
+                                    const enhancer = new PhotoEnhancer();
+                                    resultUrl = await enhancer.generate({ imageBuffer: buffer, type: aiType });
                                 }
-                            }, { quoted: msg });
 
-                            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                                try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
+                                await sock.sendMessage(sender, {
+                                    image: { url: resultUrl },
+                                    caption: `✅ *تمت العملية بنجاح!*\n\n*🚀 تـم بواسطة الذكاء الاصطناعي*`,
+                                    contextInfo: { externalAdReply: { title: "AI Image Processor", body: config.botOwner, thumbnailUrl: resultUrl, mediaType: 1, renderLargerThumbnail: true } }
+                                }, { quoted: msg });
+                            }
                             await sock.sendMessage(sender, { react: { text: "✅", key: msg.key } });
                         } catch (e) {
                             console.error(e);
                             try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (err) { }
-                            await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*❌ فشل التعديل*\n\n📌 تأكد من أن الصورة واضحة والوصف مفهوم\n*✨ ──────────────── ✨*` }, { quoted: msg });
+                            await sock.sendMessage(sender, { text: `❌ فشلت العملية: ${e.message}` }, { quoted: msg });
                             await sock.sendMessage(sender, { react: { text: "❌", key: msg.key } });
                         }
                     }
@@ -695,34 +812,40 @@ async function startBot() {
                 }
 
                 // 🎨 AI IMAGE GENERATION (DALL-E Style)
-                const drawKeywords = 'draw|image|imagine|aiimg|art|رسم|ارسم|صورة|صورة-من-وصف|تخيل|لوحة';
-                const drawMatch = body ? body.match(new RegExp(`^([\\.!])?(${drawKeywords})\\s+(.*)`, 'i')) : null;
+                const drawKeywords = 'draw|image|imagine|aiimg|art|رسم|ارسم|صورة|صورة-من-وصف|تخيل|لوحة|genai';
+                const drawMatch = body ? body.match(new RegExp(`^([\\.!])?(${drawKeywords})(\\s+.*|$)`, 'i')) : null;
 
                 if (drawMatch) {
-                    const text = drawMatch[3];
+                    const text = (drawMatch[3] || "").trim();
+                    if (!text) {
+                        await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*📝 يرجى كتابة وصف الصورة*\n\n*مثال:* رسم أسد في غابة\n*✨ ──────────────── ✨*` }, { quoted: msg });
+                        continue;
+                    }
                     await sock.sendMessage(sender, { react: { text: "⏳", key: msg.key } });
                     const waitMsg = await sock.sendMessage(sender, { text: "🎨 جاري رسم تخيلك بذكاء اصطناعي فائق... يرجى الانتظار." }, { quoted: msg });
 
                     try {
-                        // Translate to English for better API results
-                        let promptToUse = text;
-                        try {
-                            const trRes = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
-                            if (trRes.data?.[0]?.[0]?.[0]) promptToUse = trRes.data[0][0][0];
-                        } catch (e) { }
-
-                        const response = await aiLabs.generateImage(promptToUse);
-
-                        if (response.success) {
-                            try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
-                            await sock.sendMessage(sender, {
-                                image: { url: response.url },
-                                caption: `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n🎨 *تم رسم الصورة بنجاح*\n\n📝 *الوصف:* ${text}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI Labs*`
-                            }, { quoted: msg });
-                            await sock.sendMessage(sender, { react: { text: "🎨", key: msg.key } });
-                        } else {
-                            throw new Error(response.error);
+                        let model = 'flux';
+                        let prompt = text;
+                        if (text.includes('|')) {
+                            const parts = text.split('|');
+                            const potentialModel = parts[0].trim().toLowerCase();
+                            const models = ['flux', 'sdxl', 'midjourney', 'anime', 'realistic', 'turbo'];
+                            if (models.includes(potentialModel)) {
+                                model = potentialModel;
+                                prompt = parts.slice(1).join('|').trim();
+                            }
                         }
+
+                        const enPrompt = await translateToEn(prompt);
+                        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(enPrompt)}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000000)}&nologo=true&model=${model}&enhance=true`;
+
+                        try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
+                        await sock.sendMessage(sender, {
+                            image: { url },
+                            caption: `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n🎨 *تم رسم الصورة بنجاح*\n\n📝 *الوصف:* ${prompt}\n🎭 *الموديل:* ${model}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة GenAI*`
+                        }, { quoted: msg });
+                        await sock.sendMessage(sender, { react: { text: "🎨", key: msg.key } });
                     } catch (error) {
                         try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
                         await sock.sendMessage(sender, { text: `❌ فشل رسم الصورة: ${error.message}` }, { quoted: msg });
@@ -747,8 +870,12 @@ async function startBot() {
 │ *🔍 أوامر ذكية:*
 │ ├ صيفط تصويرة مع وصف (شرح...)
 │ ├ *.hl* - تحليل ذكي للصور (Anime/Characters)
-│ ├ *.nano* - تعديل الصور بذكاء نانو ✨
+│ ├ *.hd* - تصفية ووضوح الصور ✨
+│ ├ *.bg* - إزالة خلفية الصورة 🖼️
+│ ├ *.لون* - تلوين الصور القديمة 🎨
+│ ├ *.nano* - تعديل الصور بالذكاء ✨
 │ ├ *.draw* - رسم صور من وصفك 🎨
+│ ├ *.ghibli* - رسم بأسلوب جيبلي 🌸
 │ └ البوت كيعقل على الهضرة (Context)
 │
 │ *🔧 أوامر الخدمة:*
