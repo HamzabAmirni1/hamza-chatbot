@@ -12,4 +12,4 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
