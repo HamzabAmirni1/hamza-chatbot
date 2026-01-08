@@ -7,6 +7,118 @@ const readline = require('readline');
 const path = require('path');
 const config = require('./config');
 const { Boom } = require('@hapi/boom');
+const CryptoJS = require("crypto-js");
+
+const AES_KEY = "ai-enhancer-web__aes-key";
+const AES_IV = "aienhancer-aesiv";
+
+function encryptSettings(obj) {
+    return CryptoJS.AES.encrypt(
+        JSON.stringify(obj),
+        CryptoJS.enc.Utf8.parse(AES_KEY),
+        {
+            iv: CryptoJS.enc.Utf8.parse(AES_IV),
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7
+        }
+    ).toString();
+}
+
+async function processImageAI(filePath, prompt) {
+    try {
+        const img = fs.readFileSync(filePath, "base64");
+        const settings = encryptSettings({
+            prompt,
+            size: "2K",
+            aspect_ratio: "match_input_image",
+            output_format: "jpeg",
+            max_images: 1
+        });
+
+        const headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10)",
+            "Content-Type": "application/json",
+            Origin: "https://aienhancer.ai",
+            Referer: "https://aienhancer.ai/ai-image-editor"
+        };
+
+        const create = await axios.post(
+            "https://aienhancer.ai/api/v1/k/image-enhance/create",
+            { model: 2, image: `data:image/jpeg;base64,${img}`, settings },
+            { headers }
+        );
+
+        const id = create?.data?.data?.id;
+        if (!id) throw new Error("لم يتم العثور على معرف المهمة");
+
+        for (let i = 0; i < 15; i++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const r = await axios.post(
+                "https://aienhancer.ai/api/v1/k/image-enhance/result",
+                { task_id: id },
+                { headers }
+            );
+
+            const data = r?.data?.data;
+            if (!data) continue;
+            if (data.status === "success") return { id, output: data.output, input: data.input };
+            if (data.status === "failed") throw new Error(data.error || "فشلت العملية");
+        }
+        throw new Error("استغرق الأمر وقتاً طويلاً جداً");
+    } catch (e) {
+        throw e;
+    }
+}
+
+/**
+ * AI Labs - Image Generation Logic
+ */
+const aiLabs = {
+    api: {
+        base: 'https://text2pet.zdex.top',
+        endpoints: { images: '/images' }
+    },
+    headers: {
+        'user-agent': 'NB Android/1.0.0',
+        'accept-encoding': 'gzip',
+        'content-type': 'application/json',
+        authorization: ''
+    },
+    state: { token: null },
+    setup: {
+        cipher: 'hbMcgZLlzvghRlLbPcTbCpfcQKM0PcU0zhPcTlOFMxBZ1oLmruzlVp9remPgi0QWP0QW',
+        shiftValue: 3,
+        dec(text, shift) {
+            return [...text].map(c =>
+                /[a-z]/.test(c) ?
+                    String.fromCharCode((c.charCodeAt(0) - 97 - shift + 26) % 26 + 97) :
+                    /[A-Z]/.test(c) ?
+                        String.fromCharCode((c.charCodeAt(0) - 65 - shift + 26) % 26 + 65) :
+                        c
+            ).join('');
+        },
+        decrypt: async () => {
+            if (aiLabs.state.token) return aiLabs.state.token;
+            const decrypted = aiLabs.setup.dec(aiLabs.setup.cipher, aiLabs.setup.shiftValue);
+            aiLabs.state.token = decrypted;
+            aiLabs.headers.authorization = decrypted;
+            return decrypted;
+        }
+    },
+    generateImage: async (prompt = '') => {
+        if (!prompt?.trim()) return { success: false, error: 'Empty prompt' };
+        await aiLabs.setup.decrypt();
+        try {
+            const payload = { prompt };
+            const url = aiLabs.api.base + aiLabs.api.endpoints.images;
+            const res = await axios.post(url, payload, { headers: aiLabs.headers });
+            if (res.data.code !== 0 || !res.data.data) return { success: false, error: 'Server failed to generate image.' };
+            return { success: true, url: res.data.data };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    }
+};
 
 const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
@@ -42,13 +154,31 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 8000;
 
+const startTime = Date.now();
+function getUptime() {
+    const duration = Date.now() - startTime;
+    const seconds = Math.floor((duration / 1000) % 60);
+    const minutes = Math.floor((duration / (1000 * 60)) % 60);
+    const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+    const days = Math.floor(duration / (1000 * 60 * 60 * 24));
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
 // Simple Keep-Alive Server for Koyeb
 app.get('/', (req, res) => res.send(`Bot ${config.botName} is Running! 🚀`));
 app.listen(port, () => {
     console.log(chalk.green(`Server listening on port ${port}`));
     setInterval(() => {
+        // Internal Ping
         axios.get(`http://localhost:${port}`).catch(() => { });
-    }, 5 * 60 * 1000);
+
+        // External Ping (Wakes it up/Keeps it awake)
+        if (config.publicUrl) {
+            axios.get(config.publicUrl)
+                .then(() => console.log(chalk.blue('🌐 Keep-Alive: Pinged public URL! Bot staying awake.')))
+                .catch(() => { });
+        }
+    }, 2 * 60 * 1000); // 2 minutes
 });
 
 const systemPromptText = `You are ${config.botName}, an advanced AI assistant developed by ${config.botOwner}. 
@@ -57,6 +187,8 @@ const systemPromptText = `You are ${config.botName}, an advanced AI assistant de
 - You understand and respond fluently in: Moroccan Darija (الدارجة المغربية), Standard Arabic (العربية الفصحى), English, and French
 - You have perfect memory of this conversation and can reference previous messages
 - You can analyze images when provided
+- You can EDIT images using AI (Command: .nano or .edit) - Just tell me what to change!
+- You can DRAW images from description (Command: .draw or .imagine) - Describe your dream!
 - You provide detailed, accurate, and helpful responses
 - You're knowledgeable about: technology, science, history, culture, religion, entertainment, coding, and general knowledge
 
@@ -455,13 +587,151 @@ async function startBot() {
                 let reply;
                 const sender = msg.key.remoteJid;
 
-                // 🚀 SUPER FAST COMMANDS (Running locally)
+                // 🚀 SUPER FAST COMMANDS
                 if (body && body.toLowerCase() === '.ping') {
                     const start = Date.now();
                     await delayPromise;
                     await sock.sendMessage(sender, { text: `🏓 Pong! Speed: ${Date.now() - start}ms` }, { quoted: msg });
                     continue;
                 }
+
+                if (body && body.toLowerCase() === '.status') {
+                    const status = `📈 *Server Status:*
+                    
+⏱️ *Uptime:* ${getUptime()}
+🌐 *Keep-Alive:* ${config.publicUrl ? 'Active ✅' : 'Inactive ❌'}
+🖥️ *RAM Use:* ${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB / 512MB
+📡 *Version:* ${config.version}`;
+                    await sock.sendMessage(sender, { text: status }, { quoted: msg });
+                    continue;
+                }
+
+                if (body && body.startsWith('.seturl ')) {
+                    const url = body.split(' ')[1];
+                    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                        fs.writeFileSync(path.join(__dirname, 'server_url.json'), JSON.stringify({ url }));
+                        config.publicUrl = url;
+                        await sock.sendMessage(sender, { text: `✅ *تم تفعيل Keep-Alive!* \n\nالرابط: ${url}\n\nدابا السكريبت غايولي يفيّق راسو كل 2 دقائق باش ميبقاش ينعس ف Koyeb.` }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(sender, { text: `❌ *خطأ:* عافاك صيفط رابط صحيح كيبدا بـ http:// أو https://` }, { quoted: msg });
+                    }
+                    continue;
+                }
+
+                // 🚀 NANO AI - EXTENDED KEYWORDS
+                const nanoKeywords = 'nano|edit|adel|sawb|qad|badel|ghayir|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير';
+                const nanoRegex = new RegExp(`^([\\.!])?(${nanoKeywords})(\\s+.*|$)`, 'i');
+                const nanoMatchArr = body ? body.match(nanoRegex) : null;
+
+                let isNanoCmd = false;
+                let nanoPrompt = "";
+
+                if (nanoMatchArr) {
+                    const prefix = nanoMatchArr[1];
+                    const rest = (nanoMatchArr[3] || "").trim();
+                    const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+                    const isMediaReply = quotedMsg && (quotedMsg.imageMessage || quotedMsg.documentWithCaptionMessage?.message?.imageMessage);
+
+                    if (prefix || isMediaReply) {
+                        isNanoCmd = true;
+                        nanoPrompt = rest || body.replace(new RegExp(`^([\\.!])?(${nanoKeywords})\\s*`, 'i'), '').trim();
+                    }
+                }
+
+                if (isNanoCmd) {
+                    let targetMsg = msg;
+                    if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+                        const q = msg.message.extendedTextMessage.contextInfo;
+                        targetMsg = { message: q.quotedMessage };
+                    }
+
+                    const mime = (targetMsg.message?.imageMessage || targetMsg.message?.documentWithCaptionMessage?.message?.imageMessage)?.mimetype || "";
+
+                    if (!mime.startsWith("image/")) {
+                        await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* adel رد الوجه أنمي\n*✨ ──────────────── ✨*` }, { quoted: msg });
+                    } else if (!nanoPrompt) {
+                        await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*📝 يرجى كتابة وصف التعديل*\n\n*مثال:* sawb تغيير الملابس إلى بدلة رسمية\n*✨ ──────────────── ✨*` }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(sender, { react: { text: "🕒", key: msg.key } });
+                        const waitMsg = await sock.sendMessage(sender, { text: "🔄 جاري معالجة طلبك وتعديل الصورة بذكاء نانو... يرجى الانتظار." }, { quoted: msg });
+
+                        try {
+                            const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                            const tmpDir = path.join(__dirname, "tmp");
+                            if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
+                            const filePath = path.join(tmpDir, `${Date.now()}.jpg`);
+                            fs.writeFileSync(filePath, buffer);
+
+                            const result = await processImageAI(filePath, nanoPrompt);
+                            try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
+
+                            const caption = `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n✅ *تم تعديل الصورة بنجاح*\n\n📝 *الوصف:* ${nanoPrompt}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة نـانـو AI*`;
+
+                            await sock.sendMessage(sender, {
+                                image: { url: result.output },
+                                caption: caption,
+                                contextInfo: {
+                                    externalAdReply: {
+                                        title: "Nano AI Image Editor",
+                                        body: config.botOwner,
+                                        thumbnailUrl: result.output,
+                                        sourceUrl: config.officialChannel,
+                                        mediaType: 1,
+                                        renderLargerThumbnail: true
+                                    }
+                                }
+                            }, { quoted: msg });
+
+                            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                            await sock.sendMessage(sender, { react: { text: "✅", key: msg.key } });
+                        } catch (e) {
+                            console.error(e);
+                            try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (err) { }
+                            await sock.sendMessage(sender, { text: `*✨ ──────────────── ✨*\n*❌ فشل التعديل*\n\n📌 تأكد من أن الصورة واضحة والوصف مفهوم\n*✨ ──────────────── ✨*` }, { quoted: msg });
+                            await sock.sendMessage(sender, { react: { text: "❌", key: msg.key } });
+                        }
+                    }
+                    continue;
+                }
+
+                // 🎨 AI IMAGE GENERATION (DALL-E Style)
+                const drawKeywords = 'draw|image|imagine|aiimg|art|رسم|ارسم|صورة|صورة-من-وصف|تخيل|لوحة';
+                const drawMatch = body ? body.match(new RegExp(`^([\\.!])?(${drawKeywords})\\s+(.*)`, 'i')) : null;
+
+                if (drawMatch) {
+                    const text = drawMatch[2];
+                    await sock.sendMessage(sender, { react: { text: "⏳", key: msg.key } });
+                    const waitMsg = await sock.sendMessage(sender, { text: "🎨 جاري رسم تخيلك بذكاء اصطناعي فائق... يرجى الانتظار." }, { quoted: msg });
+
+                    try {
+                        // Translate to English for better API results
+                        let promptToUse = text;
+                        try {
+                            const trRes = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
+                            if (trRes.data?.[0]?.[0]?.[0]) promptToUse = trRes.data[0][0][0];
+                        } catch (e) { }
+
+                        const response = await aiLabs.generateImage(promptToUse);
+
+                        if (response.success) {
+                            try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
+                            await sock.sendMessage(sender, {
+                                image: { url: response.url },
+                                caption: `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n🎨 *تم رسم الصورة بنجاح*\n\n📝 *الوصف:* ${text}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI Labs*`
+                            }, { quoted: msg });
+                            await sock.sendMessage(sender, { react: { text: "🎨", key: msg.key } });
+                        } else {
+                            throw new Error(response.error);
+                        }
+                    } catch (error) {
+                        try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
+                        await sock.sendMessage(sender, { text: `❌ فشل رسم الصورة: ${error.message}` }, { quoted: msg });
+                        await sock.sendMessage(sender, { react: { text: "❌", key: msg.key } });
+                    }
+                    continue;
+                }
+
+
 
                 if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help')) {
                     const menu = `╭─── *💎 ${config.botName} 💎* ───╮
@@ -477,12 +747,20 @@ async function startBot() {
 │ *🔍 أوامر ذكية:*
 │ ├ صيفط تصويرة مع وصف (شرح...)
 │ ├ *.hl* - تحليل ذكي للصور (Anime/Characters)
+│ ├ *.nano* - تعديل الصور بذكاء نانو ✨
+│ ├ *.draw* - رسم صور من وصفك 🎨
 │ └ البوت كيعقل على الهضرة (Context)
 │
 │ *🔧 أوامر الخدمة:*
 │ ├ *.ping* - سرعة البوت
+│ ├ *.status* - حالة السيرفر
 │ ├ *.credits* - حالة الـ APIs
 │ └ *.menu* - هذه القائمة
+│
+│ *📈 معلومات السيرفر:*
+│ ├ ⏱️ *Uptime:* ${getUptime()}
+│ ├ 🌐 *URL:* ${config.publicUrl ? '✅ مفعل' : '❌ ما خدامش'}
+│ └ 💡 *نصيحة:* Keep-Alive خدام دابا دايما!
 │
 │ *📱 حساباتي الشخصية:*
 │ ├ 📸 *Instagram:* ${config.instagram}
@@ -498,10 +776,27 @@ async function startBot() {
 │ ├ English 🇺🇸
 │ └ Français 🇫🇷
 │
-╰─── *Dev by ${config.botOwner}* ───╯
-`;
+╰─── *Dev by ${config.botOwner}* ───╯`;
                     await delayPromise;
-                    await sock.sendMessage(sender, { text: menu }, { quoted: msg });
+                    const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
+                    if (fs.existsSync(imagePath)) {
+                        await sock.sendMessage(sender, {
+                            image: { url: imagePath },
+                            caption: menu,
+                            contextInfo: {
+                                externalAdReply: {
+                                    title: config.botName,
+                                    body: config.botOwner,
+                                    thumbnail: fs.readFileSync(imagePath),
+                                    sourceUrl: config.officialChannel,
+                                    mediaType: 1,
+                                    renderLargerThumbnail: true
+                                }
+                            }
+                        }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(sender, { text: menu }, { quoted: msg });
+                    }
                     continue;
                 }
 

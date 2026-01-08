@@ -22,11 +22,25 @@ const settings = {
     telegram: 'https://t.me/hamzaamirni',
     waGroups: 'https://chat.whatsapp.com/DDb3fGPuZPB1flLc1BV9gJ',
     portfolio: 'https://hamzaamirni.netlify.app',
+    publicUrl: process.env.PUBLIC_URL || '', // Add your Koyeb/Render URL here to keep it awake
     botThumbnail: './media/hamza.jpg',
 
     // API KEYS (Set these in Koyeb Environment Variables for security!)
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     openRouterKey: process.env.OPENROUTER_API_KEY || '',
+
+    // Internal URL management
+    publicUrl: (function () {
+        try {
+            const path = require('path');
+            const fs = require('fs');
+            const urlPath = path.join(__dirname, 'server_url.json');
+            if (fs.existsSync(urlPath)) {
+                return JSON.parse(fs.readFileSync(urlPath)).url;
+            }
+        } catch (e) { }
+        return process.env.PUBLIC_URL || 'https://available-karena-ham9666-ef9efb5f.koyeb.app';
+    })(),
 
     AUTO_STATUS_REACT: 'true',
     AUTO_STATUS_REPLY: 'false',
