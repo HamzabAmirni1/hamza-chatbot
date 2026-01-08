@@ -727,27 +727,44 @@ async function startBot() {
                 }
 
                 // 🚀 OWNER / DEVELOPER INFO TRIGGER
-                const ownerKeywords = /مين|شكون|المطور|ديفلوبار|صاحب|hamza amirni|حمزة اعمرني|developer|owner|creator|who are you/i;
-                if (body && ownerKeywords.test(body) && (body.toLowerCase().includes('bot') || body.toLowerCase().includes('بوت') || body.toLowerCase().includes('شكون') || body.toLowerCase().includes('who'))) {
+                const ownerKeywords = /^(owner|المطور|حمزة|hamza|developer|creator|info|about)$/i;
+                const bodyOwnerSearch = /مين|شكون|المطور|ديفلوبار|صاحب|hamza amirni|حمزة اعمرني|developer|owner|creator|who are you/i;
+
+                if (body && (ownerKeywords.test(body.replace('.', '')) || (bodyOwnerSearch.test(body) && (body.toLowerCase().includes('bot') || body.toLowerCase().includes('بوت') || body.toLowerCase().includes('شكون') || body.toLowerCase().includes('who'))))) {
                     const ownerInfo = `🌟 *Hamza Amirni - حمزة اعمرني* 🌟
 
-أنا هو الذكاء الاصطناعي الخاص بـ **حمزة اعمرني**، وهو المطور اللي صاوبني وبرمجني باش نكون فهاد المستوى.
+أنا هو الذكاء الاصطناعي المطور من طرف **حمزة اعمرني**.
+
+🚀 *خدمات المطور (Marketing):*
+أنا ماشي غير بوت، حمزة كيقاد بزاف ديال الخدمات التقنية:
+✅ تصميم وتطوير المواقع الإلكترونية (Websites)
+✅ إنشاء بوتات واتساب
+✅ حلول الذكاء الاصطناعي
 
 🔗 *حسابات المطور الشخصية:*
 📸 *Instagram:* ${config.instagram}
 📺 *YouTube:* ${config.youtube}
 ✈️ *Telegram:* ${config.telegram}
-📢 *WhatsApp Channel:* ${config.officialChannel}
+📢 *WA Channel:* ${config.officialChannel}
 🌐 *Portfolio:* ${config.portfolio}
 
-ايلى عندك أي تساؤل ولا بغيتي تطور شي بوت بحالي، تواصل مع حمزة نيشان! ✨`;
+ايلى بغيتي تصاوب شي بوت بحالي ولا عندك مشروع ويب، تواصل مع حمزة نيشان! ✨`;
 
                     const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
                     if (fs.existsSync(imagePath)) {
                         await sock.sendMessage(sender, {
                             image: { url: imagePath },
                             caption: ownerInfo,
-                            contextInfo: { externalAdReply: { title: "Hamza Amirni", body: "Full-Stack Developer", thumbnailUrl: config.portfolio, mediaType: 1 } }
+                            contextInfo: {
+                                externalAdReply: {
+                                    title: "Hamza Amirni - Services",
+                                    body: "Web Dev & Bot Automation",
+                                    thumbnailUrl: config.portfolio,
+                                    sourceUrl: config.portfolio,
+                                    mediaType: 1,
+                                    renderLargerThumbnail: true
+                                }
+                            }
                         }, { quoted: msg });
                     } else {
                         await sock.sendMessage(sender, { text: ownerInfo }, { quoted: msg });
@@ -891,7 +908,7 @@ async function startBot() {
 
 
 
-                if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help')) {
+                if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help' || body.toLowerCase() === 'menu' || body.toLowerCase() === 'help' || body.toLowerCase() === 'قائمة' || body.toLowerCase() === '.قائمة')) {
                     const menu = `✨ *───❪ ${config.botName.toUpperCase()} ❫───* ✨
 
 🤖 *BOT IDENTITY:*
@@ -904,42 +921,46 @@ async function startBot() {
 ┃ ├ 🪄 *.nano* / *عدل*  ┈ تعديل سحري
 ┃ ├ ✨ *.hd* / *وضح*   ┈ جودة عالية
 ┃ ├ 🖼️ *.bg* / *خلفية* ┈ إزالة الخلفية
-┃ ├ � *.لون* / *color* ┈ تلوين الصور
 ┃ ├ 🎨 *.draw* / *رسم* ┈ رسم بالذكاء
-┃ ├ 🌸 *.ghibli*      ┈ فن جيبلي
-┃ └ 🧠 *.hl*           ┈ تحليل الصور
+┃ └ 🧠 *.hl* / *تحليل*  ┈ تحليل الصور
 ╰━━━━━━━━━━━━━━━━━━━━━╯
 
 ╭━━━━━━━━━━━━━━━━━━━━━╮
 ┃  🤖 *AI CHAT MODELS*
 ┃ 
-┃ ├ � *.gpt4o*   ┈ GPT-4o
+┃ ├ 🤖 *.gpt4o*   ┈ GPT-4o
 ┃ ├ ⚡ *.gpt4om*  ┈ 4o Mini
 ┃ ├ 🧠 *.o1*      ┈ OpenAI O1
-┃ └ � *Auto-Reply* ┈ صيفط سؤالك نيشان
+┃ └ 💬 *Auto-Reply* ┈ صيفط سؤالك نيشان
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃  🚀 *SERVICES BY HAMZA*
+┃
+┃ ├ 🌐 *Websites Development*
+┃ ├ 🤖 *WhatsApp Bot Design*
+┃ ├ ⚡ *Advanced Automation*
+┃ └ 📱 *App Solutions*
 ╰━━━━━━━━━━━━━━━━━━━━━╯
 
 ╭━━━━━━━━━━━━━━━━━━━━━╮
 ┃  📱 *OWNER SOCIALS*
 ┃
-┃ ├ 📸 *Instagram:* hamza_amirni_01
-┃ ├ 📺 *YouTube:* @Hamzaamirni01
-┃ ├ ✈️ *Telegram:* @hamzaamirni
-┃ └ 📢 *WA Channel:* Hamza Amirni
-╰━━━━━━━━━━━━━━━━━━━━━╯
-
-╭━━━━━━━━━━━━━━━━━━━━━╮
-┃  ⚙️ *SYSTEM CONTROL*
-┃
-┃ ├ 🏓 *.ping*    ┈ سرعة الرد
-┃ ├ 📊 *.status*  ┈ حالة السيرفر
-┃ └ 📝 *.credits* ┈ استهلاك API
+┃ ├ 📸 *Instagram:*
+┃   ${config.instagram}
+┃ ├ 📺 *YouTube:*
+┃   ${config.youtube}
+┃ ├ ✈️ *Telegram:*
+┃   ${config.telegram}
+┃ ├ 📢 *WA Channel:*
+┃   ${config.officialChannel}
+┃ └ 🌐 *Portfolio:*
+┃   ${config.portfolio}
 ╰━━━━━━━━━━━━━━━━━━━━━╯
 
 👑 *Developer:* ${config.botOwner}
 📌 *Uptime:* ${getUptime()}
 
-🌐 *Portfolio:* ${config.portfolio}
 ✨ *Active 24/7 on Koyeb* ✨`;
                     await delayPromise;
                     const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
