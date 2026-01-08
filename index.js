@@ -756,7 +756,7 @@ async function startBot() {
                 }
 
                 // 🚀 NANO AI - EXTENDED KEYWORDS
-                const nanoKeywords = 'nano|edit|adel|sawb|qad|badel|ghayir|ghayar|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير|اضف|أضف|زيد';
+                const nanoKeywords = 'nano|edit|adel|3adil|sawb|qad|badel|ghayir|ghayar|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير|اضف|أضف|زيد';
                 const enhanceKeywords = 'hd|enhance|upscale|removebg|bg|background|وضح|تصفية|جودة|وضوح|خلفية|حيد-الخلفية';
                 const colorizeKeywords = 'colorize|color|لون|تلوين';
                 const ghibliKeywords = 'ghibli|anime-art|جيبلي|أنمي-فني';
@@ -808,7 +808,7 @@ async function startBot() {
                                 const enPrompt = await translateToEn(aiPrompt || "Studio Ghibli style landscape");
                                 const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(enPrompt + ", studio ghibli style, anime art, high quality")}?width=1024&height=1024&nologo=true&model=flux`;
                                 try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
-                                await sock.sendMessage(sender, { image: { url }, caption: `✨ *تم توليد فن جيبلي بنجاح!*\n\n📝 *الوصف:* ${aiPrompt || 'Ghibli Style'}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI Labs*` }, { quoted: msg });
+                                await sock.sendMessage(sender, { image: { url }, caption: `✨ *───❪ HAMZA AMIRNI ❫───* ✨\n\n🎨 *تم توليد فن جيبلي بنجاح*\n\n📝 *الوصف:* ${aiPrompt || 'Ghibli Style'}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI Labs*` }, { quoted: msg });
                             } else {
                                 const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                                 let resultUrl;
@@ -831,8 +831,8 @@ async function startBot() {
                                 try { await sock.sendMessage(sender, { delete: waitMsg.key }); } catch (e) { }
                                 await sock.sendMessage(sender, {
                                     image: { url: resultUrl },
-                                    caption: `✅ *تمت العملية بنجاح!*\n\n*🚀 تـم بواسطة الذكاء الاصطناعي*`,
-                                    contextInfo: { externalAdReply: { title: "AI Image Processor", body: config.botOwner, thumbnailUrl: resultUrl, mediaType: 1, renderLargerThumbnail: true } }
+                                    caption: `✨ *───❪ HAMZA AMIRNI ❫───* ✨\n\n✅ *تمت العملية بنجاح!*\n\n*🚀 تـم بواسطة الذكاء الاصطناعي*`,
+                                    contextInfo: { externalAdReply: { title: "Hamza Amirni AI Processor", body: "Developer: Hamza Amirni", thumbnailUrl: resultUrl, mediaType: 1, renderLargerThumbnail: true } }
                                 }, { quoted: msg });
                             }
                             await sock.sendMessage(sender, { react: { text: "✅", key: msg.key } });
@@ -894,28 +894,38 @@ async function startBot() {
                 if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help')) {
                     const menu = `✨ *───❪ ${config.botName.toUpperCase()} ❫───* ✨
 
+🤖 *BOT IDENTITY:*
+أنا الذكاء الاصطناعي المطور من طرف *حمزة اعمرني*.
+أنا خدام أوتوماتيك (Auto-Reply) بلا ما تحتاج تدير نقطة، غير سولني وغادي نجاوبك فالحين! 🧠⚡
+
 ╭━━━━━━━━━━━━━━━━━━━━━╮
-┃  🤖 *CHATGTP MODELS*
-┃ 
-┃ ├ 💎 *.gpt4o*       ┈ GPT-4o
-┃ ├ ⚡ *.gpt4om*      ┈ 4o Mini
-┃ ├ 🎯 *.gpt4*        ┈ GPT-4
-┃ ├ 🚀 *.gpt3*        ┈ GPT-3.5
-┃ ├ 🧠 *.o1*          ┈ OpenAI O1
-┃ └ 💬 صيفط سؤال عادي (Auto)
+┃  🛠️ *AI IMAGE TOOLS*
+┃
+┃ ├ 🪄 *.nano* / *عدل*  ┈ تعديل سحري
+┃ ├ ✨ *.hd* / *وضح*   ┈ جودة عالية
+┃ ├ 🖼️ *.bg* / *خلفية* ┈ إزالة الخلفية
+┃ ├ � *.لون* / *color* ┈ تلوين الصور
+┃ ├ 🎨 *.draw* / *رسم* ┈ رسم بالذكاء
+┃ ├ 🌸 *.ghibli*      ┈ فن جيبلي
+┃ └ 🧠 *.hl*           ┈ تحليل الصور
 ╰━━━━━━━━━━━━━━━━━━━━━╯
 
 ╭━━━━━━━━━━━━━━━━━━━━━╮
-┃  🔍 *SMART TOOLS (AI)*
+┃  🤖 *AI CHAT MODELS*
+┃ 
+┃ ├ � *.gpt4o*   ┈ GPT-4o
+┃ ├ ⚡ *.gpt4om*  ┈ 4o Mini
+┃ ├ 🧠 *.o1*      ┈ OpenAI O1
+┃ └ � *Auto-Reply* ┈ صيفط سؤالك نيشان
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃  📱 *OWNER SOCIALS*
 ┃
-┃ ├ 📸 *صيفط تصويرة* ┈ تحليل وتحويل
-┃ ├ 🎨 *.draw* / *رسم* ┈ رسم من الخيال
-┃ ├ ✨ *.hd* / *وضح*   ┈ جودة احترافية
-┃ ├ 🖼️ *.bg* / *خلفية* ┈ إزالة الخلفية
-┃ ├ 🌈 *.لون* / *color* ┈ تلوين الصور
-┃ ├ 🪄 *.nano* / *عدل*  ┈ تعديل سحري
-┃ ├ 🌸 *.ghibli*      ┈ فن جيبلي
-┃ └ 🧠 *.hl*           ┈ تحليل الصور
+┃ ├ 📸 *Instagram:* hamza_amirni_01
+┃ ├ 📺 *YouTube:* @Hamzaamirni01
+┃ ├ ✈️ *Telegram:* @hamzaamirni
+┃ └ 📢 *WA Channel:* Hamza Amirni
 ╰━━━━━━━━━━━━━━━━━━━━━╯
 
 ╭━━━━━━━━━━━━━━━━━━━━━╮
@@ -923,15 +933,14 @@ async function startBot() {
 ┃
 ┃ ├ 🏓 *.ping*    ┈ سرعة الرد
 ┃ ├ 📊 *.status*  ┈ حالة السيرفر
-┃ ├ 📝 *.credits* ┈ استهلاك API
-┃ └ 💠 *.menu*    ┈ القائمة الرئيسية
+┃ └ 📝 *.credits* ┈ استهلاك API
 ╰━━━━━━━━━━━━━━━━━━━━━╯
 
-� *Owner:* ${config.botOwner}
-� *Status:* ${getUptime()}
+👑 *Developer:* ${config.botOwner}
+📌 *Uptime:* ${getUptime()}
 
-🌐 *Follow Us:* ${config.officialChannel}
-✨ *Keep-Alive Active 24/7* ✨`;
+🌐 *Portfolio:* ${config.portfolio}
+✨ *Active 24/7 on Koyeb* ✨`;
                     await delayPromise;
                     const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
                     if (fs.existsSync(imagePath)) {
