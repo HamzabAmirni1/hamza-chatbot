@@ -721,7 +721,7 @@ async function startBot() {
                 }
 
                 // 🚀 NANO AI - EXTENDED KEYWORDS
-                const nanoKeywords = 'nano|edit|adel|sawb|qad|badel|ghayir|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير';
+                const nanoKeywords = 'nano|edit|adel|sawb|qad|badel|ghayir|ghayar|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير|اضف|أضف|زيد';
                 const enhanceKeywords = 'hd|enhance|upscale|removebg|bg|background|وضح|تصفية|جودة|وضوح|خلفية|حيد-الخلفية';
                 const colorizeKeywords = 'colorize|color|لون|تلوين';
                 const ghibliKeywords = 'ghibli|anime-art|جيبلي|أنمي-فني';
@@ -857,53 +857,46 @@ async function startBot() {
 
 
                 if (body && (body.toLowerCase() === '.menu' || body.toLowerCase() === '.help')) {
-                    const menu = `╭─── *💎 ${config.botName} 💎* ───╮
-│
-│ *🤖 موديلات ChatGPT:*
-│ ├ *.gpt4o* - GPT-4o (أقوى موديل)
-│ ├ *.gpt4om* - GPT-4o Mini (السريع)
-│ ├ *.gpt4* - GPT-4 (الدقة العالية)
-│ ├ *.gpt3* - GPT-3.5 Turbo
-│ ├ *.o1* - OpenAI O1 (المفكر)
-│ └ صيفط سؤال عادي (Auto Reponse)
-│
-│ *🔍 أوامر ذكية:*
-│ ├ صيفط تصويرة مع وصف (شرح...)
-│ ├ *.hl* - تحليل ذكي للصور (Anime/Characters)
-│ ├ *.hd* - تصفية ووضوح الصور ✨
-│ ├ *.bg* - إزالة خلفية الصورة 🖼️
-│ ├ *.لون* - تلوين الصور القديمة 🎨
-│ ├ *.nano* - تعديل الصور بالذكاء ✨
-│ ├ *.draw* - رسم صور من وصفك 🎨
-│ ├ *.ghibli* - رسم بأسلوب جيبلي 🌸
-│ └ البوت كيعقل على الهضرة (Context)
-│
-│ *🔧 أوامر الخدمة:*
-│ ├ *.ping* - سرعة البوت
-│ ├ *.status* - حالة السيرفر
-│ ├ *.credits* - حالة الـ APIs
-│ └ *.menu* - هذه القائمة
-│
-│ *📈 معلومات السيرفر:*
-│ ├ ⏱️ *Uptime:* ${getUptime()}
-│ ├ 🌐 *URL:* ${config.publicUrl ? '✅ مفعل' : '❌ ما خدامش'}
-│ └ 💡 *نصيحة:* Keep-Alive خدام دابا دايما!
-│
-│ *📱 حساباتي الشخصية:*
-│ ├ 📸 *Instagram:* ${config.instagram}
-│ ├ ✈️ *Telegram:* ${config.telegram}
-│ ├ 📺 *YouTube:* ${config.youtube}
-│ ├ 📘 *Facebook:* ${config.facebookPage}
-│ ├ 📢 *WhatsApp Channel:* ${config.officialChannel}
-│ └ 🌐 *Portfolio:* ${config.portfolio}
-│
-│ *🌍 اللغات المدعومة:*
-│ ├ الدارجة المغربية 🇲🇦
-│ ├ العربية الفصحى 🇸🇦
-│ ├ English 🇺🇸
-│ └ Français 🇫🇷
-│
-╰─── *Dev by ${config.botOwner}* ───╯`;
+                    const menu = `✨ *───❪ ${config.botName.toUpperCase()} ❫───* ✨
+
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃  🤖 *CHATGTP MODELS*
+┃ 
+┃ ├ 💎 *.gpt4o*       ┈ GPT-4o
+┃ ├ ⚡ *.gpt4om*      ┈ 4o Mini
+┃ ├ 🎯 *.gpt4*        ┈ GPT-4
+┃ ├ 🚀 *.gpt3*        ┈ GPT-3.5
+┃ ├ 🧠 *.o1*          ┈ OpenAI O1
+┃ └ 💬 صيفط سؤال عادي (Auto)
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃  🔍 *SMART TOOLS (AI)*
+┃
+┃ ├ 📸 *صيفط تصويرة* ┈ تحليل وتحويل
+┃ ├ 🎨 *.draw* / *رسم* ┈ رسم من الخيال
+┃ ├ ✨ *.hd* / *وضح*   ┈ جودة احترافية
+┃ ├ 🖼️ *.bg* / *خلفية* ┈ إزالة الخلفية
+┃ ├ 🌈 *.لون* / *color* ┈ تلوين الصور
+┃ ├ 🪄 *.nano* / *عدل*  ┈ تعديل سحري
+┃ ├ 🌸 *.ghibli*      ┈ فن جيبلي
+┃ └ 🧠 *.hl*           ┈ تحليل الصور
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃  ⚙️ *SYSTEM CONTROL*
+┃
+┃ ├ 🏓 *.ping*    ┈ سرعة الرد
+┃ ├ 📊 *.status*  ┈ حالة السيرفر
+┃ ├ 📝 *.credits* ┈ استهلاك API
+┃ └ 💠 *.menu*    ┈ القائمة الرئيسية
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+� *Owner:* ${config.botOwner}
+� *Status:* ${getUptime()}
+
+🌐 *Follow Us:* ${config.officialChannel}
+✨ *Keep-Alive Active 24/7* ✨`;
                     await delayPromise;
                     const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
                     if (fs.existsSync(imagePath)) {
