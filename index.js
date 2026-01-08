@@ -222,6 +222,47 @@ class ImageColorizer {
     }
 }
 
+const ANTICALL_PATH = path.join(__dirname, 'data', 'anticall.json');
+
+function readAntiCallState() {
+    try {
+        if (!fs.existsSync(ANTICALL_PATH)) {
+            if (!fs.existsSync(path.dirname(ANTICALL_PATH))) fs.mkdirSync(path.dirname(ANTICALL_PATH), { recursive: true });
+            fs.writeFileSync(ANTICALL_PATH, JSON.stringify({ enabled: true }, null, 2));
+            return { enabled: true };
+        }
+        const data = JSON.parse(fs.readFileSync(ANTICALL_PATH, 'utf8') || '{}');
+        return { enabled: !!data.enabled };
+    } catch {
+        return { enabled: true };
+    }
+}
+
+function writeAntiCallState(enabled) {
+    try {
+        if (!fs.existsSync(path.dirname(ANTICALL_PATH))) fs.mkdirSync(path.dirname(ANTICALL_PATH), { recursive: true });
+        fs.writeFileSync(ANTICALL_PATH, JSON.stringify({ enabled: !!enabled }, null, 2));
+    } catch { }
+}
+
+async function sendWithChannelButton(sock, jid, text, quoted) {
+    const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
+    let contextInfo = {};
+    if (fs.existsSync(imagePath)) {
+        contextInfo = {
+            externalAdReply: {
+                title: "Hamza Amirni Info",
+                body: "Developed by Hamza Amirni",
+                thumbnail: fs.readFileSync(imagePath),
+                sourceUrl: config.officialChannel,
+                mediaType: 1,
+                renderLargerThumbnail: true
+            }
+        };
+    }
+    await sock.sendMessage(jid, { text, contextInfo }, { quoted });
+}
+
 const sessionDir = path.join(__dirname, 'session');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
@@ -660,6 +701,20 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
+    // 📵 Anti-Call Feature
+    sock.ev.on('call', async (callNode) => {
+        const { enabled } = readAntiCallState();
+        if (!enabled) return;
+
+        for (const call of callNode) {
+            if (call.status === 'offer') {
+                await sock.rejectCall(call.id, call.from);
+                const msg = `📵 *نظام منع المكالمات (Anti-Call) مفعّل تلقائياً*\n\nعفواً، لا يمكن استقبال المكالمات حالياً لحماية الخصوصية. من فضلك تواصل معنا عبر الرسائل النصية فقط.\n\n*Hamza Amirni* 🦅`;
+                await sock.sendMessage(call.from, { text: msg });
+            }
+        }
+    });
+
     sock.ev.on('messages.upsert', async (chatUpdate) => {
         try {
             // Only process notify messages
@@ -723,6 +778,57 @@ async function startBot() {
                     } else {
                         await sock.sendMessage(sender, { text: `❌ *خطأ:* عافاك صيفط رابط صحيح كيبدا بـ http:// أو https://` }, { quoted: msg });
                     }
+                    continue;
+                }
+                if (body && body.toLowerCase().startsWith('.anticall')) {
+                    const senderNum = sender.split('@')[0];
+                    if (!config.ownerNumber.includes(senderNum)) {
+                        await sock.sendMessage(sender, { text: "❌ هذا الأمر خاص بالمطور فقط." }, { quoted: msg });
+                        continue;
+                    }
+
+                    const args = body.split(' ').slice(1);
+                    const sub = (args[0] || '').toLowerCase();
+                    const state = readAntiCallState();
+
+                    if (!sub || (sub !== 'on' && sub !== 'off' && sub !== 'status')) {
+                        await sendWithChannelButton(sock, sender, `📵 *نظام منع المكالمات - ANTICALL*
+        
+الحالة الافتراضية: *مفعّل دائماً* ✅
+
+الأوامر:
+• .anticall on  - تفعيل حظر المكالمات
+• .anticall off - إيقاف الحظر مؤقتاً
+• .anticall status - عرض الحالة الحالية
+
+ملاحظة: النظام مفعل تلقائياً لحماية البوت
+
+⚔️ bot hamza amirni`, msg);
+                        continue;
+                    }
+
+                    if (sub === 'status') {
+                        const statusMsg = `📵 *حالة نظام منع المكالمات*
+
+الحالة الحالية: ${state.enabled ? '✅ *مفعّل*' : '⚠️ *معطّل*'}
+
+${state.enabled ? '🛡️ البوت محمي من المكالمات المزعجة' : '⚠️ تحذير: البوت غير محمي من المكالمات'}
+
+⚔️ bot hamza amirni`;
+                        await sendWithChannelButton(sock, sender, statusMsg, msg);
+                        continue;
+                    }
+
+                    const enable = sub === 'on';
+                    writeAntiCallState(enable);
+                    const responseMsg = `📵 *نظام منع المكالمات*
+
+${enable ? '✅ تم التفعيل بنجاح!' : '⚠️ تم الإيقاف مؤقتاً'}
+
+الحالة: ${enable ? '*مفعّل* 🛡️' : '*معطّل* ⚠️'}
+
+⚔️ bot hamza amirni`;
+                    await sendWithChannelButton(sock, sender, responseMsg, msg);
                     continue;
                 }
 
