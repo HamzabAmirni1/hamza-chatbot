@@ -699,7 +699,7 @@ async function startBot() {
                 const drawMatch = body ? body.match(new RegExp(`^([\\.!])?(${drawKeywords})\\s+(.*)`, 'i')) : null;
 
                 if (drawMatch) {
-                    const text = drawMatch[2];
+                    const text = drawMatch[3];
                     await sock.sendMessage(sender, { react: { text: "⏳", key: msg.key } });
                     const waitMsg = await sock.sendMessage(sender, { text: "🎨 جاري رسم تخيلك بذكاء اصطناعي فائق... يرجى الانتظار." }, { quoted: msg });
 
