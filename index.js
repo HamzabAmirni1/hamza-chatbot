@@ -378,20 +378,20 @@ async function getLuminAIResponse(jid, message) {
         const { data } = await axios.post("https://luminai.my.id/", {
             content: message,
             user: jid
-        }, { timeout: 30000 });
+        }, { timeout: 15000 }); // Reduced to 15s
         return data.result || null;
     } catch (error) {
-        console.error(chalk.red("LuminAI Error:"), error.message);
+        console.error(chalk.yellow("LuminAI timed out or failed."));
         return null;
     }
 }
 
 async function getAIDEVResponse(jid, message) {
     try {
-        const { data } = await axios.get(`https://api.maher-zubair.tech/ai/chatgpt?q=${encodeURIComponent(message)}`, { timeout: 30000 });
+        const { data } = await axios.get(`https://api.maher-zubair.tech/ai/chatgpt?q=${encodeURIComponent(message)}`, { timeout: 12000 }); // Reduced to 12s
         return data.result || null;
     } catch (error) {
-        console.error(chalk.red("AIDEV Error:"), error.message);
+        console.error(chalk.yellow("AIDEV timed out or failed."));
         return null;
     }
 }
@@ -401,30 +401,31 @@ async function getPollinationsResponse(jid, message) {
         const context = getContext(jid);
         let historyText = context.messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
         const systemPrompt = `You are ${config.botName}, developed by ${config.botOwner}. Respond in Darija/Arabic. History:\n${historyText}\n\nQuery: `;
-        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 30000 });
+        const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + message)}?model=openai`, { timeout: 15000 }); // Reduced to 15s
         return typeof data === 'string' ? data : JSON.stringify(data);
     } catch (error) {
-        return null;
+        return null; // Silent fail for this one as it's common
     }
 }
 
 async function getHectormanuelAI(jid, message, model = 'gpt-4o') {
     try {
-        const { data } = await axios.get(`https://all-in-1-ais.officialhectormanuel.workers.dev/?query=${encodeURIComponent(message)}&model=${model}`, { timeout: 35000 });
+        const { data } = await axios.get(`https://all-in-1-ais.officialhectormanuel.workers.dev/?query=${encodeURIComponent(message)}&model=${model}`, { timeout: 8000 }); // Reduced to 8s
         if (data && data.success && data.message?.content) {
             return data.message.content;
         }
         return null;
     } catch (error) {
-        console.error(chalk.red(`Hectormanuel AI (${model}) Error:`), error.message);
+        console.error(chalk.yellow(`Warning: Hectormanuel AI (${model}) timed out or failed.`));
         return null;
     }
 }
 
 async function getAutoGPTResponse(jid, message) {
-    // Priority order for auto-responses: 4o is best, others as fallbacks
-    const models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-3.5-turbo'];
+    // Optimized: Only try two best models to avoid long waits
+    const models = ['gpt-4o', 'gpt-4o-mini'];
     for (const model of models) {
+        console.log(chalk.gray(`Trying Auto-Reply model: ${model}...`));
         const res = await getHectormanuelAI(jid, message, model);
         if (res) return res;
     }
@@ -1305,23 +1306,32 @@ ${enable ? '✅ تم التفعيل بنجاح!' : '⚠️ تم الإيقاف �
                         await sock.sendMessage(sender, { text: `*⎔ ⋅ ───━ •﹝🧠﹞• ━─── ⋅ ⎔*\n\n📝 *طريقة الاستخدام:* \nأرسل صورة مع سؤال أو رد على صورة مكتوباً:\n.hl من هذه الشخصية؟\n\n*${config.botName}*\n*⎔ ⋅ ───━ •﹝🧠﹞• ━─── ⋅ ⎔*` }, { quoted: msg });
                     }
                     continue;
+
+
                 } else {
                     // 2. Text Message (Auto-Reply)
+                    console.log(chalk.blue(`Processing text message from ${sender.split('@')[0]}...`));
 
-                    // Priority 1: Hectormanuel AI (GPT-4o, 4o-mini, 4, 3.5)
+                    // Priority 1: Hectormanuel AI (GPT-4o, 4o-mini)
                     reply = await getAutoGPTResponse(sender, body);
 
                     // Priority 2: LuminAI (Stable Fallback)
-                    if (!reply) reply = await getLuminAIResponse(sender, body);
+                    if (!reply) {
+                        console.log(chalk.gray("Switching to LuminAI..."));
+                        reply = await getLuminAIResponse(sender, body);
+                    }
 
                     // Priority 3: AIDEV (Reliable ChatGPT provider)
-                    if (!reply) reply = await getAIDEVResponse(sender, body);
+                    if (!reply) {
+                        console.log(chalk.gray("Switching to AIDEV..."));
+                        reply = await getAIDEVResponse(sender, body);
+                    }
 
                     // Priority 4: Pollinations
-                    if (!reply) reply = await getPollinationsResponse(sender, body);
-
-                    // Priority 5: HuggingFace (Last resort)
-                    if (!reply) reply = await getHuggingFaceResponse(sender, body);
+                    if (!reply) {
+                        console.log(chalk.gray("Switching to Pollinations..."));
+                        reply = await getPollinationsResponse(sender, body);
+                    }
 
                     // Last Resorts: Keys
                     if (!reply && config.openRouterKey) reply = await getOpenRouterResponse(sender, body);
@@ -1332,6 +1342,7 @@ ${enable ? '✅ تم التفعيل بنجاح!' : '⚠️ تم الإيقاف �
                         addToHistory(sender, 'user', body);
                         addToHistory(sender, 'assistant', reply);
                     } else {
+                        console.log(chalk.red("❌ All AI providers failed."));
                         reply = "⚠️ جميع خدمات الذكاء الاصطناعي مشغولة حالياً. حاول مرة أخرى بعد قليل.";
                     }
                 }
