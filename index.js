@@ -821,17 +821,19 @@ async function startBot() {
                 const sender = msg.key.remoteJid;
                 logUser(sender);
 
-                // 📥 AUTO-DOWNLOADER (IG & FB)
+                // 📥 AUTO-DOWNLOADER (IG & FB & YT)
                 if (body && !msg.key.fromMe) {
                     if (processedMessages.has(msg.key.id)) continue;
 
                     const fbRegex = /(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch|fb\.com)\/[^\s]+)/i;
                     const igRegex = /(https?:\/\/(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:p|reel|tv)\/[^\s]+)/i;
+                    const ytRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s]+)/i;
 
                     const fbMatch = body.match(fbRegex);
                     const igMatch = body.match(igRegex);
+                    const ytMatch = body.match(ytRegex);
 
-                    if (fbMatch || igMatch) {
+                    if (fbMatch || igMatch || ytMatch) {
                         processedMessages.add(msg.key.id);
                         setTimeout(() => processedMessages.delete(msg.key.id), 5 * 60 * 1000);
 
@@ -904,10 +906,40 @@ async function startBot() {
                                 console.error("IG Auto-DL Failed:", e.message);
                             }
                         }
+                        if (ytMatch) {
+                            const ytUrl = ytMatch[0];
+                            console.log(chalk.cyan(`📥 Auto-Downloading YT: ${ytUrl}`));
+                            try {
+                                // Use primary YT API
+                                const apiUrl = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(ytUrl)}`;
+                                const response = await axios.get(apiUrl, { timeout: 30000 });
+
+                                if (response.data && response.data.status) {
+                                    const videoTitle = response.data.title || 'YouTube Video';
+                                    const downloadUrl = response.data.videos["360"] || response.data.videos["480"] || Object.values(response.data.videos)[0];
+
+                                    if (downloadUrl) {
+                                        await sendYTVideo(sock, sender, downloadUrl, videoTitle, msg);
+                                    } else {
+                                        throw new Error("No download URL found in primary API");
+                                    }
+                                } else {
+                                    // Try fallback
+                                    const vredenUrl = `https://api.vreden.my.id/api/ytmp4?url=${encodeURIComponent(ytUrl)}`;
+                                    const vResponse = await axios.get(vredenUrl, { timeout: 30000 });
+                                    if (vResponse.data && vResponse.data.status) {
+                                        await sendYTVideo(sock, sender, vResponse.data.result.download, vResponse.data.result.title, msg);
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("YT Auto-DL Failed:", e.message);
+                            }
+                        }
+
                         await sock.sendMessage(sender, { react: { text: "✅", key: msg.key } });
                         // We don't continue here to allow AI to respond if it wants to, but usually auto-dl is enough
                         // Actually, if it's just a link, we might want to skip AI to save credits
-                        if (body.trim() === fbMatch?.[0] || body.trim() === igMatch?.[0]) continue;
+                        if (body.trim() === fbMatch?.[0] || body.trim() === igMatch?.[0] || body.trim() === ytMatch?.[0]) continue;
                     }
                 }
 
@@ -1781,6 +1813,70 @@ ${enable ? '✅ تم التفعيل بنجاح!' : '⚠️ تم الإيقاف �
             console.error('Error in message handler:', err);
         }
     });
+}
+
+// Helper to send YouTube video
+async function sendYTVideo(sock, chatId, videoUrl, title, quoted) {
+    try {
+        await sock.sendMessage(chatId, {
+            video: { url: videoUrl },
+            caption: `✅ *تم تحميل الفيديو من YouTube بنجاح!* \n\n🎬 *${title}*\n⚔️ ${config.botName}`,
+            mimetype: 'video/mp4'
+        }, { quoted: quoted });
+    } catch (e) {
+        console.error('Error sending YT video URL, trying buffer:', e.message);
+        try {
+            const tempDir = path.join(__dirname, 'tmp');
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+            const tempFile = path.join(tempDir, `yt_${Date.now()}.mp4`);
+
+            try {
+                // Check size before downloading (Stability)
+                const headRes = await axios.head(videoUrl, { timeout: 15000 }).catch(() => null);
+                const contentLength = headRes ? headRes.headers['content-length'] : null;
+                const maxSize = 250 * 1024 * 1024; // 250MB
+
+                if (contentLength && parseInt(contentLength) > maxSize) {
+                    throw new Error(`large_file:${(parseInt(contentLength) / 1024 / 1024).toFixed(2)}MB`);
+                }
+
+                const writer = fs.createWriteStream(tempFile);
+                const response = await axios({
+                    url: videoUrl,
+                    method: 'GET',
+                    responseType: 'stream',
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    timeout: 600000
+                });
+
+                response.data.pipe(writer);
+
+                await new Promise((resolve, reject) => {
+                    writer.on('finish', resolve);
+                    writer.on('error', reject);
+                });
+
+                await sock.sendMessage(chatId, {
+                    video: { url: tempFile },
+                    caption: `✅ *تم تحميل الفيديو من YouTube بنجاح!* \n\n🎬 *${title}*\n⚔️ ${config.botName}`,
+                    mimetype: 'video/mp4'
+                }, { quoted: quoted });
+
+            } finally {
+                if (fs.existsSync(tempFile)) {
+                    try { fs.unlinkSync(tempFile); } catch (e) { }
+                }
+            }
+        } catch (bufferError) {
+            console.error('YT Buffer send failed:', bufferError.message);
+            const isLarge = bufferError.message.includes('large_file');
+            const errorText = isLarge
+                ? "⚠️ *الفيديو كبير بزاف (أكثر من 250 ميجا).*"
+                : "❌ *فشل تحميل فيديو يوتيوب. حاول مرة أخرى.*";
+
+            await sock.sendMessage(chatId, { text: errorText }, { quoted: quoted });
+        }
+    }
 }
 
 // Helper to send Facebook video
