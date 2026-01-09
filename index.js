@@ -715,7 +715,7 @@ async function startBot() {
     sock.ev.on('creds.update', saveCreds);
 
     // 📵 Anti-Call Feature
-    // 📵 Anti-Call Feature
+
     sock.ev.on('call', async (callNode) => {
         const { enabled } = readAntiCallState();
         if (!enabled) return;
@@ -1410,6 +1410,20 @@ ${enable ? '✅ تم التفعيل بنجاح!' : '⚠️ تم الإيقاف �
                 // Reply to user
                 if (reply) {
                     await sock.sendMessage(msg.key.remoteJid, { text: reply }, { quoted: msg });
+
+                    // Stay visible in conversation context
+                    await sock.sendPresenceUpdate('recording', sender); // Show recording for realism
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1s recording
+                    await sock.sendPresenceUpdate('paused', sender); // Paused (still online)
+
+                    // Keep online presence for 2 minutes to maintain conversation flow
+                    setTimeout(async () => {
+                        try {
+                            await sock.sendPresenceUpdate('available', sender);
+                        } catch (e) {
+                            // Ignore if connection closed
+                        }
+                    }, 120000); // 2 minutes
                 }
             }
 
