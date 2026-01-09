@@ -715,15 +715,58 @@ async function startBot() {
     sock.ev.on('creds.update', saveCreds);
 
     // 📵 Anti-Call Feature
+    // 📵 Anti-Call Feature
     sock.ev.on('call', async (callNode) => {
         const { enabled } = readAntiCallState();
         if (!enabled) return;
 
         for (const call of callNode) {
             if (call.status === 'offer') {
+                // 1. Reject Call
                 await sock.rejectCall(call.id, call.from);
-                const msg = `📵 *نظام منع المكالمات (Anti-Call) مفعّل تلقائياً*\n\nعفواً، لا يمكن استقبال المكالمات حالياً لحماية الخصوصية. من فضلك تواصل معنا عبر الرسائل النصية فقط.\n\n*Hamza Amirni* 🦅`;
-                await sock.sendMessage(call.from, { text: msg });
+
+                // 2. Send Marketing/Warning Message
+                const warningMsg = `� *ممنوع الاتصال - No Calls Allowed*
+
+تم رفض المكالمة وحظر الرقم تلقائياً. هذا البوت يجيب على الرسائل النصية فقط.
+
+💡 *هل تبحث عن مطور؟*
+أنا **حمزة اعمرني**، مطور هذا البوت. أقدم خدمات برمجية احترافية:
+✅ إنشاء بوتات واتساب
+✅ تصميم مواقع إلكترونية
+✅ حلول الذكاء الاصطناعي
+
+🔗 *لطلب خدماتي:*
+📸 *Instagram:* ${config.instagram}
+🌐 *Portfolio:* ${config.portfolio}
+
+*تم الحظر. شكراً لتفهمك.* 🚫`;
+
+                const imagePath = path.join(__dirname, 'media', 'hamza.jpg');
+                let messageContent = { text: warningMsg };
+
+                if (fs.existsSync(imagePath)) {
+                    messageContent = {
+                        image: { url: imagePath },
+                        caption: warningMsg,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: "Hamza Amirni - Services",
+                                body: "Bot Development & Web Solutions",
+                                thumbnail: fs.readFileSync(imagePath),
+                                sourceUrl: config.portfolio,
+                                mediaType: 1,
+                                renderLargerThumbnail: true
+                            }
+                        }
+                    };
+                }
+
+                await sock.sendMessage(call.from, messageContent);
+
+                // 3. Block User
+                await sock.updateBlockStatus(call.from, "block");
+                console.log(chalk.red(`📵 Anti-Call: Blocked ${call.from.split('@')[0]} for calling.`));
             }
         }
     });
