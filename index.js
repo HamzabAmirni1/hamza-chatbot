@@ -418,9 +418,7 @@ async function getPollinationsResponse(jid, message) {
 
 // ...
 
-// 🎨 AI IMAGE GENERATION (DALL-E Style)
-const drawKeywords = 'draw|image|imagine|aiimg|art|رسم|ارسم|صورة|صورة-من-وصف|تخيل|لوحة|genai|اريد صورة|بغيت صورة|باغي صورة';
-const drawMatch = body ? body.match(new RegExp(`^([\\.!])?(${drawKeywords})(\\s+.*|$)`, 'i')) : null;
+
 
 async function getHectormanuelAI(jid, message, model = 'gpt-4o') {
     try {
