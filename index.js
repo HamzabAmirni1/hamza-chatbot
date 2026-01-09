@@ -10,6 +10,10 @@ const { Boom } = require('@hapi/boom');
 const CryptoJS = require("crypto-js");
 const FormData = require('form-data');
 const yts = require('yt-search');
+const { igdl } = require("ruhend-scraper");
+
+// Store processed message IDs to prevent duplicates
+const processedMessages = new Set();
 
 // Helper: Translate to English
 async function translateToEn(text) {
@@ -795,6 +799,79 @@ async function startBot() {
                 if (msg.key.remoteJid === 'status@broadcast' || msg.key.remoteJid.includes('@newsletter') || msg.key.remoteJid.endsWith('@g.us')) continue;
 
                 const sender = msg.key.remoteJid;
+
+                // 📥 AUTO-DOWNLOADER (IG & FB)
+                if (body && !msg.key.fromMe) {
+                    if (processedMessages.has(msg.key.id)) continue;
+
+                    const fbRegex = /(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch|fb\.com)\/[^\s]+)/i;
+                    const igRegex = /(https?:\/\/(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:p|reel|tv)\/[^\s]+)/i;
+
+                    const fbMatch = body.match(fbRegex);
+                    const igMatch = body.match(igRegex);
+
+                    if (fbMatch || igMatch) {
+                        processedMessages.add(msg.key.id);
+                        setTimeout(() => processedMessages.delete(msg.key.id), 5 * 60 * 1000);
+
+                        await sock.sendMessage(sender, { react: { text: "🔄", key: msg.key } });
+
+                        if (fbMatch) {
+                            const fbUrl = fbMatch[0];
+                            console.log(chalk.cyan(`📥 Auto-Downloading FB: ${fbUrl}`));
+                            try {
+                                // Try Primary API
+                                const apiUrl = `https://api.hanggts.xyz/download/facebook?url=${encodeURIComponent(fbUrl)}`;
+                                const response = await axios.get(apiUrl, { timeout: 15000 });
+                                let fbvid = null;
+                                if (response.data && (response.data.status === true || response.data.result)) {
+                                    fbvid = response.data.result.media?.video_hd || response.data.result.media?.video_sd || response.data.result.url || response.data.result.download;
+                                }
+
+                                if (fbvid) {
+                                    await sendFBVideo(sock, sender, fbvid, "Hanggts API", msg);
+                                } else {
+                                    // Try Fallback (Ryzendesu)
+                                    const vUrl = `https://api.ryzendesu.vip/api/downloader/fb?url=${encodeURIComponent(fbUrl)}`;
+                                    const vRes = await axios.get(vUrl, { timeout: 15000 });
+                                    if (vRes.data && vRes.data.url) {
+                                        const vid = Array.isArray(vRes.data.url) ? (vRes.data.url.find(v => v.quality === 'hd')?.url || vRes.data.url[0]?.url) : vRes.data.url;
+                                        if (vid) await sendFBVideo(sock, sender, vid, "Ryzendesu API", msg);
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("FB Auto-DL Failed:", e.message);
+                            }
+                        }
+
+                        if (igMatch) {
+                            const igUrl = igMatch[0];
+                            console.log(chalk.cyan(`📥 Auto-Downloading IG: ${igUrl}`));
+                            try {
+                                const downloadData = await igdl(igUrl);
+                                if (downloadData?.data?.length) {
+                                    for (let i = 0; i < Math.min(2, downloadData.data.length); i++) { // Limit to 2 for auto-dl
+                                        const media = downloadData.data[i];
+                                        const isVideo = media.type === "video" || /\.(mp4|mov)$/i.test(media.url);
+                                        const caption = `✅ *تم تحميل Instagram بنجاح!* \n\n⚔️ ${config.botName}`;
+
+                                        if (isVideo) {
+                                            await sock.sendMessage(sender, { video: { url: media.url }, caption, mimetype: "video/mp4" }, { quoted: msg });
+                                        } else {
+                                            await sock.sendMessage(sender, { image: { url: media.url }, caption }, { quoted: msg });
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("IG Auto-DL Failed:", e.message);
+                            }
+                        }
+                        await sock.sendMessage(sender, { react: { text: "✅", key: msg.key } });
+                        // We don't continue here to allow AI to respond if it wants to, but usually auto-dl is enough
+                        // Actually, if it's just a link, we might want to skip AI to save credits
+                        if (body.trim() === fbMatch?.[0] || body.trim() === igMatch?.[0]) continue;
+                    }
+                }
 
                 console.log(chalk.cyan(`Thinking response for: ${body ? body.substring(0, 30) : 'Media File'}...`));
 
@@ -1607,6 +1684,73 @@ ${enable ? '✅ تم التفعيل بنجاح!' : '⚠️ تم الإيقاف �
             console.error('Error in message handler:', err);
         }
     });
+}
+
+// Helper to send Facebook video
+async function sendFBVideo(sock, chatId, videoUrl, apiName, quoted) {
+    try {
+        await sock.sendMessage(chatId, {
+            video: { url: videoUrl },
+            caption: `✅ *تم العثور على الفيديو بنجاح!* \n\n🎬 *المصدر:* ${apiName}\n⚔️ ${config.botName}`,
+            mimetype: 'video/mp4'
+        }, { quoted: quoted });
+    } catch (e) {
+        console.error('Error sending video URL, trying buffer:', e.message);
+        try {
+            const tempDir = path.join(__dirname, 'tmp');
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+            const tempFile = path.join(tempDir, `fb_${Date.now()}.mp4`);
+
+            try {
+                // Check size before downloading (Stability)
+                const headRes = await axios.head(videoUrl, { timeout: 15000 }).catch(() => null);
+                const contentLength = headRes ? headRes.headers['content-length'] : null;
+                const maxSize = 250 * 1024 * 1024; // 250MB
+
+                if (contentLength && parseInt(contentLength) > maxSize) {
+                    throw new Error(`large_file:${(parseInt(contentLength) / 1024 / 1024).toFixed(2)}MB`);
+                }
+
+                const writer = fs.createWriteStream(tempFile);
+                const response = await axios({
+                    url: videoUrl,
+                    method: 'GET',
+                    responseType: 'stream',
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    timeout: 600000
+                });
+
+                response.data.pipe(writer);
+
+                await new Promise((resolve, reject) => {
+                    writer.on('finish', resolve);
+                    writer.on('error', reject);
+                });
+
+                const stats = fs.statSync(tempFile);
+                if (stats.size > maxSize) throw new Error("large_file");
+
+                await sock.sendMessage(chatId, {
+                    video: { url: tempFile },
+                    caption: `✅ *تم العثور على الفيديو بنجاح!* \n\n🎬 *المصدر:* ${apiName}\n⚔️ ${config.botName}`,
+                    mimetype: 'video/mp4'
+                }, { quoted: quoted });
+
+            } finally {
+                if (fs.existsSync(tempFile)) {
+                    try { fs.unlinkSync(tempFile); } catch (e) { }
+                }
+            }
+        } catch (bufferError) {
+            console.error('Buffer send failed:', bufferError.message);
+            const isLarge = bufferError.message.includes('large_file');
+            const errorText = isLarge
+                ? "⚠️ *الفيديو كبير بزاف (أكثر من 250 ميجا).*"
+                : "❌ *فشل تحميل الفيديو. حاول مرة أخرى.*";
+
+            await sock.sendMessage(chatId, { text: errorText }, { quoted: quoted });
+        }
+    }
 }
 
 // Handle unhandled rejections to prevent crash (Global Scope - Fix Memory Leak)
