@@ -17,7 +17,8 @@
         "crypto-js": "^4.1.1",
         "yt-search": "^2.11.0",
         "ruhend-scraper": "^9.0.8",
-        "cheerio": "^1.0.0-rc.12"
+        "cheerio": "^1.0.0-rc.12",
+        "moment-timezone": "^0.5.43"
     },
     "engines": {
         "node": ">=18.0.0"
