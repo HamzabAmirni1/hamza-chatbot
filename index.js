@@ -408,10 +408,10 @@ async function getLuminAIResponse(jid, message) {
         const { data } = await axios.post("https://luminai.my.id/", {
             content: message,
             user: jid
-        }, { timeout: 15000 }); // Reduced to 15s
+        }, { timeout: 12000 }); // Fast 12s timeout
         return data.result || null;
     } catch (error) {
-        console.error(chalk.yellow("LuminAI timed out or failed."));
+        // console.error(chalk.yellow("LuminAI timed out or failed."));
         return null;
     }
 }
@@ -429,18 +429,25 @@ async function getAIDEVResponse(jid, message) {
 async function getPollinationsResponse(jid, message) {
     try {
         const context = getContext(jid);
-        // Limit history to 3 messages to avoid context overflow
-        let historyText = context.messages.slice(-3).map(m => `${m.role}: ${m.content}`).join("\n");
-        const prompt = `You are ${config.botName}, developed by ${config.botOwner}. Respond in Darija/Arabic. History:\n${historyText}\n\nQuery: ${message}`;
+        const messages = [
+            { role: "system", content: systemPromptText },
+            ...context.messages.slice(-5).map(m => ({ role: m.role, content: m.content })),
+            { role: "user", content: message }
+        ];
 
-        // Use POST to avoid URL length limits
-        const { data } = await axios.post('https://text.pollinations.ai/', prompt, {
-            headers: { 'Content-Type': 'text/plain' },
+        const { data } = await axios.post('https://text.pollinations.ai/openai', {
+            messages: messages,
+            model: 'openai', // Stable default
+            seed: Math.floor(Math.random() * 1000000)
+        }, {
+            headers: { 'Content-Type': 'application/json' },
             timeout: 15000
         });
-        return typeof data === 'string' ? data : JSON.stringify(data);
+
+        const reply = data.choices?.[0]?.message?.content;
+        return reply || (typeof data === 'string' ? data : null);
     } catch (error) {
-        console.error(chalk.yellow("Pollinations (POST) failed:"), error.message);
+        // console.error(chalk.yellow("Pollinations failed:"), error.message);
         return null;
     }
 }
@@ -451,7 +458,7 @@ async function getPollinationsResponse(jid, message) {
 
 async function getHectormanuelAI(jid, message, model = 'gpt-4o') {
     try {
-        const { data } = await axios.get(`https://all-in-1-ais.officialhectormanuel.workers.dev/?query=${encodeURIComponent(message)}&model=${model}`, { timeout: 8000 }); // Reduced to 8s
+        const { data } = await axios.get(`https://all-in-1-ais.officialhectormanuel.workers.dev/?query=${encodeURIComponent(message)}&model=${model}`, { timeout: 12000 }); // Increased to 12s
         if (data && data.success && data.message?.content) {
             return data.message.content;
         }
@@ -530,10 +537,10 @@ async function getOpenRouterResponse(jid, text, imageBuffer = null) {
                 headers: {
                     "Authorization": `Bearer ${config.openRouterKey}`,
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "https://github.com/HamzabAmirni1/hamza-chatbot",
+                    "HTTP-Referer": "https://hamzaamirni.netlify.app",
                     "X-Title": "Hamza Chatbot"
                 },
-                timeout: 30000
+                timeout: 20000
             });
 
             const reply = response.data?.choices?.[0]?.message?.content;
