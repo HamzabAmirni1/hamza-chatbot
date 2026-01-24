@@ -397,45 +397,82 @@ function getUptime() {
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-// Simple Keep-Alive Server for Koyeb
-app.get("/", (req, res) =>
-  res.send(`Bot ${config.botName} is Running! 🚀\nUptime: ${getUptime()}`),
-);
+// 🚀 Enhanced Keep-Alive Server for Koyeb (Prevents Sleep Mode)
+app.get("/", (req, res) => {
+  const status = {
+    bot: config.botName,
+    status: "running",
+    uptime: getUptime(),
+    timestamp: new Date().toISOString(),
+    memory: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+    version: config.version,
+  };
+  res.json(status);
+});
+
+// Health check endpoint for monitoring services
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy", uptime: getUptime() });
+});
+
+// Ping endpoint (lightweight)
+app.get("/ping", (req, res) => {
+  res.status(200).send("pong");
+});
+
 app.listen(port, "0.0.0.0", () => {
-  console.log(chalk.green(`Server listening on port ${port} (0.0.0.0)`));
+  console.log(chalk.green(`✅ Server listening on port ${port} (0.0.0.0)`));
   console.log(
     chalk.cyan(
-      `Keep-Alive System: Active | Target: ${config.publicUrl || "Not Set (Check config.js)"}`,
+      `🌐 Keep-Alive: ${config.publicUrl || "⚠️ Not Set - Add URL in config.js"}`,
     ),
   );
 
-  setInterval(
-    () => {
-      // Internal Ping (Keeps the process active if it's running)
-      axios.get(`http://127.0.0.1:${port}`).catch(() => {});
+  // 🔄 Self-Ping System (Prevents Koyeb Sleep)
+  const pingInterval = setInterval(() => {
+    // 1. Internal Health Check
+    axios
+      .get(`http://127.0.0.1:${port}/health`)
+      .then(() => {
+        console.log(chalk.gray("💓 Internal health check: OK"));
+      })
+      .catch((err) => {
+        console.error(chalk.red(`❌ Internal health check failed: ${err.message}`));
+        // Auto-restart if internal server is down
+        console.log(chalk.yellow("🔄 Attempting auto-restart..."));
+        clearInterval(pingInterval);
+        process.exit(1);
+      });
 
-      // External Ping (Prevents platform from sleeping due to inactivity)
-      if (config.publicUrl) {
-        axios
-          .get(config.publicUrl)
-          .then((res) => {
-            if (res.status === 200) {
-              console.log(
-                chalk.blue(`🌐 Keep-Alive Success: Pinged ${config.publicUrl}`),
-              );
-            }
-          })
-          .catch((err) => {
-            console.error(
-              chalk.yellow(
-                `🌐 Keep-Alive Failed: ${err.message} (Is the URL correct?)`,
-              ),
+    // 2. External Ping (Critical for Koyeb)
+    if (config.publicUrl) {
+      axios
+        .get(config.publicUrl, { timeout: 10000 })
+        .then((res) => {
+          if (res.status === 200) {
+            console.log(
+              chalk.blue(`🌐 Keep-Alive: Successfully pinged ${config.publicUrl}`),
             );
-          });
-      }
-    },
-    2 * 60 * 1000,
-  ); // 2 minutes
+          }
+        })
+        .catch((err) => {
+          console.error(
+            chalk.yellow(`⚠️ External ping failed: ${err.message}`),
+          );
+        });
+    } else {
+      console.log(
+        chalk.yellow(
+          "⚠️ No publicUrl set! Use .seturl command or set PUBLIC_URL env variable.",
+        ),
+      );
+    }
+  }, 2 * 60 * 1000); // Every 2 minutes
+
+  // 🌍 External Keep-Alive Services (Recommended)
+  console.log(chalk.cyan("\n📌 Recommended: Setup UptimeRobot or Cron-job.org"));
+  console.log(chalk.cyan("   URL to monitor: " + (config.publicUrl || "Set publicUrl first")));
+  console.log(chalk.cyan("   Interval: 5 minutes\n"));
 });
 
 const systemPromptText = `You are ${config.botName}, a sophisticated AI assistant created and developed by **Hamza Amirni** (حمزة اعمرني). 
