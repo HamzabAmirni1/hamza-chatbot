@@ -41,6 +41,59 @@ async function translateToEn(text) {
   }
 }
 
+const AXIOS_DEFAULTS = {
+    timeout: 60000,
+    headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
+    }
+};
+
+async function tryRequest(getter, attempts = 3) {
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            return await getter();
+        } catch (err) {
+            lastError = err;
+            if (attempt < attempts) {
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
+    }
+    throw lastError;
+}
+
+async function getYupraVideoByUrl(youtubeUrl) {
+    try {
+        const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
+        const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
+        if (res?.data?.success && res?.data?.data?.download_url) {
+            return {
+                download: res.data.data.download_url,
+                title: res.data.data.title,
+                thumbnail: res.data.data.thumbnail
+            };
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function getOkatsuVideoByUrl(youtubeUrl) {
+    try {
+        const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
+        const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
+        if (res?.data?.result?.mp4) {
+            return { download: res.data.result.mp4, title: res.data.result.title };
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
 const AES_KEY = "ai-enhancer-web__aes-key";
 const AES_IV = "aienhancer-aesiv";
 
@@ -1507,7 +1560,7 @@ async function startBot() {
                     throw new Error("No download URL found in primary API");
                   }
                 } else {
-                  // Try fallback
+                  // Try Fallback 1 (Vreden)
                   const vredenUrl = `https://api.vreden.my.id/api/ytmp4?url=${encodeURIComponent(ytUrl)}`;
                   const vResponse = await axios.get(vredenUrl, {
                     timeout: 30000,
@@ -1520,6 +1573,30 @@ async function startBot() {
                       vResponse.data.result.title,
                       msg,
                     );
+                  } else {
+                    // Try Fallback 2 (Yupra)
+                    const yupra = await getYupraVideoByUrl(ytUrl);
+                    if (yupra) {
+                      await sendYTVideo(
+                        sock,
+                        sender,
+                        yupra.download,
+                        yupra.title,
+                        msg,
+                      );
+                    } else {
+                      // Try Fallback 3 (Okatsu)
+                      const okatsu = await getOkatsuVideoByUrl(ytUrl);
+                      if (okatsu) {
+                        await sendYTVideo(
+                          sock,
+                          sender,
+                          okatsu.download,
+                          okatsu.title,
+                          msg,
+                        );
+                      }
+                    }
                   }
                 }
               } catch (e) {
@@ -2855,6 +2932,23 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
               videoTitle = searchRes.videos[0].title;
               thumbnail = searchRes.videos[0].thumbnail;
             }
+            videoUrl = videoUrl.trim();
+
+            // Send preview immediately for better responsiveness
+            if (thumbnail || videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/)) {
+              const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
+              const thumb = thumbnail || (ytId ? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg` : undefined);
+              if (thumb) {
+                await sock.sendMessage(
+                  sender,
+                  {
+                    image: { url: thumb },
+                    caption: `🎬 *جاري التنزيل...*\n\n📌 *${videoTitle}*`,
+                  },
+                  { quoted: msg },
+                );
+              }
+            }
 
             // Download using API
             let downloadUrl = null;
@@ -2876,7 +2970,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
               console.log("Primary API failed, trying fallback...");
             }
 
-            // Fallback API
+            // Fallback API 1 (Vreden)
             if (!downloadUrl) {
               try {
                 const vredenUrl = `https://api.vreden.my.id/api/ytmp4?url=${encodeURIComponent(videoUrl)}`;
@@ -2888,7 +2982,26 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
                   videoTitle = vResponse.data.result.title || videoTitle;
                 }
               } catch (ve) {
-                console.log("Fallback also failed");
+                console.log("Fallback 1 failed");
+              }
+            }
+
+            // Fallback API 2 (Yupra)
+            if (!downloadUrl) {
+              const yupra = await getYupraVideoByUrl(videoUrl);
+              if (yupra) {
+                downloadUrl = yupra.download;
+                videoTitle = yupra.title || videoTitle;
+                thumbnail = yupra.thumbnail || thumbnail;
+              }
+            }
+
+            // Fallback API 3 (Okatsu)
+            if (!downloadUrl) {
+              const okatsu = await getOkatsuVideoByUrl(videoUrl);
+              if (okatsu) {
+                downloadUrl = okatsu.download;
+                videoTitle = okatsu.title || videoTitle;
               }
             }
 
@@ -2907,18 +3020,6 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             try {
               await sock.sendMessage(sender, { delete: dlMsg.key });
             } catch (e) {}
-
-            // Send preview
-            if (thumbnail) {
-              await sock.sendMessage(
-                sender,
-                {
-                  image: { url: thumbnail },
-                  caption: `🎬 *جاري الإرسال...*\n\n📌 *${videoTitle}*`,
-                },
-                { quoted: msg },
-              );
-            }
 
             // Send video
             await sock.sendMessage(
