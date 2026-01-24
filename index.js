@@ -399,6 +399,25 @@ function getUptime() {
 
 // 🚀 Enhanced Keep-Alive Server for Koyeb (Prevents Sleep Mode)
 app.get("/", (req, res) => {
+  // ⚡ Auto-detect Public URL from incoming request
+  const protocol = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers.host;
+  if (host && !host.includes("127.0.0.1") && !host.includes("localhost")) {
+    const detectedUrl = `${protocol}://${host}`;
+    if (!config.publicUrl || config.publicUrl.includes("available-karena")) {
+      config.publicUrl = detectedUrl;
+      console.log(
+        chalk.green(`✨ Auto-Detected Public URL: ${config.publicUrl}`),
+      );
+      try {
+        fs.writeFileSync(
+          path.join(__dirname, "server_url.json"),
+          JSON.stringify({ url: detectedUrl }),
+        );
+      } catch (e) {}
+    }
+  }
+
   const status = {
     bot: config.botName,
     status: "running",
@@ -406,6 +425,7 @@ app.get("/", (req, res) => {
     timestamp: new Date().toISOString(),
     memory: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
     version: config.version,
+    publicUrl: config.publicUrl,
   };
   res.json(status);
 });
