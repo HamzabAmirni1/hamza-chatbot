@@ -3248,6 +3248,30 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             ),
           );
 
+          // 📝 QUOTED MESSAGE CONTEXT: Extract quoted message if user replied to a message
+          let quotedText = "";
+          if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+            const quotedMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage;
+            const quotedType = Object.keys(quotedMsg)[0];
+            
+            // Extract text from quoted message
+            if (quotedType === "conversation") {
+              quotedText = quotedMsg.conversation;
+            } else if (quotedType === "extendedTextMessage") {
+              quotedText = quotedMsg.extendedTextMessage.text;
+            } else if (quotedType === "imageMessage") {
+              quotedText = quotedMsg.imageMessage.caption || "[صورة]";
+            } else if (quotedType === "videoMessage") {
+              quotedText = quotedMsg.videoMessage.caption || "[فيديو]";
+            }
+            
+            if (quotedText) {
+              console.log(chalk.cyan(`💬 Quoted message detected: "${quotedText.substring(0, 50)}..."`));
+              // Add quoted context to the user's message
+              body = `[الرسالة المقتبسة: "${quotedText}"]\n\nالرد: ${body}`;
+            }
+          }
+
           // 🧠 CONTEXTUAL VISION: If user sent an image recently (<5 min), they might be asking about it.
           const context = getContext(sender);
           const lastImg = context.lastImage;
