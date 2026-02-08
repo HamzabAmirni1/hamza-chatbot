@@ -81,10 +81,10 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                         })
                     },
                     {
-                        "name": "cta_url",
+                        "name": "quick_reply",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Contact Owner",
-                            url: `https://wa.me/${settings.ownerNumber[0]}`
+                            display_text: "Contact Owner 👤",
+                            id: ".owner"
                         })
                     }
                 ]
