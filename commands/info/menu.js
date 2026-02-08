@@ -32,17 +32,12 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 .play | .video | .fb | .ig | .ytmp4
 
 � *ISLAMIC*
+ *ISLAMIC*
 .quran | .ad3iya | .ayah | .tafsir
 
 🛠️ *UTILITY*
 .ping | .weather | .tempnum | .sticker
 ━━━━━━━━━━━━━━━━
-
-� *MY SOCIALS:*
-� *IG:* ${settings.instagram}
-� *FB:* ${settings.facebook}
-� *YT:* ${settings.youtube}
-✈️ *TG:* ${settings.telegram}
 `;
 
     const cards = [
