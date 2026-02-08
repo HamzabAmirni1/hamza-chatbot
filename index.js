@@ -336,7 +336,7 @@ async function startBot() {
             "credits": "tools/credits", "quota": "tools/credits", "status": "tools/ping",
             "menu": "info/menu", "help": "info/menu", "قائمة": "info/menu",
             "tg": "info/socials", "telegram": "info/socials", "yt": "info/socials", "youtube": "info/socials",
-            "channel": "info/socials", "web": "info/socials", "portfolio": "info/socials", "owner": "info/socials",
+            "channel": "info/socials", "web": "info/socials", "portfolio": "info/socials", "owner": "info/owner",
             "hamza": "info/socials", "developer": "info/socials", "social": "info/socials", "socials": "info/socials",
             "links": "info/socials", "about": "info/socials", "info": "info/socials",
             "draw": "image/draw", "imagine": "image/draw", "صورة": "image/draw", "رسم": "image/draw",
