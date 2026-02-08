@@ -24,19 +24,12 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         const audioUrl = `${serverUrl}${surahId}.mp3`;
         const surahName = surahId; // Could map ID to name if we had the list handy, but ID is sufficient for now
 
+        // Send as document for better compatibility with long audio files
         await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
+            document: { url: audioUrl },
             mimetype: 'audio/mpeg',
-            fileName: `${surahName}.mp3`,
-            contextInfo: {
-                externalAdReply: {
-                    title: `سورة ${surahId}`,
-                    body: reciterData.name,
-                    thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
-                    mediaType: 1,
-                    sourceUrl: "https://mp3quran.net/ar"
-                }
-            }
+            fileName: `سورة_${surahId}_${reciterData.name}.mp3`,
+            caption: `🎧 *سورة ${surahId}*\n📖 القارئ: ${reciterData.name}\n\n✅ تم التحميل بنجاح`
         }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
