@@ -39,7 +39,7 @@ const settings = {
                 return JSON.parse(fs.readFileSync(urlPath)).url;
             }
         } catch (e) { }
-        return process.env.PUBLIC_URL || 'https://available-karena-ham9666-ef9efb5f.koyeb.app';
+        return process.env.PUBLIC_URL || 'https://rolling-cherianne-ham9666-c0fa34e1.koyeb.app';
     })(),
 
     AUTO_STATUS_REACT: 'true',
