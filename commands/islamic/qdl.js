@@ -24,12 +24,22 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         const serverUrl = reciterData.moshaf[0].server;
         const audioUrl = `${serverUrl}${surahId}.mp3`;
 
-        // Send as document for better compatibility
+        // Send as audio (like music) with external metadata
         await sock.sendMessage(chatId, {
-            document: { url: audioUrl },
+            audio: { url: audioUrl },
             mimetype: 'audio/mpeg',
-            fileName: `سورة_${surahId}_${reciterData.name}.mp3`,
-            caption: `🎧 *سورة ${surahId}*\n📖 القارئ: ${reciterData.name}\n\n✅ تم التحميل بنجاح\n\n💡 قم بتحميل الملف للاستماع`
+            ptt: false, // Send as music file
+            fileName: `${reciterData.name}_${surahId}.mp3`,
+            contextInfo: {
+                externalAdReply: {
+                    title: `سورة رقم ${surahId}`,
+                    body: `القارئ: ${reciterData.name}`,
+                    thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
+                    mediaType: 1,
+                    renderLargerThumbnail: true,
+                    sourceUrl: "https://mp3quran.net/ar"
+                }
+            }
         }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
