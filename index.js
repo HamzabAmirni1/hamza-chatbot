@@ -27,10 +27,11 @@ const { igdl } = require("ruhend-scraper");
 const cheerio = require("cheerio");
 const moment = require("moment-timezone");
 const { getSurahNumber } = require("./lib/quranUtils");
+const { loadDuasData, saveDuasData, getRandomDua, quranSessions } = require("./lib/islamic");
+const { sendWithChannelButton } = require("./commands/lib/utils");
 
 // Store processed message IDs to prevent duplicates
 const processedMessages = new Set();
-const quranSessions = {};
 
 // Helper: Translate to English
 async function translateToEn(text) {
@@ -373,23 +374,6 @@ function writeAntiCallState(enabled) {
   } catch { }
 }
 
-async function sendWithChannelButton(sock, jid, text, quoted) {
-  const imagePath = path.join(__dirname, "media", "hamza.jpg");
-  let contextInfo = {};
-  if (fs.existsSync(imagePath)) {
-    contextInfo = {
-      externalAdReply: {
-        title: "Hamza Amirni Info",
-        body: "Developed by Hamza Amirni",
-        thumbnail: fs.readFileSync(imagePath),
-        sourceUrl: config.officialChannel,
-        mediaType: 1,
-        renderLargerThumbnail: true,
-      },
-    };
-  }
-  await sock.sendMessage(jid, { text, contextInfo }, { quoted });
-}
 
 const sessionDir = path.join(__dirname, "session");
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
@@ -988,131 +972,6 @@ async function getObitoAnalyze(
   }
 }
 
-// --- AD3IYA (DUAS) FEATURE ---
-const DUAS_PATH = path.join(__dirname, "data", "duas-subscribers.json");
-
-function loadDuasData() {
-  try {
-    if (!fs.existsSync(DUAS_PATH)) {
-      if (!fs.existsSync(path.dirname(DUAS_PATH)))
-        fs.mkdirSync(path.dirname(DUAS_PATH), { recursive: true });
-      fs.writeFileSync(
-        DUAS_PATH,
-        JSON.stringify({ subscribers: [], enabled: true }, null, 2),
-      );
-      return { subscribers: [], enabled: true };
-    }
-    const data = JSON.parse(fs.readFileSync(DUAS_PATH, "utf8") || "{}");
-    return {
-      subscribers: Array.isArray(data.subscribers) ? data.subscribers : [],
-      enabled: data.enabled !== undefined ? data.enabled : true,
-    };
-  } catch {
-    return { subscribers: [], enabled: true };
-  }
-}
-
-function saveDuasData(data) {
-  try {
-    fs.writeFileSync(DUAS_PATH, JSON.stringify(data, null, 2));
-  } catch { }
-}
-
-const islamicDuas = [
-  {
-    title: "دعاء الصباح",
-    dua: "اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ النُّشُورُ. اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذَا الْيَوْمِ فَتْحَهُ، وَنَصْرَهُ، وَنُورَهُ، وَبَرَكَتَهُ، وَهُدَاهُ، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِيهِ وَشَرِّ مَا بَعْدَهُ.",
-    category: "صباح",
-  },
-  {
-    title: "دعاء المساء",
-    dua: "اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ الْمَصِيرُ. أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوه عَلَى كُلِّ شَيْءٍ قَدِيرٌ.",
-    category: "مساء",
-  },
-  {
-    title: "دعاء الرزق",
-    dua: "اللَّهُمَّ اكْفِنِي بِحَلَالِكَ عَنْ حَرَامِكَ، وَأَغْنِنِي بِفَضْلِكَ عَمَّنْ سِوَاكَ. اللَّهُمَّ إِنِّي أَسْأَلُكَ رِزْقًا وَاسِعًا طَيِّبًا مِنْ رِزْقِكَ، وَيَسِّرْ لِي طَلَبَهُ، وَاجْعَلْهُ لِي مَصْدَرَ خَيْرٍ وَبَرَكَةٍ.",
-    category: "رزق",
-  },
-  {
-    title: "سيد الاستغفار",
-    dua: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ.",
-    category: "استغفار",
-  },
-  {
-    title: "دعاء الشفاء",
-    dua: "اللَّهُمَّ رَبَّ النَّاسِ أَذْهِبِ الْبَاسَ، اشْفِهِ وَأَنْتَ الشَّافِي، لَا شِفَاءَ إِلَّا شِفاؤُكَ، شِفَاءً لَا يُغَادِرُ سَقَمًا.",
-    category: "شفاء",
-  },
-  {
-    title: "دعاء جامع",
-    dua: "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ.",
-    category: "جامع",
-  },
-  {
-    title: "دعاء الهداية",
-    dua: "اللهم إني أسألك الهدى والتقى والعفاف والغنى، اللهم آتِ نفسي تقواها وزكها أنت خير من زكاها أنت وليها ومولاها.",
-    category: "هداية",
-  },
-  {
-    title: "دعاء تيسير الأمور",
-    dua: "اللهم لا سهل إلا ما جعلته سهلاً، وأنت تجعل الحزن إذا شئت سهلاً، اللهم يسّر لي أمري واشرح لي صدري.",
-    category: "تيسير",
-  },
-  {
-    title: "دعاء يوم الجمعة",
-    dua: "اللَّهُمَّ فِي يَوْمِ الْجُمُعَةِ، اجْعَلْنَا مِمَّنْ عَفَوْتَ عَنْهُمْ، وَرَضِيتَ عَنْهُمْ، وَغَفَرْتَ لَهُمْ، وَحَرَّمْتَهُمْ عَلَى النَّارِ، وَكَتَبْتَ لَهُمُ الْجَنَّةَ.",
-    category: "جمعة",
-  },
-  {
-    title: "ساعة الاستجابة يوم الجمعة",
-    dua: "اللَّهُمَّ مَا قَسَمْتَ فِي هَذَا الْيَوْمِ مِنْ خَيْرٍ وَصِحَّةٍ وَسَعَةِ رِزْقٍ فَاجْعَلْ لَنَا مِنْهُ نَصِيبًا، وَما أَنْزَلْتَ فِيهِ مِنْ شَرٍّ وَبَلَاءٍ وَفِتْنَةٍ فَاصْرِفْهُ عَنَّا وَعَنْ جَمِيعِ الْمُسْلِمِينَ.",
-    category: "جمعة",
-  },
-  {
-    title: "نور الجمعة",
-    dua: "اللَّهُمَّ نَوِّرْ قُلُوبَنَا بِالْإِيمَانِ، وَزَيِّنْ أَيَّامَنَا بِالسَّعَادَةِ، وَاجْععلْ يَوْمَ الْجُمُعَةِ نُورًا لَنَا وَمَغْفِرَةً.",
-    category: "جمعة",
-  },
-  {
-    title: "استجابة الجمعة",
-    dua: "يا رب في يوم الجمعة وعدت عبادك بقبول دعواتهم، اللهم ارحم موتانا، واشف مرضانا، واستجب لدعائنا، واغفر لنا ذنوبنا.",
-    category: "جمعة",
-  },
-  {
-    title: "دعاء النوم",
-    dua: "بِاسمِكَ رَبِّي وَضَعْتُ جَنْبِي، وَبِكَ أَرْفَعُهُ، فَإِنْ أَمْسَكْتَ نَفْسِي فَارْحَمْهَا، وَإِنْ أَرْسَلْتَهَا فَاحْفَظْهَا بِمَا تَحْفَظُ بِهِ عِبَادَكَ الصَّالِحِينَ.",
-    category: "نوم",
-  },
-  {
-    title: "أذكار النوم",
-    dua: "اللَّهُمَّ قِنِي عَذَابَكَ يَوْمَ تَبْعَثُ عِبَادَكَ. (ثلاث مرات)",
-    category: "نوم",
-  },
-  {
-    title: "قبل النوم",
-    dua: "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا.",
-    category: "نوم",
-  },
-  {
-    title: "دعاء السكينة",
-    dua: "اللهم رب السماوات ورب الأرض ورب العرش العظيم، ربنا ورب كل شيء، فالق الحب والنوى، ومنزل التوراة والإنجيل والفرقان، أعوذ بك من شر كل شيء أنت آخذ بناصيته.",
-    category: "نوم",
-  },
-];
-
-function getRandomDua(category = null) {
-  let filtered = islamicDuas;
-  if (category) {
-    filtered = islamicDuas.filter((d) => d.category === category);
-    if (filtered.length === 0) filtered = islamicDuas;
-  } else {
-    filtered = islamicDuas.filter(
-      (d) => d.category !== "جمعة" && d.category !== "نوم",
-    );
-  }
-  return filtered[Math.floor(Math.random() * filtered.length)];
-}
 
 const duasLastSent = {};
 
@@ -2458,306 +2317,10 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
           continue;
         }
 
-        // 📜 AD3IYA (DUAS) COMMAND
-        if (body && body.match(/^\.(ad3iya|dua|دعاء|اذكار)\s*(.*)/i)) {
-          const arg = body.split(" ")[1]?.toLowerCase();
-          const data = loadDuasData();
 
-          if (arg === "on") {
-            if (!data.subscribers.includes(sender)) {
-              data.subscribers.push(sender);
-              saveDuasData(data);
-              await sendWithChannelButton(
-                sock,
-                sender,
-                "✅ *تم تفعيل خدمة الأدعية اليومية!* \nغادي نبقا نصيفط ليك أذكار وأدعية فكل وقت.",
-                msg,
-              );
-            } else {
-              await sendWithChannelButton(
-                sock,
-                sender,
-                "✅ *الخدمة مفعّلة عندك بالفعل!*",
-                msg,
-              );
-            }
-          } else if (arg === "off") {
-            data.subscribers = data.subscribers.filter((id) => id !== sender);
-            saveDuasData(data);
-            await sendWithChannelButton(
-              sock,
-              sender,
-              "⚠️ *تم إيقاف خدمة الأدعية اليومية.*",
-              msg,
-            );
-          } else if (arg === "list") {
-            const cats = [...new Set(islamicDuas.map((d) => d.category))];
-            await sendWithChannelButton(
-              sock,
-              sender,
-              `📂 *الأقسام المتوفرة:* \n${cats.join(", ")}`,
-              msg,
-            );
-          } else {
-            const dua = getRandomDua(arg);
-            const resp = `🤲 *${dua.title}*\n\n📿 ${dua.dua}\n\n📂 *القسم:* ${dua.category}`;
-            await sendWithChannelButton(sock, sender, resp, msg);
-          }
-          continue;
-        }
 
-        // 📖 AYAH (QURAN VERSE) COMMAND
-        if (body && body.match(/^\.(ayah|آية|اية|قرآن)\s+(.+)/i)) {
-          const args = body.split(" ").slice(1);
-          if (args.length < 2) {
-            await sendWithChannelButton(
-              sock,
-              sender,
-              `📜 *البحث عن آية (Ayah)*\n\n📝 *الطريقة:* .ayah [اسم السورة] [رقم الآية]\n*مثال:* .ayah البقرة 255`,
-              msg,
-            );
-            continue;
-          }
 
-          const surah = getSurahNumber(args[0]);
-          const ayah = parseInt(args[1]);
 
-          if (!surah || isNaN(ayah)) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ تأكد من اسم السورة (مثلا: البقرة) ورقم الآية." },
-              { quoted: msg },
-            );
-            continue;
-          }
-
-          await sock.sendMessage(sender, {
-            react: { text: "📖", key: msg.key },
-          });
-          try {
-            const { data: res } = await axios.get(
-              `https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/ar.alafasy`,
-            );
-            if (res && res.status === "OK") {
-              const d = res.data;
-              const caption = `📜 *القرآن الكريم*\n\n🕋 *سورة:* ${d.surah.name}\n🔢 *آية:* ${d.numberInSurah}\n\n✨ ${d.text}\n\n⚔️ ${config.botName}`;
-              await sendWithChannelButton(sock, sender, caption, msg);
-
-              if (d.audio) {
-                await sock.sendMessage(
-                  sender,
-                  {
-                    audio: { url: d.audio },
-                    mimetype: "audio/mpeg",
-                    ptt: false,
-                  },
-                  { quoted: msg },
-                );
-              }
-            } else {
-              await sock.sendMessage(
-                sender,
-                { text: "❌ ما لقيتش هاد الآية." },
-                { quoted: msg },
-              );
-            }
-          } catch (e) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ خطأ فجلب الآية. جرب من بعد." },
-              { quoted: msg },
-            );
-          }
-          continue;
-        }
-
-        // 🕋 QURAN (FULL SURAH) COMMAND
-        if (body && body.match(/^\.(quran|سورة)\s+(.+)/i)) {
-          const arg = body.split(" ").slice(1).join(" ").trim();
-          const surahNumber = getSurahNumber(arg);
-
-          if (!surahNumber || surahNumber < 1 || surahNumber > 114) {
-            await sendWithChannelButton(
-              sock,
-              sender,
-              `🕋 *قراءة سورة كاملة*\n\n📝 *الطريقة:* .quran [اسم السورة]\n*مثال:* .quran الكهف`,
-              msg,
-            );
-            continue;
-          }
-
-          await sock.sendMessage(sender, {
-            react: { text: "🕋", key: msg.key },
-          });
-          try {
-            const { data: res } = await axios.get(
-              `https://api.alquran.cloud/v1/surah/${surahNumber}`,
-            );
-            if (res && res.status === "OK") {
-              const surah = res.data;
-              const ayahs = surah.ayahs || [];
-              const ayahsPerPage = 30;
-              const max = Math.min(ayahs.length, ayahsPerPage);
-
-              let textParts = [
-                `📜 *سورة ${surah.name}* (${surah.englishName})\n🔢 *عدد الآيات:* ${ayahs.length}\n━━━━━━━━━━━━━━━━━━━━\n`,
-              ];
-              for (let i = 0; i < max; i++) {
-                textParts.push(`${ayahs[i].numberInSurah}. ${ayahs[i].text}`);
-              }
-
-              if (ayahs.length > max) {
-                textParts.push(
-                  `\n━━━━━━━━━━━━━━━━━━━━\n⚠️ *باقي الآيات مخفية لطول السورة.*\n💡 اكتب *.continue* لمتابعة القراءة.`,
-                );
-                quranSessions[sender] = {
-                  surahNumber,
-                  name: surah.name,
-                  lastIndex: max,
-                  totalAyahs: ayahs.length,
-                };
-              }
-
-              textParts.push(
-                `\n━━━━━━━━━━━━━━━━━━━━\n🎧 *جاري إرسال التلاوة بصوت العفاسي...*`,
-              );
-              await sendWithChannelButton(
-                sock,
-                sender,
-                textParts.join("\n"),
-                msg,
-              );
-
-              const audioUrl = `https://cdn.islamic.network/quran/audio-surah/128/ar.alafasy/${surahNumber}.mp3`;
-              await sock.sendMessage(
-                sender,
-                {
-                  audio: { url: audioUrl },
-                  mimetype: "audio/mpeg",
-                  ptt: false,
-                },
-                { quoted: msg },
-              );
-            }
-          } catch (e) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ خطأ فجلب السورة." },
-              { quoted: msg },
-            );
-          }
-          continue;
-        }
-
-        // 📑 CONTINUE READING COMMAND
-        if (body && body.toLowerCase() === ".continue") {
-          const session = quranSessions[sender];
-          if (!session) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ ما عندك حتى جلسة قراءة مفتوحة حالياً." },
-              { quoted: msg },
-            );
-            continue;
-          }
-
-          try {
-            const { data: res } = await axios.get(
-              `https://api.alquran.cloud/v1/surah/${session.surahNumber}`,
-            );
-            if (res && res.status === "OK") {
-              const ayahs = res.data.ayahs || [];
-              const start = session.lastIndex;
-              const end = Math.min(start + 30, ayahs.length);
-
-              let textParts = [
-                `📜 *تابع سورة ${session.name}* (الآية ${start + 1} إلى ${end})\n━━━━━━━━━━━━━━━━━━━━\n`,
-              ];
-              for (let i = start; i < end; i++) {
-                textParts.push(`${ayahs[i].numberInSurah}. ${ayahs[i].text}`);
-              }
-
-              if (end < ayahs.length) {
-                textParts.push(
-                  `\n━━━━━━━━━━━━━━━━━━━━\n💡 اكتب *.continue* لمتابعة القراءة.`,
-                );
-                session.lastIndex = end;
-              } else {
-                textParts.push(
-                  `\n━━━━━━━━━━━━━━━━━━━━\n✅ *تمت السورة بحمد الله.*`,
-                );
-                delete quranSessions[sender];
-              }
-
-              await sendWithChannelButton(
-                sock,
-                sender,
-                textParts.join("\n"),
-                msg,
-              );
-            }
-          } catch (e) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ خطأ فالمتابعة." },
-              { quoted: msg },
-            );
-          }
-          continue;
-        }
-
-        // 📚 TAFSIR (QURAN EXPLANATION) COMMAND
-        if (body && body.match(/^\.(tafsir|تفسير)\s+(.+)/i)) {
-          const args = body.split(" ").slice(1);
-          if (args.length < 2) {
-            await sendWithChannelButton(
-              sock,
-              sender,
-              `📖 *تفسير القرآن (Tafsir)*\n\n📝 *الطريقة:* .tafsir [اسم السورة] [رقم الآية]\n*مثال:* .tafsir الفاتحة 1\n\n⚔️ ${config.botName}`,
-              msg,
-            );
-            continue;
-          }
-
-          const surah = getSurahNumber(args[0]);
-          const ayah = parseInt(args[1]);
-
-          if (!surah || isNaN(ayah)) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ يرجى التأكد من اسم السورة (أو الرقم) ورقم الآية." },
-              { quoted: msg },
-            );
-            continue;
-          }
-
-          await sock.sendMessage(sender, {
-            react: { text: "📖", key: msg.key },
-          });
-          try {
-            const url = `https://quranenc.com/api/v1/translation/aya/arabic_moyassar/${surah}/${ayah}`;
-            const { data } = await axios.get(url);
-
-            if (data && data.result) {
-              const info = data.result;
-              const text = `📖 *تفسير الميسر*\n\n🕋 *سورة:* ${info.sura} - آية: ${info.aya}\n📜 *الآية:* ${info.arabic_text}\n\n📝 *التفسير:*\n${info.translation}\n\n⚔️ ${config.botName}`;
-              await sendWithChannelButton(sock, sender, text, msg);
-            } else {
-              await sock.sendMessage(
-                sender,
-                { text: "❌ لم يتم العثور على تفسير لهذه الآية." },
-                { quoted: msg },
-              );
-            }
-          } catch (e) {
-            await sock.sendMessage(
-              sender,
-              { text: "❌ خطأ في جلب التفسير. جرب لاحقاً." },
-              { quoted: msg },
-            );
-          }
-          continue;
-        }
 
         // 🌡️ WEATHER COMMAND
         if (body && body.match(/^\.(weather|حالة-الطقس|طقس|جو)\s*(.*)/i)) {
@@ -2813,98 +2376,55 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
           }
           continue;
         }
-        if (body && body.match(/^\.(yts|بحث-يوتيوب|chercher)\s+(.+)/i)) {
-          const searchQuery = body.split(" ").slice(1).join(" ").trim();
+        // 🚀 MODULAR COMMANDS LOADER
+        const cmdMatch = body && body.match(/^\.([a-zA-Z0-9]+)(\s+.*|$)/i);
+        if (cmdMatch) {
+          const command = cmdMatch[1].toLowerCase();
+          const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
+          const userLang = "ar"; // Default to Arabic/Darija context
 
-          if (!searchQuery) {
-            await sock.sendMessage(
-              sender,
-              {
-                text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة الصحيحة:*\n.yts [اسم الفيديو]\n\n*مثال:* .yts سورة البقرة`,
-              },
-              { quoted: msg },
-            );
-            continue;
-          }
+          const allCmds = {
+            // thmil (Downloader)
+            "yts": "thmil/yts",
+            "video": "thmil/video",
+            "vid": "thmil/video",
+            "فيديو": "thmil/video",
+            "play": "thmil/play",
+            "song": "thmil/play",
+            "أغنية": "thmil/play",
+            "fb": "thmil/fb",
+            "facebook": "thmil/fb",
+            "فيسبوك": "thmil/fb",
+            "ig": "thmil/ig",
+            "instagram": "thmil/ig",
+            "إنستغرام": "thmil/ig",
+            "tiktok": "thmil/tiktok",
+            "تيكتوك": "thmil/tiktok",
+            // islamic (Islamic Features)
+            "ad3iya": "islamic/ad3iya",
+            "dua": "islamic/ad3iya",
+            "دعاء": "islamic/ad3iya",
+            "اذكار": "islamic/ad3iya",
+            "ayah": "islamic/ayah",
+            "آية": "islamic/ayah",
+            "اية": "islamic/ayah",
+            "قرآن": "islamic/ayah",
+            "quran": "islamic/quran",
+            "سورة": "islamic/quran",
+            "continue": "islamic/continue",
+            "tafsir": "islamic/tafsir",
+            "تفسير": "islamic/tafsir"
+          };
 
-          await sock.sendMessage(sender, {
-            react: { text: "🔍", key: msg.key },
-          });
-          const waitMsg = await sock.sendMessage(
-            sender,
-            {
-              text: "🔍 *جاري البحث في يوتيوب...*",
-            },
-            { quoted: msg },
-          );
-
-          try {
-            const results = await yts(searchQuery);
-            const videos = results.videos.slice(0, 10); // Top 10 results
-
-            if (!videos || videos.length === 0) {
-              await sock.sendMessage(
-                sender,
-                { text: "❌ *ما لقيت حتى نتيجة. جرب كلمات أخرى.*" },
-                { quoted: msg },
-              );
+          if (allCmds[command]) {
+            try {
+              const cmdFile = require(`./commands/${allCmds[command]}`);
+              await cmdFile(sock, sender, msg, args, {}, userLang);
               continue;
+            } catch (err) {
+              console.error(`Error loading command ${command}:`, err);
             }
-
-            // Format results
-            let resultText = `🎬 *نتائج البحث عن:* "${searchQuery}"\n\n`;
-            const buttons = [];
-
-            videos.forEach((v, i) => {
-              resultText += `*${i + 1}.* ${v.title}\n`;
-              resultText += `   ⏱️ *المدة:* ${v.timestamp} • 👁️ *مشاهدات:* ${v.views.toLocaleString()}\n`;
-              resultText += `   🔗 ${v.url}\n\n`;
-
-              // Add top 3 videos as buttons
-              if (i < 3) {
-                buttons.push({
-                  buttonId: `.video ${v.url}`,
-                  buttonText: { displayText: `🎥 تحميل فيديو ${i + 1}` },
-                  type: 1,
-                });
-              }
-            });
-
-            try {
-              if (waitMsg)
-                await sock.sendMessage(sender, { delete: waitMsg.key });
-            } catch (e) { }
-
-            // Send as Hybrid Message (Text + Buttons)
-            await sock.sendMessage(
-              sender,
-              {
-                text: resultText,
-                footer: `⚔️ ${config.botName} • ${config.botOwner}`,
-                buttons: buttons,
-                headerType: 1,
-                viewOnce: true,
-              },
-              { quoted: msg },
-            );
-
-            await sock.sendMessage(sender, {
-              react: { text: "✅", key: msg.key },
-            });
-          } catch (error) {
-            console.error("YTS Error:", error);
-            try {
-              await sock.sendMessage(sender, { delete: waitMsg.key });
-            } catch (e) { }
-            await sock.sendMessage(
-              sender,
-              {
-                text: `❌ *خطأ في البحث:* ${error.message}`,
-              },
-              { quoted: msg },
-            );
           }
-          continue;
         }
 
         // 🏓 PING COMMAND
@@ -3005,174 +2525,6 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
           continue;
         }
 
-        // 🎥 YOUTUBE VIDEO DOWNLOAD COMMAND
-        if (body && body.match(/^\.(video|فيديو|vid)\s+(.+)/i)) {
-          const videoQuery = body.split(" ").slice(1).join(" ").trim();
-
-          if (!videoQuery) {
-            await sock.sendMessage(
-              sender,
-              {
-                text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة الصحيحة:*\n.video [رابط أو اسم]\n\n*مثال:* .video https://youtu.be/xxx`,
-              },
-              { quoted: msg },
-            );
-            continue;
-          }
-
-          await sock.sendMessage(sender, {
-            react: { text: "⏳", key: msg.key },
-          });
-          const dlMsg = await sock.sendMessage(
-            sender,
-            {
-              text: "⏳ *جاري التحميل... صبر شوية*",
-            },
-            { quoted: msg },
-          );
-
-          try {
-            let videoUrl = videoQuery;
-            let videoTitle = "video";
-            let thumbnail = "";
-
-            // If not a URL, search first
-            if (!videoQuery.match(/^https?:\/\//)) {
-              const searchRes = await yts(videoQuery);
-              if (!searchRes.videos || searchRes.videos.length === 0) {
-                await sock.sendMessage(
-                  sender,
-                  { text: "❌ *ما لقيت الفيديو*" },
-                  { quoted: msg },
-                );
-                continue;
-              }
-              videoUrl = searchRes.videos[0].url;
-              videoTitle = searchRes.videos[0].title;
-              thumbnail = searchRes.videos[0].thumbnail;
-            }
-            videoUrl = videoUrl.trim();
-
-            // Send preview immediately for better responsiveness
-            if (thumbnail || videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/)) {
-              const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
-              const thumb = thumbnail || (ytId ? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg` : undefined);
-              if (thumb) {
-                await sock.sendMessage(
-                  sender,
-                  {
-                    image: { url: thumb },
-                    caption: `🎬 *جاري التنزيل...*\n\n📌 *${videoTitle}*`,
-                  },
-                  { quoted: msg },
-                );
-              }
-            }
-
-            // Download using API
-            let downloadUrl = null;
-
-            // Try primary API
-            try {
-              const apiUrl = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(videoUrl)}`;
-              const response = await axios.get(apiUrl, { timeout: 30000 });
-
-              if (response.data && response.data.status) {
-                videoTitle = response.data.title || videoTitle;
-                thumbnail = response.data.thumbnail || thumbnail;
-                downloadUrl =
-                  response.data.videos["360"] ||
-                  response.data.videos["480"] ||
-                  Object.values(response.data.videos)[0];
-              }
-            } catch (e) {
-              console.log("Primary API failed, trying fallback...");
-            }
-
-            // Fallback API 1 (Vreden)
-            if (!downloadUrl) {
-              try {
-                const vredenUrl = `https://api.vreden.my.id/api/ytmp4?url=${encodeURIComponent(videoUrl)}`;
-                const vResponse = await axios.get(vredenUrl, {
-                  timeout: 30000,
-                });
-                if (vResponse.data && vResponse.data.status) {
-                  downloadUrl = vResponse.data.result.download;
-                  videoTitle = vResponse.data.result.title || videoTitle;
-                }
-              } catch (ve) {
-                console.log("Fallback 1 failed");
-              }
-            }
-
-            // Fallback API 2 (Yupra)
-            if (!downloadUrl) {
-              const yupra = await getYupraVideoByUrl(videoUrl);
-              if (yupra) {
-                downloadUrl = yupra.download;
-                videoTitle = yupra.title || videoTitle;
-                thumbnail = yupra.thumbnail || thumbnail;
-              }
-            }
-
-            // Fallback API 3 (Okatsu)
-            if (!downloadUrl) {
-              const okatsu = await getOkatsuVideoByUrl(videoUrl);
-              if (okatsu) {
-                downloadUrl = okatsu.download;
-                videoTitle = okatsu.title || videoTitle;
-              }
-            }
-
-            if (!downloadUrl) {
-              await sock.sendMessage(
-                sender,
-                { text: "❌ *فشل التحميل. جرب مرة أخرى*" },
-                { quoted: msg },
-              );
-              await sock.sendMessage(sender, {
-                react: { text: "❌", key: msg.key },
-              });
-              continue;
-            }
-
-            try {
-              await sock.sendMessage(sender, { delete: dlMsg.key });
-            } catch (e) { }
-
-            // Send video
-            await sock.sendMessage(
-              sender,
-              {
-                video: { url: downloadUrl },
-                mimetype: "video/mp4",
-                fileName: `${videoTitle.replace(/[^a-zA-Z0-9-_\.]/g, "_")}.mp4`,
-                caption: `✅ *تم التحميل بنجاح!*\n\n🎬 *${videoTitle}*\n\n⚔️ *${config.botName}*`,
-              },
-              { quoted: msg },
-            );
-
-            await sock.sendMessage(sender, {
-              react: { text: "✅", key: msg.key },
-            });
-          } catch (error) {
-            console.error("Video Download Error:", error);
-            try {
-              await sock.sendMessage(sender, { delete: dlMsg.key });
-            } catch (e) { }
-            await sock.sendMessage(
-              sender,
-              {
-                text: `❌ *خطأ في التحميل:* ${error.message}`,
-              },
-              { quoted: msg },
-            );
-            await sock.sendMessage(sender, {
-              react: { text: "❌", key: msg.key },
-            });
-          }
-          continue;
-        }
 
         // 📱 TEMP NUMBER COMMAND (7sim.net)
         if (body && body.toLowerCase() === ".tempnum") {
