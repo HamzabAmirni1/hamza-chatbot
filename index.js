@@ -8,6 +8,9 @@ const {
   Browsers,
   downloadMediaMessage,
   jidDecode,
+  generateWAMessageFromContent,
+  generateWAMessageContent,
+  proto,
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const fs = require("fs-extra");
@@ -42,56 +45,56 @@ async function translateToEn(text) {
 }
 
 const AXIOS_DEFAULTS = {
-    timeout: 60000,
-    headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*'
-    }
+  timeout: 60000,
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*'
+  }
 };
 
 async function tryRequest(getter, attempts = 3) {
-    let lastError;
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-        try {
-            return await getter();
-        } catch (err) {
-            lastError = err;
-            if (attempt < attempts) {
-                await new Promise(r => setTimeout(r, 1000 * attempt));
-            }
-        }
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await getter();
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
     }
-    throw lastError;
+  }
+  throw lastError;
 }
 
 async function getYupraVideoByUrl(youtubeUrl) {
-    try {
-        const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
-        const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-        if (res?.data?.success && res?.data?.data?.download_url) {
-            return {
-                download: res.data.data.download_url,
-                title: res.data.data.title,
-                thumbnail: res.data.data.thumbnail
-            };
-        }
-        return null;
-    } catch (e) {
-        return null;
+  try {
+    const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
+    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
+    if (res?.data?.success && res?.data?.data?.download_url) {
+      return {
+        download: res.data.data.download_url,
+        title: res.data.data.title,
+        thumbnail: res.data.data.thumbnail
+      };
     }
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function getOkatsuVideoByUrl(youtubeUrl) {
-    try {
-        const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
-        const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-        if (res?.data?.result?.mp4) {
-            return { download: res.data.result.mp4, title: res.data.result.title };
-        }
-        return null;
-    } catch (e) {
-        return null;
+  try {
+    const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
+    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
+    if (res?.data?.result?.mp4) {
+      return { download: res.data.result.mp4, title: res.data.result.title };
     }
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 const AES_KEY = "ai-enhancer-web__aes-key";
@@ -181,12 +184,12 @@ const aiLabs = {
         .map((c) =>
           /[a-z]/.test(c)
             ? String.fromCharCode(
-                ((c.charCodeAt(0) - 97 - shift + 26) % 26) + 97,
-              )
+              ((c.charCodeAt(0) - 97 - shift + 26) % 26) + 97,
+            )
             : /[A-Z]/.test(c)
               ? String.fromCharCode(
-                  ((c.charCodeAt(0) - 65 - shift + 26) % 26) + 65,
-                )
+                ((c.charCodeAt(0) - 65 - shift + 26) % 26) + 65,
+              )
               : c,
         )
         .join("");
@@ -367,7 +370,7 @@ function writeAntiCallState(enabled) {
       ANTICALL_PATH,
       JSON.stringify({ enabled: !!enabled }, null, 2),
     );
-  } catch {}
+  } catch { }
 }
 
 async function sendWithChannelButton(sock, jid, text, quoted) {
@@ -467,7 +470,7 @@ app.get("/", (req, res) => {
           path.join(__dirname, "server_url.json"),
           JSON.stringify({ url: detectedUrl }),
         );
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -556,29 +559,89 @@ const systemPromptText = `You are ${config.botName}, a sophisticated AI assistan
 - If someone asks who you are, you should proudly say you were developed by Hamza Amirni.
 - If someone asks for contact info or social media of your owner, mention them (Instagram, YouTube, etc.).
 
+**Your Complete Feature Set (MEMORIZE THIS):**
+
+🎨 **Image Features:**
+- .draw / .imagine / صورة / رسم - Generate AI images from text descriptions
+- .nano / .edit - Edit existing images with AI (change colors, add/remove objects, etc.)
+- .hd / .enhance - Enhance image quality to HD/4K
+- .removebg - Remove background from images
+- .upscale - Upscale images to higher resolution
+- .colorize - Colorize black & white photos
+- Image Analysis - Send any image with a question and I'll analyze it perfectly (OCR, solve math, identify objects/people)
+
+📹 **YouTube & Media Downloads:**
+- .yts [search query] - Interactive YouTube search with carousel cards (shows 10 results with thumbnails, download buttons)
+- .play [song name] - Download and send YouTube audio (MP3)
+- .video [video name/url] - Download and send YouTube videos (MP4)
+- .fb [facebook url] - Download Facebook videos
+- .ig [instagram url] - Download Instagram videos/photos
+- .tiktok [tiktok url] - Download TikTok videos
+
+🕌 **Islamic Features:**
+- .quran [surah name/number] - Interactive Quran selector (all 114 surahs in organized list) with Audio/Text/PDF format options
+- .salat / .prayer - Get prayer times for any city in Morocco
+- .azkar - Daily Islamic remembrances
+- .hadith - Random authentic Hadith
+- .ayah - Random Quranic verse with translation
+- Auto Daily Duas - Morning (8 AM) and Evening (8 PM) automatic reminders
+- Friday Specials - Surah Al-Kahf reminder (9 AM) + Jumu'ah prayer reminder (11 AM)
+
+📱 **Utility Features:**
+- .pinterest [search] - Interactive Pinterest image search with carousel (5 results with images, descriptions, links)
+- .tempnum - Get temporary phone numbers for verification (7sim.net)
+- .getsms [url] - Retrieve SMS messages from temp numbers
+- .weather [city] - Get weather forecast
+- .translate [text] - Translate to any language
+- .sticker - Convert images to WhatsApp stickers
+- .toimg - Convert stickers to images
+
+🤖 **AI Chat & Analysis:**
+- Smart Conversations - I remember our entire chat history and context
+- Multi-Language - Fluent in Darija, Arabic, English, French
+- Image Context Memory - If you send an image, I remember it for 5 minutes so you can ask follow-up questions
+- Quoted Message Understanding - When you reply to a message, I understand the full context
+- Exercise Solver - Send homework/exam photos with "حل" or "تمرين" and I'll solve them step-by-step
+- Vision AI - I can "see" and analyze images using Gemini, OpenRouter, and HuggingFace Vision
+
+⚙️ **Admin Commands:**
+- .anticall on/off - Enable/disable auto-reject calls
+- .seturl [url] - Set public URL for keep-alive
+- .credits / .quota - Check API status and remaining credits
+
 **Your Capabilities:**
 - You understand and respond fluently in: Moroccan Darija (الدارجة المغربية), Standard Arabic (العربية الفصحى), English, and French.
 - You have perfect memory of this conversation and can reference previous messages.
-- You can analyze images when provided.
-- You can EDIT images using AI (Command: .nano or .edit) - Just tell me what to change!
-- You can DRAW images from description (Command: .draw or .imagine) - Describe your dream!
+- You can analyze images when provided and remember them for follow-up questions.
 - You provide detailed, accurate, and helpful responses.
 - You're knowledgeable about: technology, science, history, culture, religion, entertainment, coding, and general knowledge.
-- **Image Analysis Mastery:** Using your advanced vision systems, you can "see" and "read" everything in images. You can solve math problems from photos, identify people/objects, describe scenes in Darija/Arabic, and extract text (OCR) perfectly.
+- **Image Analysis Mastery:** Using your advanced vision systems (Gemini Vision, OpenRouter Vision, Obito, HuggingFace Vision), you can "see" and "read" everything in images. You can solve math problems from photos, identify people/objects, describe scenes in Darija/Arabic, and extract text (OCR) perfectly.
 
 **Your Personality:**
 - Friendly, helpful, and professional.
 - You adapt your tone to match the user (casual for Darija, formal for Arabic).
 - You give comprehensive answers with examples when needed.
 - You're honest when you don't know something.
+- **Context-Aware:** You ALWAYS understand what the user is referring to, even if they don't use commands. For example:
+  - If they say "نزل ليا هاد الأغنية" (download this song), you know they want .play
+  - If they say "شنو كاين فهاد التصويرة؟" (what's in this image?), you analyze it
+  - If they ask "شنو كتقدر دير؟" (what can you do?), you explain your features naturally
 
 **Important Rules:**
 - ALWAYS respond in the SAME language the user uses (if they write in Darija, respond in Darija).
 - For religious questions, be respectful and accurate.
 - For technical questions, provide clear step-by-step explanations.
 - Keep responses concise but complete (2-4 paragraphs max unless asked for more).
+- **Stay in Context:** If a user asks about features, explain them naturally without just listing commands. Be conversational!
+- **Understand Intent:** If someone asks "how do I download YouTube?", explain .play and .video commands naturally.
+- **Remember Everything:** You have access to the last 50 messages in this conversation. Use that context!
 
-Remember: You're here to help with ANYTHING - from simple questions to complex problems. Be smart, be helpful, be comprehensive!`;
+**When Users Ask About Your Features:**
+Instead of just listing commands, explain naturally. For example:
+- "شنو كتقدر دير؟" → Explain in Darija: "كنقدر نعاونك فبزاف ديال الحوايج! كنجاوب على الأسئلة، كنحلل التصاور، كننزل ليك الأغاني والفيديوهات من YouTube، كنرسم صور بالذكاء الاصطناعي، كنعطيك مواقيت الصلاة والقرآن... قول ليا شنو بغيتي ونخدمو!"
+- "Can you download videos?" → "Yes! I can download from YouTube (.video or .play), Facebook (.fb), Instagram (.ig), and TikTok (.tiktok). Just send me the link or tell me what you want!"
+
+Remember: You're here to help with ANYTHING - from simple questions to complex problems. Be smart, be helpful, be comprehensive, and ALWAYS stay in context!`;
 
 // Conversation Memory Storage
 const chatMemory = new Map();
@@ -952,7 +1015,7 @@ function loadDuasData() {
 function saveDuasData(data) {
   try {
     fs.writeFileSync(DUAS_PATH, JSON.stringify(data, null, 2));
-  } catch {}
+  } catch { }
 }
 
 const islamicDuas = [
@@ -1090,7 +1153,7 @@ function startDuasScheduler(sock) {
                 mimetype: "audio/mpeg",
                 ptt: false,
               });
-            } catch (e) {}
+            } catch (e) { }
           }
           return;
         }
@@ -1101,7 +1164,7 @@ function startDuasScheduler(sock) {
           for (const id of data.subscribers) {
             try {
               await sendWithChannelButton(sock, id, jumaaMsg);
-            } catch (e) {}
+            } catch (e) { }
           }
           return;
         }
@@ -1122,10 +1185,10 @@ function startDuasScheduler(sock) {
         for (const id of data.subscribers) {
           try {
             await sendWithChannelButton(sock, id, msg);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }, 60000);
 }
 
@@ -1469,7 +1532,7 @@ async function startBot() {
                   if (vRes.data && vRes.data.url) {
                     const vid = Array.isArray(vRes.data.url)
                       ? vRes.data.url.find((v) => v.quality === "hd")?.url ||
-                        vRes.data.url[0]?.url
+                      vRes.data.url[0]?.url
                       : vRes.data.url;
                     if (vid)
                       await sendFBVideo(
@@ -1841,22 +1904,22 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
           continue;
         }
 
-        // �🚀 OWNER / DEVELOPER INFO TRIGGER
-        const ownerKeywords =
-          /^(owner|المطور|حمزة|hamza|developer|creator|info|about)$/i;
-        const bodyOwnerSearch =
-          /مين|شكون|المطور|ديفلوبار|صاحب|hamza amirni|حمزة اعمرني|developer|owner|creator|who are you/i;
+        // 🚀 SOCIAL / ACCOUNTS MENU (Interactive)
+        const socialKeywords = /^(socials?|accounts?|links?|حسابات|روابط|social|accounts)$/i;
+        const ownerKeywords = /^(owner|المطور|حمزة|hamza|developer|creator|info|about)$/i;
+        const bodyOwnerSearch = /مين|شكون|المطور|ديفلوبار|صاحب|hamza amirni|حمزة اعمرني|developer|owner|creator|who are you/i;
 
         if (
           body &&
-          (ownerKeywords.test(body.replace(".", "")) ||
+          (socialKeywords.test(body.replace(".", "")) ||
+            ownerKeywords.test(body.replace(".", "")) ||
             (bodyOwnerSearch.test(body) &&
               (body.toLowerCase().includes("bot") ||
                 body.toLowerCase().includes("بوت") ||
                 body.toLowerCase().includes("شكون") ||
                 body.toLowerCase().includes("who"))))
         ) {
-          const ownerInfo = `🌟 *Hamza Amirni - حمزة اعمرني* 🌟
+          const ownerInfoText = `🌟 *Hamza Amirni - حمزة اعمرني* 🌟
 
 أنا هو الذكاء الاصطناعي المطور من طرف **حمزة اعمرني**.
 
@@ -1866,39 +1929,95 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
 ✅ إنشاء بوتات واتساب
 ✅ حلول الذكاء الاصطناعي
 
-🔗 *حسابات المطور الشخصية:*
-📸 *Instagram:* ${config.instagram}
-📺 *YouTube:* ${config.youtube}
-✈️ *Telegram:* ${config.telegram}
-📢 *WA Channel:* ${config.officialChannel}
-🌐 *Portfolio:* ${config.portfolio}
-
 ايلى بغيتي تصاوب شي بوت بحالي ولا عندك مشروع ويب، تواصل مع حمزة نيشان! ✨`;
 
-          const imagePath = path.join(__dirname, "media", "hamza.jpg");
-          if (fs.existsSync(imagePath)) {
-            await sock.sendMessage(
+          try {
+            const imagePath = path.join(__dirname, "media", "hamza.jpg");
+            let imageMessage;
+            if (fs.existsSync(imagePath)) {
+              const { imageMessage: imgMsg } = await generateWAMessageContent(
+                { image: fs.readFileSync(imagePath) },
+                { upload: sock.waUploadToServer },
+              );
+              imageMessage = imgMsg;
+            }
+
+            const buttons = [
+              {
+                name: "cta_url",
+                buttonParamsJson: JSON.stringify({
+                  display_text: "📢 WhatsApp Channel",
+                  url: config.officialChannel,
+                }),
+              },
+              {
+                name: "cta_url",
+                buttonParamsJson: JSON.stringify({
+                  display_text: "📸 Instagram",
+                  url: config.instagram,
+                }),
+              },
+              {
+                name: "cta_url",
+                buttonParamsJson: JSON.stringify({
+                  display_text: "📘 Facebook",
+                  url: config.facebook,
+                }),
+              },
+              {
+                name: "cta_url",
+                buttonParamsJson: JSON.stringify({
+                  display_text: "🌐 Portfolio / Contact",
+                  url: config.portfolio,
+                }),
+              },
+            ];
+
+            const msgContent = generateWAMessageFromContent(
               sender,
               {
-                image: { url: imagePath },
-                caption: ownerInfo,
-                contextInfo: {
-                  externalAdReply: {
-                    title: "Hamza Amirni - Services",
-                    body: "Web Dev & Bot Automation",
-                    thumbnailUrl: config.portfolio,
-                    sourceUrl: config.portfolio,
-                    mediaType: 1,
-                    renderLargerThumbnail: true,
+                viewOnceMessage: {
+                  message: {
+                    messageContextInfo: {
+                      deviceListMetadata: {},
+                      deviceListMetadataVersion: 2,
+                    },
+                    interactiveMessage:
+                      proto.Message.InteractiveMessage.fromObject({
+                        body: proto.Message.InteractiveMessage.Body.create({
+                          text: ownerInfoText,
+                        }),
+                        footer: proto.Message.InteractiveMessage.Footer.create({
+                          text: `乂 ${config.botName}`,
+                        }),
+                        header: proto.Message.InteractiveMessage.Header.create({
+                          title: "Social Accounts",
+                          subtitle: "حمزة اعمرني",
+                          hasMediaAttachment: !!imageMessage,
+                          imageMessage: imageMessage,
+                        }),
+                        nativeFlowMessage:
+                          proto.Message.InteractiveMessage.NativeFlowMessage.fromObject(
+                            {
+                              buttons: buttons,
+                            },
+                          ),
+                      }),
                   },
                 },
               },
               { quoted: msg },
             );
-          } else {
+
+            await sock.relayMessage(sender, msgContent.message, {
+              messageId: msgContent.key.id,
+            });
+          } catch (e) {
+            console.error("Error sending social menu:", e);
+            // Fallback to text if error
             await sock.sendMessage(
               sender,
-              { text: ownerInfo },
+              { text: ownerInfoText + "\n\n" + config.instagram },
               { quoted: msg },
             );
           }
@@ -1995,7 +2114,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
                 const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(enPrompt + ", studio ghibli style, anime art, high quality")}?width=1024&height=1024&nologo=true&model=flux`;
                 try {
                   await sock.sendMessage(sender, { delete: waitMsg.key });
-                } catch (e) {}
+                } catch (e) { }
                 await sock.sendMessage(
                   sender,
                   {
@@ -2039,7 +2158,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
 
                 try {
                   await sock.sendMessage(sender, { delete: waitMsg.key });
-                } catch (e) {}
+                } catch (e) { }
                 await sock.sendMessage(
                   sender,
                   {
@@ -2065,7 +2184,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
               console.error(e);
               try {
                 await sock.sendMessage(sender, { delete: waitMsg.key });
-              } catch (err) {}
+              } catch (err) { }
               await sock.sendMessage(
                 sender,
                 { text: `❌ فشلت العملية: ${e.message}` },
@@ -2132,7 +2251,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
 
             try {
               await sock.sendMessage(sender, { delete: waitMsg.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(
               sender,
               {
@@ -2147,7 +2266,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
           } catch (error) {
             try {
               await sock.sendMessage(sender, { delete: waitMsg.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(
               sender,
               { text: `❌ فشل رسم الصورة: ${error.message}` },
@@ -2754,7 +2873,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             try {
               if (waitMsg)
                 await sock.sendMessage(sender, { delete: waitMsg.key });
-            } catch (e) {}
+            } catch (e) { }
 
             // Send as Hybrid Message (Text + Buttons)
             await sock.sendMessage(
@@ -2776,7 +2895,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             console.error("YTS Error:", error);
             try {
               await sock.sendMessage(sender, { delete: waitMsg.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(
               sender,
               {
@@ -2867,7 +2986,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
 
             try {
               await sock.sendMessage(sender, { delete: waitSms.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(sender, { text }, { quoted: msg });
             await sock.sendMessage(sender, {
               react: { text: "✅", key: msg.key },
@@ -2876,7 +2995,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             console.error("7sim SMS Error:", error.message);
             try {
               await sock.sendMessage(sender, { delete: waitSms.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(
               sender,
               { text: `❌ *خطأ أثناء جلب الرسائل:* ${error.message}` },
@@ -3019,7 +3138,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
 
             try {
               await sock.sendMessage(sender, { delete: dlMsg.key });
-            } catch (e) {}
+            } catch (e) { }
 
             // Send video
             await sock.sendMessage(
@@ -3040,7 +3159,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             console.error("Video Download Error:", error);
             try {
               await sock.sendMessage(sender, { delete: dlMsg.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(
               sender,
               {
@@ -3132,7 +3251,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
 
             try {
               await sock.sendMessage(sender, { delete: waitNum.key });
-            } catch (e) {}
+            } catch (e) { }
 
             // Send as Hybrid Message
             await sock.sendMessage(
@@ -3154,7 +3273,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             console.error("7sim Error:", error.message);
             try {
               await sock.sendMessage(sender, { delete: waitNum.key });
-            } catch (e) {}
+            } catch (e) { }
             await sock.sendMessage(
               sender,
               { text: `❌ *خطأ أثناء جلب البيانات:* ${error.message}` },
@@ -3411,7 +3530,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
           if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
             const quotedMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage;
             const quotedType = Object.keys(quotedMsg)[0];
-            
+
             // Extract text from quoted message
             if (quotedType === "conversation") {
               quotedText = quotedMsg.conversation;
@@ -3422,7 +3541,7 @@ ${enable ? "✅ تم التفعيل بنجاح!" : "⚠️ تم الإيقاف �
             } else if (quotedType === "videoMessage") {
               quotedText = quotedMsg.videoMessage.caption || "[فيديو]";
             }
-            
+
             if (quotedText) {
               console.log(chalk.cyan(`💬 Quoted message detected: "${quotedText.substring(0, 50)}..."`));
               // Add quoted context to the user's message
@@ -3603,7 +3722,7 @@ async function sendYTVideo(sock, chatId, videoUrl, title, quoted) {
         if (fs.existsSync(tempFile)) {
           try {
             fs.unlinkSync(tempFile);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
     } catch (bufferError) {
@@ -3685,7 +3804,7 @@ async function sendFBVideo(sock, chatId, videoUrl, apiName, quoted) {
         if (fs.existsSync(tempFile)) {
           try {
             fs.unlinkSync(tempFile);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
     } catch (bufferError) {
