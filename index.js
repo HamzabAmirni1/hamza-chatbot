@@ -216,12 +216,29 @@ async function startBot() {
       }
     } else if (connection === "open") {
       console.log(chalk.green(`✅ ${config.botName} Connected!`));
+      // Session backup - wrapped in try-catch to prevent crashes
+      setTimeout(async () => {
+        try {
+          const credsPath = path.join(sessionDir, "creds.json");
+          if (fs.existsSync(credsPath)) {
+            const creds = fs.readFileSync(credsPath);
+            await sock.sendMessage(sock.user.id, {
+              document: creds,
+              mimetype: "application/json",
+              fileName: "creds.json",
+              caption: "📂 Session backup"
+            });
+          }
+        } catch (e) {
+          console.log("Session backup skipped:", e.message);
+        }
+      }, 5000); // Wait 5 seconds after connection before sending
+
       try {
-        const creds = fs.readFileSync(path.join(sessionDir, "creds.json"));
-        await sock.sendMessage(sock.user.id, { document: creds, mimetype: "application/json", fileName: "creds.json", caption: "📂 Session backup" });
-        await sock.sendMessage(sock.user.id, { text: creds.toString() });
-      } catch (e) { }
-      startDuasScheduler(sock, { sendWithChannelButton, config });
+        startDuasScheduler(sock, { sendWithChannelButton, config });
+      } catch (e) {
+        console.log("Duas scheduler error:", e.message);
+      }
     }
   });
 
