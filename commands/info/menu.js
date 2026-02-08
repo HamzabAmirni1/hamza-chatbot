@@ -1,11 +1,9 @@
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const settings = require('../../config');
-const { getUptime } = require('../lib/utils');
 const fs = require('fs-extra');
 const path = require('path');
 
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
-    // Determine image
     const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
     let imageMessage;
 
@@ -22,48 +20,30 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         console.error("Menu image error", e);
     }
 
-    const menuText = `✨ *───❪ ${settings.botName.toUpperCase()} ❫───* ✨
+    // Compact Menu Text
+    const menuText = `🤖 *${settings.botName.toUpperCase()}*
+⚡ *Dev:* ${settings.botOwner}
 
-🤖 *BOT IDENTITY:*
-أنا الذكاء الاصطناعي المطور من طرف *حمزة اعمرني*.
-أنا خدام أوتوماتيك (Auto-Reply) بلا ما تحتاج تدير نقطة، غير سولني وغادي نجاوبك فالحين! 🧠⚡
+━━━━━━━━━━━━━━━━
+🎨 *AI TOOLS*
+.nano | .hd | .draw | .gpt4o | .hl
 
-┏━━━━━━━━━━━━━━━━━━┓
-┃  🛠️ *AI IMAGE TOOLS*
-┃ ├ 🪄 *.nano* ┈ تعديل سحري
-┃ ├ ✨ *.hd* ┈ تحسين الجودة
-┃ ├ 🖼️ *.bg* ┈ إزالة الخلفية
-┃ ├ 🎨 *.draw* ┈ الرسم الذكي
-┃ └ 🧠 *.hl* ┈ تحليل الصور
-┗━━━━━━━━━━━━━━━━━━┛
+📥 *DOWNLOADER*
+.play | .video | .fb | .ig | .ytmp4
 
-┏━━━━━━━━━━━━━━━━━━┓
-┃  🤖 *AI CHAT MODELS*
-┃ ├ 🤖 *.gpt4o* ┈ GPT-4o
-┃ ├ ⚡ *.gpt4om* ┈ 4o Mini
-┃ ├ 🧠 *.o1* ┈ OpenAI O1
-┃ └ 💬 *Auto-Reply*
-┗━━━━━━━━━━━━━━━━━━┛
+� *ISLAMIC*
+.quran | .ad3iya | .ayah | .tafsir
 
-┏━━━━━━━━━━━━━━━━━━┓
-┃  📡 *ADDITIONAL SERVICES*
-┃ ├ 📱 *.tempnum* ┈ أرقام وهمية
-┃ ├ 🔍 *.yts* ┈ بحث يوتيوب
-┃ ├ 🌡️ *.weather* ┈ حالة الطقس
-┃ └ 🏓 *.ping* ┈ سرعة البوت
-┗━━━━━━━━━━━━━━━━━━┛
+🛠️ *UTILITY*
+.ping | .weather | .tempnum | .sticker
+━━━━━━━━━━━━━━━━
 
-┏━━━━━━━━━━━━━━━━━━┓
-┃  🕋 *ISLAMIC FEATURES*
-┃ ├ 🤲 *.ad3iya* ┈ أدعية وأذكار
-┃ ├ 📖 *.ayah* ┈ آية من القرآن
-┃ ├ 🕋 *.quran* ┈ سورة كاملة
-┃ └ 📚 *.tafsir* ┈ تفسير الآيات
-┗━━━━━━━━━━━━━━━━━━┛
-
-👑 *Developer:* ${settings.botOwner}
-📌 *Uptime:* ${getUptime()}
-✨ *Active 24/7 on Koyeb* ✨`;
+� *MY SOCIALS:*
+� *IG:* ${settings.instagram}
+� *FB:* ${settings.facebook}
+� *YT:* ${settings.youtube}
+✈️ *TG:* ${settings.telegram}
+`;
 
     const cards = [
         {
@@ -71,7 +51,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 text: menuText
             }),
             header: proto.Message.InteractiveMessage.Header.fromObject({
-                title: `👋 مرحبًا @${msg.pushName || 'User'}`,
+                title: `👋 Hlan, @${msg.pushName || 'User'}`,
                 hasMediaAttachment: !!imageMessage,
                 imageMessage: imageMessage
             }),
@@ -87,22 +67,29 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                     {
                         "name": "cta_url",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Chaine Whatsapp",
+                            display_text: "WhatsApp Channel",
                             url: settings.officialChannel
                         })
                     },
                     {
                         "name": "cta_url",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Owner",
-                            url: `https://wa.me/${settings.ownerNumber[0]}`
+                            display_text: "Facebook Page",
+                            url: settings.facebookPage || settings.facebook
                         })
                     },
                     {
                         "name": "cta_url",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Facebook",
-                            url: settings.facebook
+                            display_text: "YouTube",
+                            url: settings.youtube
+                        })
+                    },
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Contact Owner",
+                            url: `https://wa.me/${settings.ownerNumber[0]}`
                         })
                     }
                 ]
@@ -119,10 +106,10 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 },
                 interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                     body: proto.Message.InteractiveMessage.Body.create({
-                        text: "Bot Commands Menu"
+                        text: "Simple & Fast Bot"
                     }),
                     footer: proto.Message.InteractiveMessage.Footer.create({
-                        text: settings.botName
+                        text: "Hamza Bot 2026"
                     }),
                     header: proto.Message.InteractiveMessage.Header.create({
                         hasMediaAttachment: false
@@ -136,5 +123,5 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     }, { quoted: msg });
 
     await sock.relayMessage(chatId, message.message, { messageId: message.key.id });
-    await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    await sock.sendMessage(chatId, { react: { text: "⚡", key: msg.key } });
 };
