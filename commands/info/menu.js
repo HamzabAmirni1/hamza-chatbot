@@ -1,10 +1,28 @@
+const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+const settings = require('../../config');
+const { getUptime } = require('../lib/utils');
 const fs = require('fs-extra');
 const path = require('path');
-const config = require('../../config');
-const { getUptime } = require('../lib/utils');
 
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
-    const menuText = `✨ *───❪ ${config.botName.toUpperCase()} ❫───* ✨
+    // Determine image
+    const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
+    let imageMessage;
+
+    try {
+        if (fs.existsSync(imagePath)) {
+            const buffer = fs.readFileSync(imagePath);
+            const content = await generateWAMessageContent({ image: buffer }, { upload: sock.waUploadToServer });
+            imageMessage = content.imageMessage;
+        } else {
+            const content = await generateWAMessageContent({ image: { url: "https://pollinations.ai/p/cool-robot-assistant" } }, { upload: sock.waUploadToServer });
+            imageMessage = content.imageMessage;
+        }
+    } catch (e) {
+        console.error("Menu image error", e);
+    }
+
+    const menuText = `✨ *───❪ ${settings.botName.toUpperCase()} ❫───* ✨
 
 🤖 *BOT IDENTITY:*
 أنا الذكاء الاصطناعي المطور من طرف *حمزة اعمرني*.
@@ -43,49 +61,80 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 ┃ └ 📚 *.tafsir* ┈ تفسير الآيات
 ┗━━━━━━━━━━━━━━━━━━┛
 
-┏━━━━━━━━━━━━━━━━━━┓
-┃  📱 *DEVELOPER SOCIALS*
-┃ ├ 📸 *Instagram:*
-┃   ${config.instagram}
-┃ ├ 📺 *YouTube:*
-┃   ${config.youtube}
-┃ ├ ✈️ *Telegram:*
-┃   ${config.telegram}
-┃ ├ 📘 *Facebook:*
-┃   ${config.facebook}
-┃ ├ 📢 *WA Channel:*
-┃   ${config.officialChannel}
-┃ └ 🌐 *Portfolio:*
-┃   ${config.portfolio}
-┗━━━━━━━━━━━━━━━━━━┛
-
-👑 *Developer:* ${config.botOwner}
+👑 *Developer:* ${settings.botOwner}
 📌 *Uptime:* ${getUptime()}
-
 ✨ *Active 24/7 on Koyeb* ✨`;
 
-    const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
-    const imageExists = fs.existsSync(imagePath);
+    const cards = [
+        {
+            body: proto.Message.InteractiveMessage.Body.fromObject({
+                text: menuText
+            }),
+            header: proto.Message.InteractiveMessage.Header.fromObject({
+                title: `👋 مرحبًا @${msg.pushName || 'User'}`,
+                hasMediaAttachment: !!imageMessage,
+                imageMessage: imageMessage
+            }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                buttons: [
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Instagram",
+                            url: settings.instagram
+                        })
+                    },
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Chaine Whatsapp",
+                            url: settings.officialChannel
+                        })
+                    },
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Owner",
+                            url: `https://wa.me/${settings.ownerNumber[0]}`
+                        })
+                    },
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Facebook",
+                            url: settings.facebook
+                        })
+                    }
+                ]
+            })
+        }
+    ];
 
-    const messageContent = {
-        image: imageExists
-            ? { url: imagePath }
-            : { url: "https://pollinations.ai/p/cool-robot-assistant" },
-        caption: menuText,
-        contextInfo: {
-            externalAdReply: {
-                title: config.botName,
-                body: `Developed by ${config.botOwner}`,
-                thumbnail: imageExists ? fs.readFileSync(imagePath) : null,
-                sourceUrl: config.portfolio,
-                mediaType: 1,
-                renderLargerThumbnail: true,
-            },
-        },
-    };
+    const message = generateWAMessageFromContent(chatId, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+                    body: proto.Message.InteractiveMessage.Body.create({
+                        text: "Bot Commands Menu"
+                    }),
+                    footer: proto.Message.InteractiveMessage.Footer.create({
+                        text: settings.botName
+                    }),
+                    header: proto.Message.InteractiveMessage.Header.create({
+                        hasMediaAttachment: false
+                    }),
+                    carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
+                        cards: cards
+                    })
+                })
+            }
+        }
+    }, { quoted: msg });
 
-    await sock.sendMessage(chatId, messageContent, { quoted: msg });
-    await sock.sendMessage(chatId, {
-        react: { text: "📜", key: msg.key },
-    });
+    await sock.relayMessage(chatId, message.message, { messageId: message.key.id });
+    await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 };
