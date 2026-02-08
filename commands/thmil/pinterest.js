@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+const settings = require('../../config');
 
 const base = "https://www.pinterest.com";
 const search = "/resource/BaseSearchResource/get/";
@@ -132,6 +133,27 @@ async function pinterestCommand(sock, chatId, msg, args, commands, userLang, mat
                         {
                             "name": "cta_url",
                             "buttonParamsJson": `{"display_text":"عرض على Pinterest","url":"${pin.pin_url}"}`
+                        },
+                        {
+                            "name": "cta_url",
+                            "buttonParamsJson": JSON.stringify({
+                                display_text: "Instagram",
+                                url: settings.instagram
+                            })
+                        },
+                        {
+                            "name": "cta_url",
+                            "buttonParamsJson": JSON.stringify({
+                                display_text: "WhatsApp Channel",
+                                url: settings.officialChannel
+                            })
+                        },
+                        {
+                            "name": "quick_reply",
+                            "buttonParamsJson": JSON.stringify({
+                                display_text: "Contact Owner 👤",
+                                id: ".owner"
+                            })
                         }
                     ]
                 })
