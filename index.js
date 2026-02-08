@@ -247,6 +247,23 @@ async function startBot() {
         if (!msg.message || msg.key.fromMe) continue;
         const type = Object.keys(msg.message)[0];
         let body = type === "conversation" ? msg.message.conversation : type === "extendedTextMessage" ? msg.message.extendedTextMessage.text : type === "imageMessage" ? msg.message.imageMessage.caption : type === "videoMessage" ? msg.message.videoMessage.caption : "";
+
+        if (type === 'interactiveResponseMessage') {
+          const response = msg.message.interactiveResponseMessage;
+          if (response.nativeFlowResponseMessage) {
+            const params = JSON.parse(response.nativeFlowResponseMessage.paramsJson);
+            body = params.id;
+          } else if (response.body) {
+            body = response.body.text;
+          }
+        } else if (type === 'templateButtonReplyMessage') {
+          body = msg.message.templateButtonReplyMessage.selectedId || msg.message.templateButtonReplyMessage.selectedDisplayText;
+        } else if (type === 'listResponseMessage') {
+          body = msg.message.listResponseMessage.singleSelectReply.selectedRowId;
+        } else if (type === 'messageContextInfo') {
+          const reply = msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || msg.message.buttonsResponseMessage?.selectedButtonId || msg.message.templateButtonReplyMessage?.selectedId;
+          if (reply) body = reply;
+        }
         if (!body && type !== "imageMessage" && type !== "videoMessage") continue;
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter") || msg.key.remoteJid.endsWith("@g.us")) continue;
 
@@ -308,9 +325,12 @@ async function startBot() {
             "fb": "thmil/fb", "facebook": "thmil/fb", "فيسبوك": "thmil/fb",
             "ig": "thmil/ig", "instagram": "thmil/ig", "إنستغرام": "thmil/ig",
             "tiktok": "thmil/tiktok", "تيكتوك": "thmil/tiktok",
+            "ytmp4": "thmil/ytmp4", "ytmp4v2": "thmil/ytmp4v2",
+            "pinterest": "thmil/pinterest", "pin": "thmil/pinterest",
             "ad3iya": "islamic/ad3iya", "dua": "islamic/ad3iya", "دعاء": "islamic/ad3iya", "اذكار": "islamic/ad3iya",
-            "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/ayah",
+            "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
             "quran": "islamic/quran", "سورة": "islamic/quran", "continue": "islamic/continue", "tafsir": "islamic/tafsir", "تفسير": "islamic/tafsir",
+            "quranmp3": "islamic/quranmp3", "quranread": "islamic/quranread", "qdl": "islamic/qdl", "quransura": "islamic/quran", "quransurah": "islamic/quran",
             "weather": "tools/weather", "طقس": "tools/weather", "جو": "tools/weather", "حالة-الطقس": "tools/weather",
             "ping": "tools/ping", "بينج": "tools/ping", "tempnum": "tools/tempnum", "getsms": "tools/tempnum",
             "credits": "tools/credits", "quota": "tools/credits", "status": "tools/ping",
