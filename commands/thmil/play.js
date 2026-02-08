@@ -2,7 +2,6 @@ const yts = require('yt-search');
 const axios = require('axios');
 const { t } = require('../lib/language');
 const settings = require('../settings');
-const { downloadYouTube } = require('../lib/ytdl');
 
 const AXIOS_DEFAULTS = {
     timeout: 60000,
@@ -27,7 +26,6 @@ async function tryRequest(getter, attempts = 3) {
     throw lastError;
 }
 
-// Inline fallbacks if global ytdl fails
 async function getYupraAudioByUrl(youtubeUrl) {
     const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
     const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
@@ -100,13 +98,8 @@ async function playCommand(sock, chatId, msg, args, commands, userLang) {
             caption: caption
         }, { quoted: msg });
 
-        // Try using robust ytdl first
-        let audioData = null;
-        try {
-            audioData = await downloadYouTube(urlYt, 'mp3');
-        } catch (e) {
-            console.log("Global YTDL failed, trying backups...");
-        }
+        const { downloadYouTube } = require('../../lib/ytdl');
+        let audioData = await downloadYouTube(urlYt, 'mp3');
 
         if (!audioData) {
             try {
@@ -147,12 +140,25 @@ async function playCommand(sock, chatId, msg, args, commands, userLang) {
 
         if (!audioBuffer || audioBuffer.length === 0) throw new Error("Empty audio buffer.");
 
-        // NOTE: removed strict converter requirement to avoid crash if lib is missing. 
-        // We assume most providers return proper MP3. If not, it will be sent as is but with mp3 extension or what it detected.
+        const { toAudio } = require('../../lib/converter');
+        let finalBuffer = audioBuffer;
+        let finalMimetype = "audio/mpeg";
+
+        const isMp3 = audioBuffer.slice(0, 3).toString() === 'ID3' || audioBuffer[0] === 0xFF;
+        if (!isMp3) {
+            try {
+                let ext = 'mp4';
+                if (audioBuffer.slice(0, 4).toString() === 'OggS') ext = 'ogg';
+                else if (audioBuffer.slice(0, 4).toString() === 'RIFF') ext = 'wav';
+                finalBuffer = await toAudio(audioBuffer, ext);
+            } catch (convErr) {
+                console.error("Conversion failed:", convErr.message);
+            }
+        }
 
         await sock.sendMessage(chatId, {
-            audio: audioBuffer,
-            mimetype: 'audio/mpeg',
+            audio: finalBuffer,
+            mimetype: finalMimetype,
             fileName: `${finalTitle}.mp3`,
             ptt: false,
             contextInfo: {
@@ -161,7 +167,8 @@ async function playCommand(sock, chatId, msg, args, commands, userLang) {
                     body: settings.botName,
                     mediaType: 2,
                     renderLargerThumbnail: true,
-                    thumbnailUrl: video.thumbnail
+                    thumbnailUrl: video.thumbnail,
+                    sourceUrl: urlYt
                 }
             }
         }, { quoted: msg });
@@ -178,3 +185,5 @@ async function playCommand(sock, chatId, msg, args, commands, userLang) {
 }
 
 module.exports = playCommand;
+
+/*Powered by Hamza Amirni*/
