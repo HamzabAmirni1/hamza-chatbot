@@ -30,23 +30,29 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         }
 
         // Try high quality MP3 API
-        const apiUrl = `https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(videoUrl)}`;
-        const response = await axios.get(apiUrl, { timeout: 30000 });
-
+        // Try high quality MP3 API
         let audioUrl = null;
-        if (response.data && response.data.status) {
-            audioUrl = response.data.result.download;
-            title = response.data.result.title || title;
+        try {
+            const apiUrl = `https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(videoUrl)}`;
+            const response = await axios.get(apiUrl, { timeout: 10000 });
+            if (response.data && response.data.status) {
+                audioUrl = response.data.result.download;
+                title = response.data.result.title || title;
+            }
+        } catch (e) {
+            console.log("Primary MP3 API failed, trying fallback...");
         }
 
         if (!audioUrl) {
             // Fallback API
-            const fallbackUrl = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(videoUrl)}`;
-            const fRes = await axios.get(fallbackUrl);
-            if (fRes.data && fRes.data.status) {
-                // If it doesn't have explicit MP3, we might need another provider or use the video URL as audio (sometimes works in WA if mime is audio/mpeg)
-                // But let's try to be smart.
-                audioUrl = fRes.data.mp3 || Object.values(fRes.data.videos)[0]; // Fallback to video as audio if needed
+            try {
+                const fallbackUrl = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(videoUrl)}`;
+                const fRes = await axios.get(fallbackUrl, { timeout: 10000 });
+                if (fRes.data && fRes.data.status) {
+                    audioUrl = fRes.data.mp3 || Object.values(fRes.data.videos)[0]; // Fallback to video as audio if needed
+                }
+            } catch (err) {
+                console.log("Fallback MP3 API failed");
             }
         }
 
