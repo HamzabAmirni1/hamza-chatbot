@@ -35,8 +35,8 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
         const L_LIB = t('yts.library_title', {}, userLang) || '📺 *YouTube Search*';
         const L_RESULTS = t('yts.results_for', { query }, userLang) || `Results for: *${query}*`;
-        const L_VIDEO = t('yts.video_btn', {}, userLang) || 'Download Video 🎥';
-        const L_AUDIO = t('yts.audio_btn', {}, userLang) || 'Download Audio 🎵';
+        const L_VIDEO = 'Video 📹';
+        const L_AUDIO = 'Audio 🎵';
 
         let cards = [];
         for (let v of videos) {
