@@ -339,7 +339,7 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        const cmdMatch = body && body.match(/^\.([a-zA-Z0-9]+)(\s+.*|$)/i);
+        const cmdMatch = body && body.match(/^[\.]?([a-zA-Z0-9]+)(\s+.*|$)/i);
         if (cmdMatch) {
           const command = cmdMatch[1].toLowerCase();
           const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
@@ -368,7 +368,9 @@ async function startBot(folderName, phoneNumber) {
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
             "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
-            "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor"
+            "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
+            "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
+            "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video"
           };
 
           if (allCmds[command]) {
