@@ -25,18 +25,21 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 ⚡ *Dev:* ${settings.botOwner}
 
 ━━━━━━━━━━━━━━━━
-🎨 *AI TOOLS*
+🎨 *AI & CREATIVE*
+.img2video | .sketch | .blur | .brat
 .nano | .hd | .draw | .gpt4o | .hl
 
 📥 *DOWNLOADER*
-.play | .video | .fb | .ig | .ytmp4
+.play (Spotify) | .video | .fb | .ig | .ytmp4
 
-� *ISLAMIC*
- *ISLAMIC*
-.quran | .ad3iya | .ayah | .tafsir
+🌙 *ISLAMIC*
+.quranmp3 | .qdl | .ad3iya | .ayah | .tafsir
 
 🛠️ *UTILITY*
-.ping | .weather | .tempnum | .sticker
+.sticker | .ping | .weather | .tempnum
+
+📚 *EDUCATION*
+.alloschool
 ━━━━━━━━━━━━━━━━
 `;
 

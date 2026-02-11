@@ -370,7 +370,10 @@ async function startBot(folderName, phoneNumber) {
             "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
             "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
             "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
-            "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video"
+            "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video",
+            "blur": "tools/blur", "ضباب": "tools/blur", "طمس": "tools/blur",
+            "brat": "tools/brat", "brat-vd": "tools/brat", "برات": "tools/brat",
+            "alloschool": "morocco/alloschool", "alloschoolget": "morocco/alloschool", "allo": "morocco/alloschool", "دروس": "morocco/alloschool", "فروض": "morocco/alloschool"
           };
 
           if (allCmds[command]) {
