@@ -47,14 +47,14 @@ const { Boom } = require("@hapi/boom");
 // Store processed message IDs to prevent duplicates
 const processedMessages = new Set();
 
-const sessionDir = path.join(__dirname, "session");
-if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+const sessionBaseDir = path.join(__dirname, "sessions");
+if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
 
-// Memory monitoring - Restart if RAM gets too high
+// Memory monitoring - Restart if RAM gets too high (Target: 512MB Server)
 setInterval(() => {
   const used = process.memoryUsage().rss / 1024 / 1024;
-  if (used > 900) {
-    console.log(chalk.red("⚠️ RAM too high (>900MB), restarting bot..."));
+  if (used > 450) { // Adjusted for 500MB server
+    console.log(chalk.red("⚠️ RAM too high (>450MB), restarting bot..."));
     process.exit(1);
   }
 }, 30000);
@@ -157,8 +157,12 @@ async function sendFBVideo(sock, chatId, videoUrl, apiName, quoted) {
   }
 }
 
-async function startBot() {
-  const sessionID = process.env.SESSION_ID;
+async function startBot(folderName, phoneNumber) {
+  const sessionDir = path.join(__dirname, "sessions", folderName);
+  if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+
+  const sessionID = process.env[`SESSION_ID_${folderName.toUpperCase()}`] || (folderName === "session_1" ? process.env.SESSION_ID : null);
+
   if (sessionID && !fs.existsSync(path.join(sessionDir, "creds.json"))) {
     try {
       const encodedData = sessionID.split("Session~")[1] || sessionID;
@@ -175,7 +179,7 @@ async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
-    version, logger: pino({ level: "silent" }), printQRInTerminal: false,
+    version, logger: pino({ level: "silent" }), printQRInTerminal: !(folderName === "session_1"), // Only print QR for main unless specified
     browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
       creds: state.creds,
@@ -188,16 +192,18 @@ async function startBot() {
   });
 
   if (!sock.authState.creds.registered) {
-    let phoneNumber = process.env.PAIRING_NUMBER || config.pairingNumber;
-    if (phoneNumber) {
-      phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
+    let num = phoneNumber || process.env.PAIRING_NUMBER || config.pairingNumber;
+    if (num) {
+      num = num.replace(/[^0-9]/g, "");
       setTimeout(async () => {
         try {
-          let code = await sock.requestPairingCode(phoneNumber);
+          let code = await sock.requestPairingCode(num);
           code = code?.match(/.{1,4}/g)?.join("-") || code;
-          console.log(chalk.black.bgGreen(` PAIRING CODE: `), chalk.white.bgRed.bold(` ${code} `));
-        } catch (e) { }
-      }, 10000);
+          console.log(chalk.black.bgGreen(` [${folderName}] PAIRING CODE: `), chalk.white.bgRed.bold(` ${code} `));
+        } catch (e) {
+          console.log(chalk.red(`[${folderName}] Failed to get pairing code: ${e.message}`));
+        }
+      }, 5000 + (Math.random() * 5000)); // Stagger slightly
     }
   }
 
@@ -208,14 +214,15 @@ async function startBot() {
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       if (statusCode === 401) {
         if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
-        setTimeout(() => startBot(), 2000);
+        setTimeout(() => startBot(folderName, phoneNumber), 2000); // Pass args back
       } else if (shouldReconnect) {
-        setTimeout(() => startBot(), 10000);
+        setTimeout(() => startBot(folderName, phoneNumber), 10000); // Pass args back
       } else {
-        process.exit(1);
+        // Only exit process if main session fails repeatedly or config dictates
+        console.log(chalk.red(`[${folderName}] Connection closed permanently (logged out).`));
       }
     } else if (connection === "open") {
-      console.log(chalk.green(`✅ ${config.botName} Connected!`));
+      console.log(chalk.green(`✅ [${folderName}] Connected!`));
       // Session backup - wrapped in try-catch to prevent crashes
       setTimeout(async () => {
         try {
@@ -226,18 +233,18 @@ async function startBot() {
               document: creds,
               mimetype: "application/json",
               fileName: "creds.json",
-              caption: "📂 Session backup"
+              caption: `📂 Session backup (${folderName})`
             });
           }
         } catch (e) {
-          console.log("Session backup skipped:", e.message);
+          console.log(`[${folderName}] Session backup skipped:`, e.message);
         }
       }, 5000); // Wait 5 seconds after connection before sending
 
       try {
         startDuasScheduler(sock, { sendWithChannelButton, config });
       } catch (e) {
-        console.log("Duas scheduler error:", e.message);
+        console.log(`[${folderName}] Duas scheduler error:`, e.message);
       }
     }
   });
@@ -416,4 +423,14 @@ async function startBot() {
   });
 }
 
-startBot();
+// Start Main Bot
+startBot("session_1", config.pairingNumber);
+
+// Start Extra Bots
+if (config.extraNumbers && config.extraNumbers.length > 0) {
+  config.extraNumbers.forEach((num, index) => {
+    setTimeout(() => {
+      startBot(`session_${index + 2}`, num);
+    }, 10000 * (index + 1));
+  });
+}

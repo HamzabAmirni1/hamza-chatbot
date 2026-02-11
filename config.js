@@ -8,6 +8,7 @@ const settings = {
     ownerNumber: ['212624855939', '76704223654068', '72375181807785', '218859369943283'],
     // Phone number used for WhatsApp pairing code (country code + number, without '+', e.g. 2126xxxxxxx)
     pairingNumber: '212684051093',
+    extraNumbers: [], // Example: ['212600000000', '212700000000']
     newsletterJid: '120363367937224887@newsletter',
     newsletterName: 'حمزة اعمرني',
 
@@ -63,10 +64,10 @@ const settings = {
 - الدور: Full Stack Developer من المغرب 🇲🇦
 - الخدمات: تطوير بوتات واتساب، مواقع ويب، تطبيقات موبايل، حلول برمجية
 - Portfolio: https://hamzaamirni.netlify.app
-- Instagram: @hamza_amirni_01 & @hamza_amirni_02
+- Instagram: https://instagram.com/hamza_amirni_01 & https://instagram.com/hamza_amirni_02
 - Facebook: https://www.facebook.com/6kqzuj3y4e
-- YouTube: @Hamzaamirni01
-- Telegram: @hamzaamirni
+- YouTube: https://youtube.com/@Hamzaamirni01
+- Telegram: https://t.me/hamzaamirni
 - WhatsApp Channel: https://whatsapp.com/channel/0029ValXRoHCnA7yKopcrn1p
 
 📋 **أوامر البوت المتاحة:**
