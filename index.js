@@ -400,16 +400,36 @@ async function startBot(folderName, phoneNumber) {
           const context = getContext(sender);
           const isRecentImg = context.lastImage && Date.now() - context.lastImage.timestamp < 5 * 60 * 1000;
           if (isRecentImg && body.length > 2 && !body.startsWith(".")) {
-            reply = await getGeminiResponse(sender, body, context.lastImage.buffer, context.lastImage.mime);
-            if (!reply && config.openRouterKey) reply = await getOpenRouterResponse(sender, body, context.lastImage.buffer);
+            const visionPromises = [];
+            if (config.geminiApiKey) visionPromises.push(getGeminiResponse(sender, body, context.lastImage.buffer, context.lastImage.mime));
+            if (config.openRouterKey) visionPromises.push(getOpenRouterResponse(sender, body, context.lastImage.buffer));
+
+            try {
+              if (visionPromises.length > 0) reply = await Promise.any(visionPromises);
+            } catch (e) { }
           }
 
-          if (!reply) reply = await getGeminiResponse(sender, body);
-          if (!reply) reply = await getOpenRouterResponse(sender, body);
-          if (!reply) reply = await getLuminAIResponse(sender, body);
-          if (!reply) reply = await getAIDEVResponse(sender, body);
-          if (!reply) reply = await getPollinationsResponse(sender, body);
-          if (!reply) reply = await getAutoGPTResponse(sender, body);
+          if (!reply) {
+            const aiPromises = [];
+            if (config.geminiApiKey) aiPromises.push(getGeminiResponse(sender, body));
+            if (config.openRouterKey) aiPromises.push(getOpenRouterResponse(sender, body));
+
+            // Add other free models to race
+            aiPromises.push(getLuminAIResponse(sender, body));
+            aiPromises.push(getAIDEVResponse(sender, body));
+            aiPromises.push(getPollinationsResponse(sender, body));
+            aiPromises.push(getAutoGPTResponse(sender, body));
+
+            try {
+              // Race them and return the first one that resolves with a value
+              reply = await Promise.any(aiPromises.map(p => p.then(res => {
+                if (!res) throw new Error("No response");
+                return res;
+              })));
+            } catch (e) {
+              // All failed, fallback
+            }
+          }
         }
 
         if (reply) {
