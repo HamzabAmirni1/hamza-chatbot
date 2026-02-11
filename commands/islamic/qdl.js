@@ -25,15 +25,18 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         const formattedSurahId = args[1].toString().padStart(3, '0');
         const audioUrl = `${serverUrl}${formattedSurahId}.mp3`;
 
+        // Download the audio first to ensure it's valid and avoid streaming issues
+        const { data: audioBuffer } = await axios.get(audioUrl, { responseType: 'arraybuffer' });
+
         // Send as audio (like music) with external metadata
         await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
+            audio: Buffer.from(audioBuffer),
             mimetype: 'audio/mpeg',
             ptt: false, // Send as music file
-            fileName: `${reciterData.name}_${surahId}.mp3`,
+            fileName: `${reciterData.name}_${formattedSurahId}.mp3`,
             contextInfo: {
                 externalAdReply: {
-                    title: `سورة رقم ${surahId}`,
+                    title: `سورة رقم ${formattedSurahId}`,
                     body: `القارئ: ${reciterData.name}`,
                     thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
                     mediaType: 1,
