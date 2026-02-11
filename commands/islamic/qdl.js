@@ -21,8 +21,9 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على القارئ." }, { quoted: msg });
         }
 
-        const serverUrl = reciterData.moshaf[0].server;
-        const audioUrl = `${serverUrl}${surahId}.mp3`;
+        const serverUrl = response.data.reciters[0].moshaf[0].server;
+        const formattedSurahId = args[1].toString().padStart(3, '0');
+        const audioUrl = `${serverUrl}${formattedSurahId}.mp3`;
 
         // Send as audio (like music) with external metadata
         await sock.sendMessage(chatId, {
