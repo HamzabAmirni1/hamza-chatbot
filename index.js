@@ -161,7 +161,7 @@ async function startBot(folderName, phoneNumber) {
   const sessionDir = path.join(__dirname, "sessions", folderName);
   if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
-  const sessionID = process.env[`SESSION_ID_${folderName.toUpperCase()}`] || (folderName === "session_1" ? process.env.SESSION_ID : null);
+  const sessionID = process.env[`SESSION_ID_${folderName.toUpperCase()}`] || process.env[folderName.toUpperCase()] || (folderName === "session_1" ? process.env.SESSION_ID : null);
 
   if (sessionID && !fs.existsSync(path.join(sessionDir, "creds.json"))) {
     try {
