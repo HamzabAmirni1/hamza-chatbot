@@ -367,7 +367,8 @@ async function startBot(folderName, phoneNumber) {
             "aiimg": "image/draw", "art": "image/draw", "لوحة": "image/draw",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
-            "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision"
+            "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
+            "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor"
           };
 
           if (allCmds[command]) {
