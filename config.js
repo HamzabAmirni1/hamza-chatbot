@@ -7,7 +7,7 @@ const settings = {
     prefix: '.',
     ownerNumber: ['212624855939', '76704223654068', '72375181807785', '218859369943283'],
     // Phone number used for WhatsApp pairing code (country code + number, without '+', e.g. 2126xxxxxxx)
-    pairingNumber: '212684051093',
+    pairingNumber: '212649550748',
     newsletterJid: '120363367937224887@newsletter',
     newsletterName: 'حمزة اعمرني',
 
