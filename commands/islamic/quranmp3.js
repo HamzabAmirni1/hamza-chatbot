@@ -2,7 +2,7 @@ const axios = require('axios');
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const settings = require('../settings');
 const { t } = require('../lib/language');
-const { getSurahNumber } = require('../../lib/quranUtils');
+const { getSurahNumber } = require('../lib/quranUtils');
 const fs = require('fs');
 const path = require('path');
 
@@ -336,4 +336,4 @@ quranMp3Command.tags = ['islamic'];
 quranMp3Command.desc = 'البحث عن قراء القرآن والاستماع MP3';
 
 module.exports = quranMp3Command;
-module.exports.showSurahFormatCard = showSurahFormatCard;
+module.exports.showSurahFormatCard = showSurahFormatCard;  
