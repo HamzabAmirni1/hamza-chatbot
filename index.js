@@ -31,6 +31,8 @@ const {
   getOpenRouterResponse,
   getHFVision,
   getObitoAnalyze,
+  getBlackboxResponse,
+  getStableAIResponse,
 } = require('./lib/ai');
 const {
   readAntiCallState,
@@ -418,20 +420,23 @@ async function startBot(folderName, phoneNumber) {
             aiPromises.push(getLuminAIResponse(sender, body));
             aiPromises.push(getAIDEVResponse(sender, body));
             aiPromises.push(getPollinationsResponse(sender, body));
+            aiPromises.push(getBlackboxResponse(sender, body));
+            aiPromises.push(getStableAIResponse(sender, body));
             aiPromises.push(getAutoGPTResponse(sender, body));
 
             try {
               // Race them and return the first one that resolves with a value
-              // Set a global timeout for the whole race to ensure it doesn't hang
               const racePromise = Promise.any(aiPromises.map(p => p.then(res => {
                 if (!res) throw new Error("No response");
                 return res;
               })));
 
-              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000));
+              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 25000));
               reply = await Promise.race([racePromise, timeoutPromise]);
             } catch (e) {
-              console.log("AI Race failed or timed out.");
+              console.log("AI Race failed or timed out. Falling back to sequential...");
+              // Sequential fallback for the most reliable one
+              reply = await getStableAIResponse(sender, body) || await getBlackboxResponse(sender, body) || await getPollinationsResponse(sender, body);
             }
           }
         }
