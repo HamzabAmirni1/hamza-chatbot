@@ -2,7 +2,7 @@ const axios = require('axios');
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const settings = require('../settings');
 const { t } = require('../lib/language');
-const { getSurahNumber } = require('../../lib/quranUtils');
+const { getSurahNumber } = require('../lib/quranUtils');
 const fs = require('fs');
 const path = require('path');
 
@@ -123,17 +123,26 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
         }
 
 
-        // --- Normal Carousel Logic (Popular Reciters) ---
-
-        // Filter if query exists (and isn't the surah ID itself)
+        // Normal Carousel Logic (Popular & Moroccan Reciters)
         if (reciterQuery) {
             reciters = reciters.filter(r => r.name.toLowerCase().includes(reciterQuery.toLowerCase()));
-        } else if (!targetSurahId && query) {
+        } else if (!targetSurahId && query && !directSurahId) {
             reciters = reciters.filter(r => r.name.toLowerCase().includes(query.toLowerCase()));
         } else {
-            // Popular Filter
-            const popularNames = ['مشاري العفاسي', 'عبد الباسط عبد الصمد', 'ماهر المعيقلي', 'سعود الشريم', 'ياسر الدوسري', 'أحمد العجمي', 'سعد الغامدي', 'فارس عباد', 'منشاوي', 'الحصري', 'إسلام صبحي', 'هزاع البلوشي'];
-            reciters = reciters.filter(r => popularNames.some(p => r.name.includes(p))).slice(0, 12);
+            // Expanded Famous & Moroccan Selection
+            const highlightReciters = [
+                'مشاري العفاسي', 'عبد الباسط عبد الصمد', 'ماهر المعيقلي', 'ياسر الدوسري',
+                'سعد الغامدي', 'عمر القزابري', 'العيون الكوشي', 'إسلام صبحي',
+                'أحمد العجمي', 'فارس عباد', 'منصور السالمي', 'أبو بكر الشاطري'
+            ];
+            reciters = reciters.filter(r => highlightReciters.some(p => r.name.includes(p)));
+
+            // Re-order to match priority
+            reciters.sort((a, b) => {
+                const aIdx = highlightReciters.findIndex(p => a.name.includes(p));
+                const bIdx = highlightReciters.findIndex(p => b.name.includes(p));
+                return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+            });
         }
 
         if (!reciters.length) {
@@ -141,62 +150,57 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
         }
 
         // Limit for carousel
-        const topReciters = reciters.slice(0, 10);
+        const topReciters = reciters.slice(0, 12);
 
-        // Helper for Image
-        async function createHeaderImage() {
+        // Helper for different thumbnails to make it look non-repetitive
+        const thumbnails = [
+            'https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg',
+            'https://i.pinimg.com/564x/e1/9f/c6/e19fc638153400e9a7e6ea3e0ce1d111.jpg',
+            'https://i.pinimg.com/564x/44/1a/7f/441a7f0e3fb8c8b4b7f8f9e684033b93.jpg',
+            'https://i.pinimg.com/564x/6c/dc/1e/6cdc1e37583685f0ef32230353408f61.jpg'
+        ];
+
+        async function createHeaderImage(index) {
             try {
-                const religionImagePath = path.join(process.cwd(), 'media/menu/bot_2.png');
-                if (fs.existsSync(religionImagePath)) {
-                    const { imageMessage } = await generateWAMessageContent({ image: fs.readFileSync(religionImagePath) }, { upload: sock.waUploadToServer });
-                    return imageMessage;
-                }
-                const imageUrl = 'https://images.unsplash.com/photo-1597933534024-161304f4407b?q=80&w=1000&auto=format&fit=crop';
-                const { imageMessage } = await generateWAMessageContent({ image: { url: imageUrl } }, { upload: sock.waUploadToServer });
+                const url = thumbnails[index % thumbnails.length];
+                const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });
                 return imageMessage;
             } catch (e) { return null; }
         }
-        const sharedImageMessage = await createHeaderImage();
 
-        const cards = topReciters.map(r => {
+        const cards = [];
+        for (let i = 0; i < topReciters.length; i++) {
+            const r = topReciters[i];
             const moshafName = r.moshaf[0]?.name || "مصحف";
+            const imgMsg = await createHeaderImage(i);
+
             const buttons = targetSurahId ?
                 [
                     {
                         "name": "quick_reply",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: `🎧 استماع (MP3)`,
+                            display_text: `🎧 تحميل التلاوة`,
                             id: `${settings.prefix}qdl ${r.id} ${targetSurahId}`
-                        })
-                    },
-                    {
-                        "name": "cta_url",
-                        "buttonParamsJson": JSON.stringify({
-                            display_text: `📖 قراءة (Site)`,
-                            url: `https://quran.com/${targetSurahId}`
                         })
                     }
                 ] :
                 [{
                     "name": "quick_reply",
                     "buttonParamsJson": JSON.stringify({ display_text: "📜 قائمة السور", id: `${settings.prefix}quransurah ${r.id}` })
-                }, {
-                    "name": "quick_reply",
-                    "buttonParamsJson": JSON.stringify({ display_text: "🎧 سورة البقرة", id: `${settings.prefix}qdl ${r.id} 002` })
                 }];
 
-            return {
+            cards.push({
                 body: proto.Message.InteractiveMessage.Body.fromObject({
                     text: `👤 *القارئ:* ${r.name}\n📖 *الرواية:* ${moshafName}\n🔢 *عدد السور:* ${r.moshaf[0]?.surah_total || '114'}`
                 }),
                 header: proto.Message.InteractiveMessage.Header.fromObject({
                     title: r.name,
-                    hasMediaAttachment: !!sharedImageMessage, // Only true if image exists
-                    imageMessage: sharedImageMessage
+                    hasMediaAttachment: !!imgMsg,
+                    imageMessage: imgMsg
                 }),
                 nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({ buttons })
-            };
-        });
+            });
+        }
 
         // Add "More Reciters" Card ONLY if targetSurahId is set
         if (targetSurahId) {
@@ -336,4 +340,4 @@ quranMp3Command.tags = ['islamic'];
 quranMp3Command.desc = 'البحث عن قراء القرآن والاستماع MP3';
 
 module.exports = quranMp3Command;
-module.exports.showSurahFormatCard = showSurahFormatCard;
+module.exports.showSurahFormatCard = showSurahFormatCard;  
