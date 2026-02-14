@@ -381,6 +381,39 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
+        // Natural Language Commands (Detect keywords without dot)
+        if (body && !body.startsWith(".")) {
+          const lowerBody = body.toLowerCase();
+          const nlcKeywords = {
+            "قرآن|quran|سورة|sura|القرآن": "islamic/quran",
+            "آية|اية|ayah": "islamic/ayah",
+            "تفسير|tafsir": "islamic/tafsir",
+            "دعاء|dua|اذكار|ad3iya": "islamic/ad3iya",
+            "طقس|weather": "tools/weather",
+            "بينج|ping|status": "tools/ping",
+            "صورة|رسم|draw|imagine|art": "image/draw",
+            "فيديو-صورة|img2video": "ai/img2video",
+            "قائمة|menu|help": "info/menu"
+          };
+
+          let nlcFound = false;
+          for (const [key, path] of Object.entries(nlcKeywords)) {
+            // Check if the keyword exists anywhere in the message for Islamic/Visual tools
+            if (new RegExp(`(${key})`, "i").test(lowerBody)) {
+              try {
+                let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
+                // For Quran, if they mentions a surah name but not the word "quran", we should still try.
+                // But for now, let's stick to these primary triggers.
+                const cmdFile = require(`./commands/${path}`);
+                await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
+                nlcFound = true;
+                break;
+              } catch (e) { }
+            }
+          }
+          if (nlcFound) continue;
+        }
+
         if (type === "imageMessage" || type === "videoMessage") {
           try {
             const vision = require('./commands/ai/vision');
