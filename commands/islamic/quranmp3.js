@@ -282,35 +282,35 @@ async function showSurahFormatCard(sock, chatId, msg, surahId) {
                 {
                     "name": "quick_reply",
                     "buttonParamsJson": JSON.stringify({
-                        display_text: "🎧 استماع (Audio)",
+                        display_text: "↩️ 🎧 استماع (Audio)",
                         id: `${settings.prefix}quranmp3 ${surahId} --audio`
                     })
                 },
                 {
                     "name": "quick_reply",
                     "buttonParamsJson": JSON.stringify({
-                        display_text: "📖 قراءة (Text)",
+                        display_text: "↩️ 📖 قراءة (Text)",
                         id: `${settings.prefix}quranread ${surahId}`
                     })
                 },
                 {
                     "name": "cta_url",
                     "buttonParamsJson": JSON.stringify({
-                        display_text: "📄 ملف (Official Site)",
+                        display_text: "↗️ 📄 ملف (Official Site)",
                         url: `https://quran.com/${surahId}`
                     })
                 },
                 {
                     "name": "cta_url",
                     "buttonParamsJson": JSON.stringify({
-                        display_text: "قناتي الرسمية 🔔",
+                        display_text: "↗️ 🔔 قناتي الرسمية",
                         url: settings.officialChannel
                     })
                 },
                 {
                     "name": "quick_reply",
                     "buttonParamsJson": JSON.stringify({
-                        display_text: "المطور 👑",
+                        display_text: "↩️ 👑 المطور",
                         id: ".owner"
                     })
                 }
