@@ -307,6 +307,7 @@ async function startBot(folderName, phoneNumber) {
         const delayPromise = new Promise((resolve) => setTimeout(resolve, 500));
 
         let reply;
+        let isCommand = false;
         const nanoKeywords = "nano|edit|adel|3adil|sawb|qad|badel|ghayir|ghayar|tahwil|convert|photoshop|ps|tadil|modify|change|عدل|تعديل|غير|تغيير|بدل|تبديل|صاوب|قاد|تحويل|حول|رد|دير|اضف|أضف|زيد";
         const enhanceKeywords = "hd|enhance|upscale|removebg|bg|background|وضح|تصفية|جودة|وضوح|خلفية|حيد-الخلفية";
         const colorizeKeywords = "colorize|color|لون|تلوين";
@@ -330,6 +331,7 @@ async function startBot(folderName, phoneNumber) {
             try {
               const editCmd = require('./commands/image/edit');
               await editCmd(sock, sender, msg, [], { aiType, aiPrompt: rest }, "ar");
+              isCommand = true;
               continue;
             } catch (err) { }
           }
@@ -376,6 +378,7 @@ async function startBot(folderName, phoneNumber) {
             try {
               const cmdFile = require(`./commands/${allCmds[command]}`);
               await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
+              isCommand = true;
               continue;
             } catch (err) { }
           }
@@ -411,8 +414,14 @@ async function startBot(folderName, phoneNumber) {
               } catch (e) { }
             }
           }
-          if (nlcFound) continue;
+          if (nlcFound) {
+            isCommand = true;
+            continue;
+          }
         }
+
+        // If it's a command, don't let AI handle it
+        if (isCommand || (body && body.startsWith("."))) continue;
 
         if (type === "imageMessage" || type === "videoMessage") {
           try {
