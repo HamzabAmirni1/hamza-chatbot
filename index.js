@@ -294,12 +294,6 @@ async function startBot(folderName, phoneNumber) {
         const sender = msg.key.remoteJid;
         logUser(sender);
 
-        const d = loadDuasData();
-        if (!d.subscribers.includes(sender)) {
-          d.subscribers.push(sender);
-          saveDuasData(d);
-        }
-
         if (body && !msg.key.fromMe) {
           const skipAI = await handleAutoDL(sock, sender, msg, body, processedMessages, { sendFBVideo, sendYTVideo, getYupraVideoByUrl, getOkatsuVideoByUrl });
           if (skipAI) continue;
@@ -428,12 +422,16 @@ async function startBot(folderName, phoneNumber) {
 
             try {
               // Race them and return the first one that resolves with a value
-              reply = await Promise.any(aiPromises.map(p => p.then(res => {
+              // Set a global timeout for the whole race to ensure it doesn't hang
+              const racePromise = Promise.any(aiPromises.map(p => p.then(res => {
                 if (!res) throw new Error("No response");
                 return res;
               })));
+
+              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000));
+              reply = await Promise.race([racePromise, timeoutPromise]);
             } catch (e) {
-              // All failed, fallback
+              console.log("AI Race failed or timed out.");
             }
           }
         }
