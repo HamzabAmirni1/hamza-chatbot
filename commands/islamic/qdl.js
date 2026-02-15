@@ -38,7 +38,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         const reciterData = response.data.reciters[0];
 
         if (!reciterData) {
-            return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على القارئ." }, { quoted: msg });
+            throw new Error("Reciter not found on mp3quran");
         }
 
         const serverUrl = reciterData.moshaf[0].server;
@@ -68,6 +68,33 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
     } catch (e) {
+        console.log("MP3Quran failed, trying Assabile fallback...", e.message);
+        try {
+            const QuranAssabile = require('../../lib/quranAssabile');
+            const searchResults = await QuranAssabile.search(rawSurahId);
+            if (searchResults.length > 0) {
+                const audioUrl = await QuranAssabile.audio(searchResults[0]);
+                if (audioUrl) {
+                    await sock.sendMessage(chatId, {
+                        audio: { url: audioUrl },
+                        mimetype: 'audio/mpeg',
+                        fileName: `سورة ${surahName}.mp3`,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: `سورة ${surahName}`,
+                                body: "مصدر بديل: Assabile",
+                                thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
+                                mediaType: 1
+                            }
+                        }
+                    }, { quoted: msg });
+                    return await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+                }
+            }
+        } catch (err) {
+            console.error("Assabile Fallback Error:", err);
+        }
+
         console.error("QDL Error:", e);
         await sock.sendMessage(chatId, { text: "❌ خطأ في تحميل التلاوة. حاول مرة أخرى." }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });

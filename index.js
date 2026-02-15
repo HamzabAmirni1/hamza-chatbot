@@ -371,6 +371,7 @@ async function startBot(folderName, phoneNumber) {
             "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video",
             "blur": "tools/blur", "ضباب": "tools/blur", "طمس": "tools/blur",
             "brat": "tools/brat", "brat-vd": "tools/brat", "برات": "tools/brat",
+            "tomp3": "tools/tomp3", "toaudio": "tools/tomp3",
             "alloschool": "morocco/alloschool", "alloschoolget": "morocco/alloschool", "allo": "morocco/alloschool", "دروس": "morocco/alloschool", "فروض": "morocco/alloschool"
           };
 
@@ -397,6 +398,7 @@ async function startBot(folderName, phoneNumber) {
             "صورة|رسم|draw|imagine|art": "image/draw",
             "فيديو-صورة|img2video": "ai/img2video",
             "يوتيوب|تحميل|ytdl": "thmil/ytdl",
+            "tomp3|mp3-تحويل": "tools/tomp3",
             "قائمة|menu|help": "info/menu"
           };
 
