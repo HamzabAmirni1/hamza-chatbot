@@ -1,28 +1,28 @@
 const axios = require('axios');
-const settings = require('../settings');
-const { t } = require('../lib/language');
+const settings = require('../../config');
 
-module.exports = async (sock, chatId, msg, args, commands, userLang) => {
+module.exports = async (sock, chatId, msg, args, helpers) => {
     const fbUrl = args[0];
 
-    if (!fbUrl || !fbUrl.match(/(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch|fb\.com)\/[^\s]+)/i)) {
+    if (!fbUrl || !fbUrl.match(/(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch|fb\.com|web\.facebook\.com)\/[^\s]+)/i)) {
         return await sock.sendMessage(chatId, {
             text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة الصحيحة:*\n.fb [رابط الفيديو]\n\n*مثال:* .fb https://www.facebook.com/watch/?v=xxx`
         }, { quoted: msg });
     }
 
-    await sock.sendMessage(chatId, { react: { text: "🔄", key: msg.key } });
+    await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
     try {
-        // Try Primary API
-        const apiUrl = `https://api.hanggts.xyz/download/facebook?url=${encodeURIComponent(fbUrl)}`;
+        // Try Vreden API (New and stable)
+        const apiUrl = `https://api.vreden.my.id/api/facebook?url=${encodeURIComponent(fbUrl)}`;
         const response = await axios.get(apiUrl, { timeout: 15000 });
+
         let fbvid = null;
-        if (response.data && (response.data.status === true || response.data.result)) {
-            fbvid = response.data.result.media?.video_hd ||
-                response.data.result.media?.video_sd ||
-                response.data.result.url ||
-                response.data.result.download;
+        let title = "Facebook Video";
+
+        if (response.data && response.data.status) {
+            fbvid = response.data.result.video || response.data.result.video_hd || response.data.result.video_sd;
+            title = response.data.result.title || title;
         }
 
         if (!fbvid) {
@@ -39,8 +39,17 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         if (fbvid) {
             await sock.sendMessage(chatId, {
                 video: { url: fbvid },
-                caption: `✅ *تم تحميل فيديو Facebook بنجاح!*\n\n⚔️ ${settings.botName}`,
-                mimetype: "video/mp4"
+                caption: `✅ *تم التحميل بنجاح!*\n\n🎬 *${title}*\n\n🚀 ${settings.botName}`,
+                mimetype: "video/mp4",
+                contextInfo: {
+                    externalAdReply: {
+                        title: "Facebook Downloader",
+                        body: settings.botName,
+                        thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
+                        mediaType: 2,
+                        sourceUrl: fbUrl
+                    }
+                }
             }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } else {
@@ -49,7 +58,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
     } catch (e) {
         console.error('Error in fb downloader:', e);
-        await sock.sendMessage(chatId, { text: `❌ *خطأ:* ${e.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ فشل تحميل الفيديو. الرابط قد يكون خاصاً أو غير متاح.` }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 };

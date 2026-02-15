@@ -34,7 +34,17 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
         await sock.sendMessage(chatId, {
             image: { url },
-            caption: `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n🎨 *تم رسم الصورة بنجاح*\n\n📝 *الوصف:* ${prompt}\n🎭 *الموديل:* ${model}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة GenAI*`,
+            caption: `*✨ ───❪ HAMZA AMIRNI ❫─── ✨*\n\n🎨 *تم رسم الصورة بنجاح*\n\n📝 *الوصف:* ${prompt}\n🎭 *الموديل:* ${model}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI*`,
+            contextInfo: {
+                externalAdReply: {
+                    title: "Image AI Generation",
+                    body: config.botName,
+                    thumbnailUrl: url,
+                    mediaType: 1,
+                    renderLargerThumbnail: true,
+                    sourceUrl: "https://pollinations.ai"
+                }
+            }
         }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });

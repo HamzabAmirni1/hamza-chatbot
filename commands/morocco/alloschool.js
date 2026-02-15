@@ -2,15 +2,9 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const settings = require('../../config');
-const { cleanString } = require('../../lib/utils'); // Assuming this exists or I'll just use simple replace
 
 async function searchGoogle(query) {
     try {
-        // Using a public search instance or scraping google (unreliable but standard for these bots)
-        // Alternative: Use a specific formatting for alloschool url construction if possible?
-        // Alloschool search is: https://www.alloschool.com/search?q=QUERY
-        // But the user code provided used that url. Let's try that first as it is more specific.
-
         const { data } = await axios.get(`https://www.alloschool.com/search?q=${encodeURIComponent(query)}`, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
         });
@@ -43,8 +37,6 @@ async function getFilesFromPage(url) {
         const $ = cheerio.load(data);
         const files = [];
 
-        // Alloschool usually lists resources with icons or specific links
-        // We look for pdf links
         $('a').each((_, link) => {
             const href = $(link).attr('href');
             let title = $(link).text().trim();
@@ -56,7 +48,7 @@ async function getFilesFromPage(url) {
             }
         });
 
-        return files.slice(0, 20); // Limit results
+        return files.slice(0, 20);
     } catch (error) {
         return [];
     }
@@ -74,7 +66,7 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
         await sock.sendMessage(chatId, { react: { text: "⬇️", key: msg.key } });
         try {
             const { data, headers } = await axios.get(url, { responseType: 'arraybuffer' });
-            const contentType = headers['content-type'];
+            const contentType = headers['content-type'] || '';
             const fileName = url.split('/').pop() || "document.pdf";
 
             if (contentType.includes('pdf') || url.endsWith('.pdf')) {
@@ -82,12 +74,19 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
                     document: Buffer.from(data),
                     mimetype: 'application/pdf',
                     fileName: fileName.endsWith('.pdf') ? fileName : fileName + '.pdf',
-                    caption: `📄 *ملف Alloschool*`
+                    caption: `📄 *تم جلب ملف Alloschool بنجاح*`,
+                    contextInfo: {
+                        externalAdReply: {
+                            title: "Alloschool Downloader",
+                            body: settings.botName,
+                            thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
+                            mediaType: 1,
+                            sourceUrl: url
+                        }
+                    }
                 }, { quoted: msg });
                 await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
             } else {
-                // Might be a page with more links?
-                // For now assume it asks for download.
                 await sock.sendMessage(chatId, { text: "⚠️ الرابط ليس ملف PDF مباشر." }, { quoted: msg });
             }
         } catch (e) {
@@ -114,11 +113,11 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
         }
 
         const sections = [{
-            title: '📄 الملفات المتاحة',
+            title: '📄 الملفات المتاحة للتحميل',
             rows: files.map(f => ({
-                header: "ملف",
+                header: "الدروس والتمارين",
                 title: f.title.substring(0, 50),
-                description: "اضغط للتحميل",
+                description: "انقر للتحميل كـ PDF",
                 id: `${settings.prefix}alloschoolget ${f.url}`
             }))
         }];
@@ -126,14 +125,19 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
         const listMsg = generateWAMessageFromContent(chatId, {
             viewOnceMessage: {
                 message: {
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
                     interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-                        body: proto.Message.InteractiveMessage.Body.create({ text: `📂 *الدروس والملفات:*` }),
+                        body: proto.Message.InteractiveMessage.Body.create({ text: `📂 *قائمة الملفات المتاحة:*` }),
                         footer: proto.Message.InteractiveMessage.Footer.create({ text: `乂 ${settings.botName}` }),
-                        header: proto.Message.InteractiveMessage.Header.create({ title: "Alloschool", subtitle: "Files", hasMediaAttachment: false }),
-                        listMessage: proto.Message.InteractiveMessage.ListMessage.fromObject({
-                            buttonText: "عرض الملفات",
-                            description: "قائمة الملفات",
-                            sections: sections
+                        header: proto.Message.InteractiveMessage.Header.create({ title: "Alloschool", subtitle: "Files List", hasMediaAttachment: false }),
+                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                            buttons: [{
+                                "name": "single_select",
+                                "buttonParamsJson": JSON.stringify({
+                                    title: "عرض الملفات",
+                                    sections: sections
+                                })
+                            }]
                         })
                     })
                 }
@@ -148,15 +152,15 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
     const results = await searchGoogle(text);
 
     if (!results.length) {
-        return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على دروس." }, { quoted: msg });
+        return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على نتائج لبحثك." }, { quoted: msg });
     }
 
     const sections = [{
-        title: '📚 الدروس الموجودة',
+        title: '📚 نتائج البحث المقترحة',
         rows: results.map(r => ({
-            header: "درس",
+            header: "درس / مستوى",
             title: r.title.substring(0, 60),
-            description: "اضغط للدخول",
+            description: "انقر لعرض الملفات",
             id: `${settings.prefix}alloschool ${r.url}`
         }))
     }];
@@ -164,14 +168,19 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
     const listMsg = generateWAMessageFromContent(chatId, {
         viewOnceMessage: {
             message: {
+                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
                 interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                     body: proto.Message.InteractiveMessage.Body.create({ text: `🔎 *نتائج البحث عن:* ${text}` }),
                     footer: proto.Message.InteractiveMessage.Footer.create({ text: `乂 ${settings.botName}` }),
-                    header: proto.Message.InteractiveMessage.Header.create({ title: "Alloschool", subtitle: "Search", hasMediaAttachment: false }),
-                    listMessage: proto.Message.InteractiveMessage.ListMessage.fromObject({
-                        buttonText: "اختر الدرس",
-                        description: "النتائج",
-                        sections: sections
+                    header: proto.Message.InteractiveMessage.Header.create({ title: "Alloschool Search", hasMediaAttachment: false }),
+                    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                        buttons: [{
+                            "name": "single_select",
+                            "buttonParamsJson": JSON.stringify({
+                                title: "اختر النتيجة المناسبة",
+                                sections: sections
+                            })
+                        }]
                     })
                 })
             }
