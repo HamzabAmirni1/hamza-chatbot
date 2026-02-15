@@ -347,7 +347,7 @@ async function startBot(folderName, phoneNumber) {
             "fb": "thmil/fb", "facebook": "thmil/fb", "فيسبوك": "thmil/fb",
             "ig": "thmil/ig", "instagram": "thmil/ig", "إنستغرام": "thmil/ig",
             "tiktok": "thmil/tiktok", "تيكتوك": "thmil/tiktok",
-            "ytmp4": "thmil/ytmp4", "ytmp4v2": "thmil/ytmp4v2",
+            "ytmp4": "thmil/ytmp4", "ytmp4v2": "thmil/ytmp4v2", "ytdl": "thmil/ytdl",
             "pinterest": "thmil/pinterest", "pin": "thmil/pinterest",
             "ad3iya": "islamic/ad3iya", "dua": "islamic/ad3iya", "دعاء": "islamic/ad3iya", "اذكار": "islamic/ad3iya",
             "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
@@ -396,6 +396,7 @@ async function startBot(folderName, phoneNumber) {
             "بينج|ping|status": "tools/ping",
             "صورة|رسم|draw|imagine|art": "image/draw",
             "فيديو-صورة|img2video": "ai/img2video",
+            "يوتيوب|تحميل|ytdl": "thmil/ytdl",
             "قائمة|menu|help": "info/menu"
           };
 
