@@ -23,11 +23,11 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         await sock.sendMessage(chatId, { react: { text: '⌛', key: msg.key } });
 
         const res = await axios.get(
-            `https://api.ootaizumi.web.id/downloader/spotifyplay?query=${encodeURIComponent(text)}`
+            `https://api.vreden.my.id/api/spotify?query=${encodeURIComponent(text)}`
         );
         const json = res.data;
 
-        if (!json.status || !json.result?.download) {
+        if (!json.status || !json.result) {
             await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
             return await sock.sendMessage(chatId, { text: `❌ لم يتم العثور على نتائج لـ: *${text}*` }, { quoted: msg });
         }

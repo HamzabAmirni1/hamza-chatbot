@@ -1,94 +1,33 @@
-// plugin by hamza amirni
-const axios = require('axios');
-const FormData = require('form-data');
+const { downloadYouTube } = require('../../lib/ytdl');
 
-const downloadYouTubeVideo = async (url) => {
-    const baseURL = 'https://backand-ytdl.siputzx.my.id/api';
-    const headers = {
-        'authority': 'backand-ytdl.siputzx.my.id',
-        'accept': '*/*',
-        'accept-language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-        'origin': 'https://yuyuyu.siputzx.my.id',
-        'referer': 'https://yuyuyu.siputzx.my.id/',
-        'sec-ch-ua': '"Not A(Brand";v="8", "Chromium";v="132"',
-        'sec-ch-ua-mobile': '?1',
-        'sec-ch-ua-platform': '"Android"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
-        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36'
-    };
+async function handler(sock, chatId, msg, args, helpers, userLang) {
+    const url = args.join(' ').trim();
+    if (!url) return sock.sendMessage(chatId, { text: `❌ أدخل رابط يوتيوب صالح.\n📌 مثال: .ytmp4v2 https://youtu.be/abc123` }, { quoted: msg });
 
     try {
-        const formData1 = new FormData();
-        formData1.append('url', url);
+        await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
+        await sock.sendMessage(chatId, { text: "⏳ المرجو الانتظار قليلا... يتم جلب الفيديو بأفضل جودة." }, { quoted: msg });
 
-        const infoResponse = await axios.post(`${baseURL}/get-info`, formData1, {
-            headers: { ...headers, ...formData1.getHeaders() }
-        });
+        const result = await downloadYouTube(url, 'video');
 
-        const videoInfo = infoResponse.data;
-
-        const formData2 = new FormData();
-        formData2.append('id', videoInfo.id);
-        formData2.append('format', 'mp4');
-        formData2.append('video_format_id', '18');
-        formData2.append('audio_format_id', '251');
-        formData2.append('info', JSON.stringify(videoInfo));
-
-        const jobResponse = await axios.post(`${baseURL}/create_job`, formData2, {
-            headers: { ...headers, ...formData2.getHeaders() }
-        });
-
-        const jobId = jobResponse.data.job_id;
-
-        while (true) {
-            const statusResponse = await axios.get(`${baseURL}/check_job/${jobId}`, { headers });
-            const status = statusResponse.data;
-
-            if (status.status === 'completed') {
-                return {
-                    success: true,
-                    title: videoInfo.title,
-                    duration: videoInfo.duration,
-                    thumbnail: videoInfo.thumbnail,
-                    downloadUrl: `https://backand-ytdl.siputzx.my.id${status.download_url}`
-                };
-            }
-
-            if (status.status === 'failed' || status.error_message) {
-                return {
-                    success: false,
-                    error: status.error_message || 'فشل في إنشاء الرابط'
-                };
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!result || !result.download) {
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return sock.sendMessage(chatId, { text: `❌ فشل التحميل: جميع المحاولات باءت بالفشل.` }, { quoted: msg });
         }
 
+        await sock.sendMessage(chatId, {
+            video: { url: result.download },
+            mimetype: 'video/mp4',
+            fileName: `${result.title || 'video'}.mp4`,
+            caption: `🎬 *${result.title || 'YouTube Video'}*\n📥 تم التحميل بنجاح بواسطة Hamza Bot`
+        }, { quoted: msg });
+
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+
     } catch (error) {
-        return {
-            success: false,
-            error: error.message
-        };
+        console.error("YTMP4V2 Error:", error);
+        await sock.sendMessage(chatId, { text: `❌ خطأ غير متوقع: ${error.message}` }, { quoted: msg });
     }
-};
-
-async function handler(sock, chatId, msg, args, commands, userLang) {
-    const text = args.join(' ').trim();
-    if (!text) return sock.sendMessage(chatId, { text: `❌ أدخل رابط يوتيوب صالح.\n📌 مثال: .ytmp4v2 https://youtu.be/abc123` }, { quoted: msg });
-
-    await sock.sendMessage(chatId, { text: "⏳ المرجو الانتظار قليلا لا تنسى ان تتابع \ninstagram.com/noureddine_ouafy" }, { quoted: msg });
-
-    const result = await downloadYouTubeVideo(text);
-    if (!result.success) return sock.sendMessage(chatId, { text: `❌ فشل التحميل: ${result.error}` }, { quoted: msg });
-
-    await sock.sendMessage(chatId, {
-        video: { url: result.downloadUrl },
-        mimetype: 'video/mp4',
-        fileName: `${result.title}.mp4`,
-        caption: `🎬 *${result.title}*\n⏱️ المدة: ${result.duration}\n📥 تم التحميل بنجاح`
-    }, { quoted: msg });
 };
 
 module.exports = handler;
