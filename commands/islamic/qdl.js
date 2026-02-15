@@ -1,6 +1,24 @@
 const axios = require('axios');
 const settings = require('../../config');
 
+function getSurahName(number) {
+    const s = [
+        "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة", "يونس",
+        "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
+        "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
+        "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر",
+        "فصلت", "الشورى", "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق",
+        "الذاريات", "الطور", "النجم", "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة",
+        "الصف", "الجمعة", "المنافقون", "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج",
+        "نوح", "الجن", "المزمل", "المدثر", "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس",
+        "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد",
+        "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", "البينة", "الزلزلة", "العاديات",
+        "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", "الكوثر", "الكافرون", "النصر",
+        "المسد", "الإخلاص", "الفلق", "الناس"
+    ];
+    return s[parseInt(number) - 1] || `سورة رقم ${number}`;
+}
+
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     if (args.length < 2) {
         return await sock.sendMessage(chatId, {
@@ -9,7 +27,9 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     }
 
     const reciterId = args[0];
-    const surahId = args[1].padStart(3, '0');
+    const rawSurahId = args[1];
+    const formattedSurahId = rawSurahId.toString().padStart(3, '0');
+    const surahName = getSurahName(rawSurahId);
 
     await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
@@ -21,22 +41,21 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على القارئ." }, { quoted: msg });
         }
 
-        const serverUrl = response.data.reciters[0].moshaf[0].server;
-        const formattedSurahId = args[1].toString().padStart(3, '0');
+        const serverUrl = reciterData.moshaf[0].server;
         const audioUrl = `${serverUrl}${formattedSurahId}.mp3`;
 
-        // Download the audio first to ensure it's valid and avoid streaming issues
+        // Download the audio
         const { data: audioBuffer } = await axios.get(audioUrl, { responseType: 'arraybuffer' });
 
-        // Send as audio (like music) with external metadata
+        // Send as audio file (Music file)
         await sock.sendMessage(chatId, {
             audio: Buffer.from(audioBuffer),
             mimetype: 'audio/mpeg',
-            ptt: false, // Send as music file
-            fileName: `${reciterData.name}_${formattedSurahId}.mp3`,
+            ptt: false, // Normal audio file (Audio 3adi)
+            fileName: `سورة ${surahName} - ${reciterData.name}.mp3`,
             contextInfo: {
                 externalAdReply: {
-                    title: `سورة رقم ${formattedSurahId}`,
+                    title: `سورة ${surahName}`,
                     body: `القارئ: ${reciterData.name}`,
                     thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
                     mediaType: 1,
