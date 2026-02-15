@@ -13,34 +13,43 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             const content = await generateWAMessageContent({ image: buffer }, { upload: sock.waUploadToServer });
             imageMessage = content.imageMessage;
         } else {
-            const content = await generateWAMessageContent({ image: { url: "https://pollinations.ai/p/cool-robot-assistant" } }, { upload: sock.waUploadToServer });
+            const content = await generateWAMessageContent({ image: { url: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg" } }, { upload: sock.waUploadToServer });
             imageMessage = content.imageMessage;
         }
     } catch (e) {
         console.error("Menu image error", e);
     }
 
-    // Compact Menu Text
-    const menuText = `🤖 *${settings.botName.toUpperCase()}*
-⚡ *Dev:* ${settings.botOwner}
+    // High-End Premium Menu Text
+    const menuText = `🌟 *${settings.botName.toUpperCase()} PREMIUM*
+👤 *المطور:* ${settings.botOwner}
 
 ━━━━━━━━━━━━━━━━
-🎨 *AI & CREATIVE*
-.img2video | .sketch | .blur | .brat
-.nano | .hd | .draw | .gpt4o | .hl
-
-📥 *DOWNLOADER*
-.play (Spotify) | .video | .fb | .ig | .ytmp4
-
-🌙 *ISLAMIC*
-.quranmp3 | .qdl | .ad3iya | .ayah | .tafsir
-
-🛠️ *UTILITY*
-.sticker | .ping | .weather | .tempnum
-
-📚 *EDUCATION*
-.alloschool
+🎨 *الذكاء الاصطناعي والإبداع*
+.nano | .hd | .draw | .sketch | .blur
+.gpt4o | .hl | .img2video | .brat
 ━━━━━━━━━━━━━━━━
+
+📥 *قسم التحميل (Downloaders)*
+.play (Spotify) | .ytdl (YouTube HD)
+.video | .fb | .ig | .tiktok | .ytmp4
+━━━━━━━━━━━━━━━━
+
+🕋 *الخدمات الإسلامية*
+.quran | .quranmp3 | .ad3iya | .ayah
+.tafsir | .qdl (تنزيل مباشر)
+━━━━━━━━━━━━━━━━
+
+🛠️ *الأدوات والخدمات*
+.tomp3 (فيديو ➔ صوت)
+.sticker | .weather | .ping | .tempnum
+━━━━━━━━━━━━━━━━
+
+📚 *التعليم*
+.alloschool (Morocco)
+━━━━━━━━━━━━━━━━
+
+💡 *ملاحظة:* البوت يفهم لغتك تلقائياً! حاول التكلم معه بدون أوامر.
 `;
 
     const cards = [
@@ -49,7 +58,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 text: menuText
             }),
             header: proto.Message.InteractiveMessage.Header.fromObject({
-                title: `👋 Hlan, @${msg.pushName || 'User'}`,
+                title: `👋 مرحباً، ${msg.pushName || 'مستخدمنا العزيز'}`,
                 hasMediaAttachment: !!imageMessage,
                 imageMessage: imageMessage
             }),
@@ -58,35 +67,28 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                     {
                         "name": "cta_url",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Instagram",
+                            display_text: "📸 Instagram",
                             url: settings.instagram
                         })
                     },
                     {
                         "name": "cta_url",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "WhatsApp Channel",
+                            display_text: "📢 WhatsApp Channel",
                             url: settings.officialChannel
                         })
                     },
                     {
                         "name": "cta_url",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Facebook Page",
-                            url: settings.facebookPage || settings.facebook
-                        })
-                    },
-                    {
-                        "name": "cta_url",
-                        "buttonParamsJson": JSON.stringify({
-                            display_text: "YouTube",
+                            display_text: "🎥 YouTube",
                             url: settings.youtube
                         })
                     },
                     {
                         "name": "quick_reply",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "Contact Owner 👤",
+                            display_text: "👤 المطور (Owner)",
                             id: ".owner"
                         })
                     }
@@ -104,10 +106,10 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 },
                 interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                     body: proto.Message.InteractiveMessage.Body.create({
-                        text: "Simple & Fast Bot"
+                        text: "تميز مع أفضل تجربة ذكاء اصطناعي"
                     }),
                     footer: proto.Message.InteractiveMessage.Footer.create({
-                        text: "Hamza Bot 2026"
+                        text: `乂 ${settings.botName} 2026`
                     }),
                     header: proto.Message.InteractiveMessage.Header.create({
                         hasMediaAttachment: false
@@ -121,5 +123,5 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     }, { quoted: msg });
 
     await sock.relayMessage(chatId, message.message, { messageId: message.key.id });
-    await sock.sendMessage(chatId, { react: { text: "⚡", key: msg.key } });
+    await sock.sendMessage(chatId, { react: { text: "📜", key: msg.key } });
 };
