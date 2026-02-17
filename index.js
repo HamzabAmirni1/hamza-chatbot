@@ -129,10 +129,29 @@ app.listen(port, "0.0.0.0", () => {
   console.log(chalk.green(`✅ Server listening on port ${port} (0.0.0.0)`));
   console.log(chalk.cyan(`🌐 Keep-Alive: ${config.publicUrl || "⚠️ Not Set"}`));
 
+  /* 
+   * 🌟 Keep-Alive Mechanism 🌟
+   * Pings the server every 30 seconds to prevent sleeping.
+   * This is critical for free-tier hosting like Koyeb/Render.
+   */
   const pingInterval = setInterval(() => {
-    axios.get(`http://127.0.0.1:${port}/health`).catch(() => process.exit(1));
-    if (config.publicUrl) axios.get(config.publicUrl, { timeout: 10000 }).catch(() => { });
-  }, 2 * 60 * 1000);
+    // Ping localhost health endpoint
+    axios.get(`http://127.0.0.1:${port}/health`).catch(() => {
+      console.error(chalk.red("Health check failed, potential restart..."));
+      // process.exit(1); // Optional: only exit if truly unhealthy
+    });
+
+    // Ping external public URL if set
+    if (config.publicUrl) {
+      axios.get(config.publicUrl, { timeout: 10000 })
+        .then(() => {
+          // Success - silent or debug log
+        })
+        .catch((err) => {
+          console.error(chalk.yellow(`Keep-Alive Ping Failed: ${err.message}`));
+        });
+    }
+  }, 30 * 1000); // 30 seconds interval
 });
 
 async function sendYTVideo(sock, chatId, videoUrl, title, quoted) {
