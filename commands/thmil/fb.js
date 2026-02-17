@@ -13,26 +13,50 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
     await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
     try {
-        // Try Vreden API (New and stable)
-        const apiUrl = `https://api.vreden.my.id/api/facebook?url=${encodeURIComponent(fbUrl)}`;
-        const response = await axios.get(apiUrl, { timeout: 15000 });
-
         let fbvid = null;
         let title = "Facebook Video";
 
-        if (response.data && response.data.status) {
-            fbvid = response.data.result.video || response.data.result.video_hd || response.data.result.video_sd;
-            title = response.data.result.title || title;
-        }
+        const methods = [
+            // Method 1: Siputzx
+            async () => {
+                const res = await axios.get(`https://api.siputzx.my.id/api/facebook?url=${encodeURIComponent(fbUrl)}`, { timeout: 15000 });
+                if (res.data?.status && res.data.data?.url) {
+                    return { url: res.data.data.url, title: "Facebook Video" };
+                }
+                throw new Error("Siputzx failed");
+            },
+            // Method 2: Ryzendesu
+            async () => {
+                const res = await axios.get(`https://api.ryzendesu.vip/api/downloader/fb?url=${encodeURIComponent(fbUrl)}`, { timeout: 15000 });
+                if (res.data?.status && res.data.result?.url) {
+                    const vid = Array.isArray(res.data.result.url)
+                        ? res.data.result.url.find(v => v.quality === "hd")?.url || res.data.result.url[0]?.url
+                        : res.data.result.url;
+                    return { url: vid, title: res.data.result.title || "Facebook Video" };
+                }
+                throw new Error("Ryzendesu failed");
+            },
+            // Method 3: Vreden (Updated endpoint if it changed, otherwise fallback)
+            async () => {
+                const res = await axios.get(`https://api.vreden.my.id/api/facebook?url=${encodeURIComponent(fbUrl)}`, { timeout: 15000 });
+                if (res.data && res.data.status) {
+                    const vid = res.data.result.video || res.data.result.video_hd || res.data.result.video_sd;
+                    return { url: vid, title: res.data.result.title || "Facebook Video" };
+                }
+                throw new Error("Vreden failed");
+            }
+        ];
 
-        if (!fbvid) {
-            // Try Fallback (Ryzendesu)
-            const vUrl = `https://api.ryzendesu.vip/api/downloader/fb?url=${encodeURIComponent(fbUrl)}`;
-            const vRes = await axios.get(vUrl, { timeout: 15000 });
-            if (vRes.data && vRes.data.url) {
-                fbvid = Array.isArray(vRes.data.url)
-                    ? vRes.data.url.find((v) => v.quality === "hd")?.url || vRes.data.url[0]?.url
-                    : vRes.data.url;
+        for (const method of methods) {
+            try {
+                const result = await method();
+                if (result && result.url) {
+                    fbvid = result.url;
+                    title = result.title;
+                    break;
+                }
+            } catch (err) {
+                console.log(`FB Method failed: ${err.message}`);
             }
         }
 
