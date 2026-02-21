@@ -71,10 +71,24 @@ async function quranSuraCommand(sock, chatId, msg, args, commands, userLang) {
                                 })
                             },
                             {
+                                "name": "quick_reply",
+                                "buttonParamsJson": JSON.stringify({
+                                    display_text: "📥 وتحميل (PDF/Text)",
+                                    id: `${settings.prefix}quranpdf ${surahId}`
+                                })
+                            },
+                            {
                                 "name": "cta_url",
                                 "buttonParamsJson": JSON.stringify({
                                     display_text: "📄 ملف (Official Site)",
                                     url: `https://quran.com/${surahId}`
+                                })
+                            },
+                            {
+                                "name": "cta_url",
+                                "buttonParamsJson": JSON.stringify({
+                                    display_text: "🔔 قناتي الرسمية",
+                                    url: settings.officialChannel
                                 })
                             }
                         ]

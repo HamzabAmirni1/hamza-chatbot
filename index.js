@@ -375,7 +375,7 @@ async function startBot(folderName, phoneNumber) {
             "khatm": "islamic/khatm", "ختمة": "islamic/khatm",
             "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
             "quran": "islamic/quran", "سورة": "islamic/quran", "continue": "islamic/continue", "tafsir": "islamic/tafsir", "تفسير": "islamic/tafsir",
-            "quranmp3": "islamic/quranmp3", "quranread": "islamic/quranread", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah",
+            "quranmp3": "islamic/quranmp3", "quranread": "islamic/quranread", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah", "qurancard": "islamic/qurancard", "quranpdf": "islamic/quranpdf",
             "weather": "tools/weather", "طقس": "tools/weather", "جو": "tools/weather", "حالة-الطقس": "tools/weather",
             "ping": "tools/ping", "بينج": "tools/ping", "tempnum": "tools/tempnum", "getsms": "tools/tempnum",
             "credits": "tools/credits", "quota": "tools/credits", "status": "tools/ping",
