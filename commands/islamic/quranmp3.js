@@ -204,14 +204,15 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
 
         // Add "More Reciters" Card ONLY if targetSurahId is set
         if (targetSurahId) {
+            const moreImgMsg = await createHeaderImage(topReciters.length);
             cards.push({
                 body: proto.Message.InteractiveMessage.Body.fromObject({
                     text: `🔍 *هل تبحث عن قارئ آخر؟*\n\nاضغط أدناه لعرض قائمة بجميع القراء المتوفرين.`
                 }),
                 header: proto.Message.InteractiveMessage.Header.fromObject({
                     title: "🔍 المزيد من القراء",
-                    hasMediaAttachment: true,
-                    imageMessage: sharedImageMessage
+                    hasMediaAttachment: !!moreImgMsg,
+                    imageMessage: moreImgMsg
                 }),
                 nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
                     buttons: [{
