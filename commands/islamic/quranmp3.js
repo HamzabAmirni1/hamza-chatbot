@@ -302,6 +302,13 @@ async function showSurahFormatCard(sock, chatId, msg, surahId) {
                     })
                 },
                 {
+                    "name": "quick_reply",
+                    "buttonParamsJson": JSON.stringify({
+                        display_text: "📥 وتحميل (PDF/Text)",
+                        id: `${settings.prefix}quranpdf ${surahId}`
+                    })
+                },
+                {
                     "name": "cta_url",
                     "buttonParamsJson": JSON.stringify({
                         display_text: "↗️ 🔔 قناتي الرسمية",
