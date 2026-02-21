@@ -1,9 +1,9 @@
 const axios = require('axios');
-const { quranSessions } = require('../../lib/islamic');
+const { getSession, setSession, deleteSession } = require('../../lib/quranSession');
 const { sendWithChannelButton } = require('../lib/utils');
 
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
-    const session = quranSessions[chatId];
+    const session = getSession(chatId);
     if (!session) {
         return await sock.sendMessage(
             chatId,
@@ -33,11 +33,12 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                     `\n━━━━━━━━━━━━━━━━━━━━\n💡 اكتب *.continue* لمتابعة القراءة.`,
                 );
                 session.lastIndex = end;
+                setSession(chatId, session);
             } else {
                 textParts.push(
                     `\n━━━━━━━━━━━━━━━━━━━━\n✅ *تمت السورة بحمد الله.*`,
                 );
-                delete quranSessions[chatId];
+                deleteSession(chatId);
             }
 
             await sendWithChannelButton(

@@ -44,6 +44,7 @@ const {
   logUser
 } = require('./commands/lib/utils');
 const { loadDuasData, saveDuasData, startDuasScheduler } = require("./lib/islamic");
+const { startRamadanScheduler } = require("./lib/ramadanScheduler");
 const { Boom } = require("@hapi/boom");
 
 // Store processed message IDs to prevent duplicates
@@ -264,8 +265,9 @@ async function startBot(folderName, phoneNumber) {
 
       try {
         startDuasScheduler(sock, { sendWithChannelButton, config });
+        startRamadanScheduler(sock);
       } catch (e) {
-        console.log(`[${folderName}] Duas scheduler error:`, e.message);
+        console.log(`[${folderName}] Schedulers error:`, e.message);
       }
     }
   });
@@ -369,9 +371,11 @@ async function startBot(folderName, phoneNumber) {
             "ytmp4": "thmil/ytmp4", "ytmp4v2": "thmil/ytmp4v2", "ytdl": "thmil/ytdl",
             "pinterest": "thmil/pinterest", "pin": "thmil/pinterest",
             "ad3iya": "islamic/ad3iya", "dua": "islamic/ad3iya", "دعاء": "islamic/ad3iya", "اذكار": "islamic/ad3iya",
+            "ramadan": "islamic/ramadan", "رمضان": "islamic/ramadan", "دعاء-رمضان": "islamic/ramadan", "نصيحة-رمضان": "islamic/ramadan",
+            "khatm": "islamic/khatm", "ختمة": "islamic/khatm",
             "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
             "quran": "islamic/quran", "سورة": "islamic/quran", "continue": "islamic/continue", "tafsir": "islamic/tafsir", "تفسير": "islamic/tafsir",
-            "quranmp3": "islamic/quranmp3", "quranread": "islamic/quranread", "qdl": "islamic/qdl", "quransura": "islamic/quran", "quransurah": "islamic/quran",
+            "quranmp3": "islamic/quranmp3", "quranread": "islamic/quranread", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah",
             "weather": "tools/weather", "طقس": "tools/weather", "جو": "tools/weather", "حالة-الطقس": "tools/weather",
             "ping": "tools/ping", "بينج": "tools/ping", "tempnum": "tools/tempnum", "getsms": "tools/tempnum",
             "credits": "tools/credits", "quota": "tools/credits", "status": "tools/ping",
@@ -380,7 +384,9 @@ async function startBot(folderName, phoneNumber) {
             "channel": "info/socials", "web": "info/socials", "portfolio": "info/socials", "owner": "info/owner",
             "hamza": "info/socials", "developer": "info/socials", "social": "info/socials", "socials": "info/socials",
             "links": "info/socials", "about": "info/socials", "info": "info/socials",
-            "draw": "image/draw", "imagine": "image/draw", "صورة": "image/draw", "رسم": "image/draw",
+            "draw": "image/draw", "صورة": "image/draw", "رسم": "image/draw",
+            "imagine": "ai/imagine", "aiart": "ai/imagine",
+            "miramuse": "ai/miramuse", "ai-image": "ai/ai-image",
             "aiimg": "image/draw", "art": "image/draw", "لوحة": "image/draw",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
