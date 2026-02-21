@@ -33,7 +33,6 @@ async function quranSuraCommand(sock, chatId, msg, args, commands, userLang) {
         imageMessage = gen.imageMessage;
     } catch (e) { }
 
-
     const msgContent = generateWAMessageFromContent(chatId, {
         viewOnceMessage: {
             message: {
@@ -43,7 +42,7 @@ async function quranSuraCommand(sock, chatId, msg, args, commands, userLang) {
                 },
                 interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                     body: proto.Message.InteractiveMessage.Body.create({
-                        text: `📖 *سورة ${sName}*\n\nكيف تريد عرض هذه السورة؟\n\n🎧 *صوت:* استماع وتحميل (MP3)\n📖 *قراءة:* نص مكتوب\n📄 *ملف:* تحميل كملف (Document)`
+                        text: `📖 *سورة ${sName}*\n\nكيف تريد عرض هذه السورة؟\n\n🎧 *صوت:* اختر القارئ واستمع للتلاوة\n📖 *قراءة:* نص السورة كاملاً`
                     }),
                     footer: proto.Message.InteractiveMessage.Footer.create({
                         text: `乂 ${settings.botName}`
@@ -68,20 +67,6 @@ async function quranSuraCommand(sock, chatId, msg, args, commands, userLang) {
                                 "buttonParamsJson": JSON.stringify({
                                     display_text: "📖 قراءة (Text)",
                                     id: `${settings.prefix}quranread ${surahId}`
-                                })
-                            },
-                            {
-                                "name": "quick_reply",
-                                "buttonParamsJson": JSON.stringify({
-                                    display_text: "📥 وتحميل (PDF/Text)",
-                                    id: `${settings.prefix}quranpdf ${surahId}`
-                                })
-                            },
-                            {
-                                "name": "cta_url",
-                                "buttonParamsJson": JSON.stringify({
-                                    display_text: "📄 ملف (Official Site)",
-                                    url: `https://quran.com/${surahId}`
                                 })
                             },
                             {

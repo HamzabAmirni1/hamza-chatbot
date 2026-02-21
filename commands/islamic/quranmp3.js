@@ -271,7 +271,7 @@ async function showSurahFormatCard(sock, chatId, msg, surahId) {
     // Single card with buttons
     const card = {
         body: proto.Message.InteractiveMessage.Body.fromObject({
-            text: `📖 *سورة ${surahName}*\n\nيرجى اختيار الطريقة التي تود بها عرض السورة:\n\n🎧 *صوت:* استماع وتحميل بصوت القارئ الذي تفضله\n📖 *قراءة:* عرض نص السورة كاملاً للقراءة\n📄 *ملف:* رابط مباشر للسورة من الموقع الرسمي`
+            text: `📖 *سورة ${surahName}*\n\nيرجى اختيار الطريقة التي تود بها عرض السورة:\n\n🎧 *صوت:* استماع وتحميل بصوت القارئ الذي تفضله\n📖 *قراءة:* عرض نص السورة كاملاً للقراءة`
         }),
         header: proto.Message.InteractiveMessage.Header.fromObject({
             title: `🌟 سورة ${surahName}`,
@@ -292,20 +292,6 @@ async function showSurahFormatCard(sock, chatId, msg, surahId) {
                     "buttonParamsJson": JSON.stringify({
                         display_text: "↩️ 📖 قراءة (Text)",
                         id: `${settings.prefix}quranread ${surahId}`
-                    })
-                },
-                {
-                    "name": "cta_url",
-                    "buttonParamsJson": JSON.stringify({
-                        display_text: "↗️ 📄 ملف (Official Site)",
-                        url: `https://quran.com/${surahId}`
-                    })
-                },
-                {
-                    "name": "quick_reply",
-                    "buttonParamsJson": JSON.stringify({
-                        display_text: "📥 وتحميل (PDF/Text)",
-                        id: `${settings.prefix}quranpdf ${surahId}`
                     })
                 },
                 {
