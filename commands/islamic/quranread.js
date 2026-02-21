@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { getSurahNumber } = require('../../lib/quranUtils');
-const { quranSessions } = require('../../lib/islamic');
+const { setSession } = require('../../lib/quranSession');
 const { sendWithChannelButton } = require('../lib/utils');
 const config = require('../../config');
 
@@ -37,15 +37,13 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 textParts.push(
                     `\n━━━━━━━━━━━━━━━━━━━━\n⚠️ *باقي الآيات مخفية لطول السورة.*\n💡 اكتب *.continue* لمتابعة القراءة.`,
                 );
-                // Ensure quranSessions are managed properly. If quranSessions is imported from lib/islamic, use it.
-                if (quranSessions) {
-                    quranSessions[chatId] = {
-                        surahNumber,
-                        name: surah.name,
-                        lastIndex: max,
-                        totalAyahs: ayahs.length,
-                    };
-                }
+                // Persistent session
+                setSession(chatId, {
+                    surahNumber,
+                    name: surah.name,
+                    lastIndex: max,
+                    totalAyahs: ayahs.length,
+                });
             }
 
             await sendWithChannelButton(

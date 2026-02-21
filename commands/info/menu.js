@@ -26,18 +26,20 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
 ━━━━━━━━━━━━━━━━
 🎨 *الذكاء الاصطناعي والإبداع*
-.nano | .hd | .draw | .sketch | .blur
+.imagine | .ai-image | .miramuse
+.draw | .nano | .hd | .bg | .sketch
 .gpt4o | .hl | .img2video | .brat
 ━━━━━━━━━━━━━━━━
 
-📥 *قسم التحميل (Downloaders)*
-.play (Spotify) | .ytdl (YouTube HD)
-.video | .fb | .ig | .tiktok | .ytmp4
+━━━━━━━━━━━━━━━━
+🕋 *الخدمات الإسلامية (رمضان)*
+.ramadan | .khatm | .quran | .quranmp3
+.ad3iya | .ayah | .tafsir | .qdl (تنزيل)
 ━━━━━━━━━━━━━━━━
 
-🕋 *الخدمات الإسلامية*
-.quran | .quranmp3 | .ad3iya | .ayah
-.tafsir | .qdl (تنزيل مباشر)
+📥 *قسم التحميل (Downloaders)*
+.play | .video | .fb | .ig | .tiktok
+.pinterest | .ytdl | .ytmp4
 ━━━━━━━━━━━━━━━━
 
 🛠️ *الأدوات والخدمات*
