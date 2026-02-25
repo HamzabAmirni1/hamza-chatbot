@@ -451,6 +451,7 @@ async function startBot(folderName, phoneNumber) {
             "aiimg": "image/draw", "art": "image/draw", "لوحة": "image/draw",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
+            "devmsgwa": "admin/broadcast", "devmsgtg": "admin/broadcast", "devmsgfb": "admin/broadcast", "devmsgtous": "admin/broadcast", "devmsgall": "admin/broadcast",
             "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
             "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
             "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
