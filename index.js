@@ -411,9 +411,18 @@ async function startBot(folderName, phoneNumber) {
             "grokvideo": "ai/grokvideo", "grok": "ai/grokvideo", "video-ai": "ai/grokvideo", "فيديو-ذكاء": "ai/grokvideo",
             "aivideo": "ai/aivideo", "veo": "ai/aivideo", "text2video": "ai/aivideo", "فيديو-نص": "ai/aivideo",
             "blur": "tools/blur", "ضباب": "tools/blur", "طمس": "tools/blur",
-            "brat": "tools/brat", "brat-vd": "tools/brat", "برات": "tools/brat",
+            "brat": "image/brat", "برات": "image/brat",
             "tomp3": "tools/tomp3", "toaudio": "tools/tomp3",
-            "alloschool": "morocco/alloschool", "alloschoolget": "morocco/alloschool", "allo": "morocco/alloschool", "دروس": "morocco/alloschool", "فروض": "morocco/alloschool"
+            "alloschool": "morocco/alloschool", "alloschoolget": "morocco/alloschool", "allo": "morocco/alloschool", "دروس": "morocco/alloschool", "فروض": "morocco/alloschool",
+            "upscale": "image/upscale", "hd-photo": "image/upscale", "رفع-جودة": "image/upscale", "upscaler": "image/upscale",
+            "colorize": "image/colorize", "لون": "image/colorize", "تلوين": "image/colorize",
+            "imgedit": "image/imgeditai", "aiimgedit": "image/imgeditai", "عدل-ai": "image/imgeditai",
+            "sketch2": "image/sketch2", "pencil2": "image/sketch2", "رصاص": "image/sketch2",
+            "gimg": "image/gimg", "googleimg": "image/gimg", "imgbahth": "image/gimg", "بحث-صورة": "image/gimg",
+            "wallpaper": "image/wallpaper", "wp": "image/wallpaper", "خلفية": "image/wallpaper", "4kwp": "image/wallpaper",
+            "capcut": "thmil/capcut", "capcutdl": "thmil/capcut",
+            "hespress": "morocco/hespress", "hespressread": "morocco/hespress", "أخبار": "morocco/hespress", "news": "morocco/hespress",
+            "alwadifa": "morocco/alwadifa", "وظائف": "morocco/alwadifa", "wdifaread": "morocco/alwadifa"
           };
 
           if (allCmds[command]) {
