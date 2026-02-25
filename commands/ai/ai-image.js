@@ -1,3 +1,6 @@
+// plugin by Noureddine Ouafy 
+// scrape by DAFFA 
+
 const axios = require('axios');
 const config = require('../../config');
 const { translateToEn } = require('../../lib/ai');
@@ -46,7 +49,7 @@ const aiLabs = {
             const url = aiLabs.api.base + aiLabs.api.endpoints.images;
             const res = await axios.post(url, payload, { headers: aiLabs.headers });
             if (res.data.code !== 0 || !res.data.data) {
-                return { success: false, error: 'Server failed to generate image.' };
+                return { success: false, error: 'Image generation failed.' };
             }
             return { success: true, url: res.data.data };
         } catch (err) {
@@ -64,12 +67,13 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
     try {
         await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
-        await sock.sendMessage(chatId, { text: "🎨 جاري توليد الصورة... المرجو الانتظار." }, { quoted: msg });
+        const waitMsg = await sock.sendMessage(chatId, { text: "⏳ جاري توليد الصورة... المرجو الانتظار." }, { quoted: msg });
 
         const enPrompt = await translateToEn(text);
         let response = await aiLabs.generateImage(enPrompt);
 
         if (response.success) {
+            try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
             await sock.sendMessage(chatId, {
                 image: { url: response.url },
                 caption: `🎨 *AI Image Labs* ⚔️\n\n📝 *الوصف:* ${text}\n⚔️ ${config.botName}`
@@ -81,6 +85,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             const seed = Math.floor(Math.random() * 1000000);
             const fallbackUrl = `https://pollinations.ai/prompt/${encodeURIComponent(enPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux&enhance=true`;
 
+            try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
             await sock.sendMessage(chatId, {
                 image: { url: fallbackUrl },
                 caption: `🎨 *AI Image (Fallback)* ⚔️\n\n📝 *الوصف:* ${text}\n⚔️ ${config.botName}`
