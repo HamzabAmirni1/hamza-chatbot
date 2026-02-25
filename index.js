@@ -18,7 +18,17 @@ const axios = require("axios");
 const chalk = require("chalk");
 const readline = require("readline");
 const path = require("path");
+const dns = require("dns");
 const config = require("./config");
+
+// --- DNS FIX ---
+try {
+  dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1']);
+  console.log(chalk.green('✅ DNS Servers set to Cloudflare/Google (1.1.1.1)'));
+} catch (e) {
+  console.error(chalk.red('❌ Failed to set DNS servers:'), e.message);
+}
+
 const { handleAutoDL } = require('./lib/autodl');
 const {
   getContext,
