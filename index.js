@@ -394,6 +394,7 @@ async function startBot(folderName, phoneNumber) {
             "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
             "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
             "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video",
+            "grokvideo": "ai/grokvideo", "grok": "ai/grokvideo", "video-ai": "ai/grokvideo", "فيديو-ذكاء": "ai/grokvideo",
             "blur": "tools/blur", "ضباب": "tools/blur", "طمس": "tools/blur",
             "brat": "tools/brat", "brat-vd": "tools/brat", "برات": "tools/brat",
             "tomp3": "tools/tomp3", "toaudio": "tools/tomp3",

@@ -29,6 +29,7 @@ const settings = {
     // API KEYS (Set these in Koyeb Environment Variables for security!)
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     openRouterKey: process.env.OPENROUTER_API_KEY || '',
+    xaiApiKey: process.env.XAI_API_KEY || '',         // Grok xAI API Key (for video generation)
 
     // Internal URL management
     publicUrl: (function () {
