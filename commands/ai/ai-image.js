@@ -67,7 +67,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
         await sock.sendMessage(chatId, { text: "🎨 جاري توليد الصورة... المرجو الانتظار." }, { quoted: msg });
 
         const enPrompt = await translateToEn(text);
-        const response = await aiLabs.generateImage(enPrompt);
+        let response = await aiLabs.generateImage(enPrompt);
 
         if (response.success) {
             await sock.sendMessage(chatId, {
@@ -76,7 +76,16 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });
         } else {
-            throw new Error(response.error);
+            // Fallback to pollinations if zdex fails
+            console.log("aiLabs failed, falling back to pollinations...");
+            const seed = Math.floor(Math.random() * 1000000);
+            const fallbackUrl = `https://pollinations.ai/prompt/${encodeURIComponent(enPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux&enhance=true`;
+
+            await sock.sendMessage(chatId, {
+                image: { url: fallbackUrl },
+                caption: `🎨 *AI Image (Fallback)* ⚔️\n\n📝 *الوصف:* ${text}\n⚔️ ${config.botName}`
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });
         }
     } catch (error) {
         console.error('ai-image error:', error);
