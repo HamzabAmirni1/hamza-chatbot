@@ -1,92 +1,238 @@
+/**
+ * .devmsg / .devmsgwa / .devmsgtg / .devmsgfb / .devmsgtous
+ * بث رسالة المطور — كل منصة بوحدها أو جميعهم دفعة واحدة
+ */
+
 const fs = require('fs-extra');
 const path = require('path');
+const axios = require('axios');
 const config = require('../../config');
+
+const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+
+// ═══ قراءة المستخدمين ═══
+function readUsers(filename) {
+    const dbPath = path.join(DATA_DIR, filename);
+    try {
+        if (!fs.existsSync(dbPath)) return [];
+        const raw = fs.readFileSync(dbPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+}
+
+// ═══ إرسال لفيسبوك ═══
+async function sendToFacebook(userId, text) {
+    if (!config.fbPageAccessToken) return false;
+    try {
+        await axios.post(
+            `https://graph.facebook.com/v19.0/me/messages?access_token=${config.fbPageAccessToken}`,
+            { recipient: { id: userId }, message: { text } },
+            { timeout: 10000 }
+        );
+        return true;
+    } catch (e) { return false; }
+}
+
+// ═══ إرسال لتلغرام ═══
+async function broadcastToTelegram(users, text) {
+    let success = 0, fail = 0;
+    if (!config.telegramToken || users.length === 0) return { success, fail };
+    try {
+        const TelegramBot = require('node-telegram-bot-api');
+        const tgBot = new TelegramBot(config.telegramToken);
+        for (const userId of users) {
+            try {
+                await tgBot.sendMessage(userId, text, { parse_mode: 'Markdown' });
+                success++;
+                await new Promise(r => setTimeout(r, 800));
+            } catch (e) { fail++; }
+        }
+    } catch (e) { fail = users.length; }
+    return { success, fail };
+}
+
+// ═══ إرسال لواتساب ═══
+async function broadcastToWhatsApp(sock, users, text) {
+    let success = 0, fail = 0;
+    for (const userId of users) {
+        try {
+            await sock.sendMessage(userId, { text });
+            success++;
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) { fail++; }
+    }
+    return { success, fail };
+}
+
+// ═══ فحص صلاحية المطور ═══
+function isOwner(chatId, msg, isTelegram) {
+    if (isTelegram) {
+        const username = (msg.from && msg.from.username) ? msg.from.username.toLowerCase() : '';
+        const id = chatId.toString();
+        return username === 'hamzaamirni' || config.ownerNumber.some(n => id.includes(n));
+    }
+    return config.ownerNumber.includes(chatId.split("@")[0]);
+}
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const isTelegram = helpers && helpers.isTelegram;
 
-    // ═══ Permission Check ═══
-    if (isTelegram) {
-        const senderUsername = (msg.from && msg.from.username) ? msg.from.username.toLowerCase() : '';
-        const senderId = chatId.toString();
-        const isOwner = senderUsername === 'hamzaamirni' ||
-            config.ownerNumber.some(n => senderId.includes(n));
-        if (!isOwner) {
-            return await sock.sendMessage(chatId, {
-                text: "❌ هذا الأمر خاص بالمطور فقط."
-            });
-        }
-    } else {
-        const senderNum = chatId.split("@")[0];
-        if (!config.ownerNumber.includes(senderNum)) {
-            return await sock.sendMessage(chatId, {
-                text: "❌ هذا الأمر خاص بالمطور فقط."
-            }, { quoted: msg });
-        }
+    // ── فحص الصلاحية ──
+    if (!isOwner(chatId, msg, isTelegram)) {
+        return await sock.sendMessage(chatId, {
+            text: "❌ هذا الأمر خاص بالمطور فقط."
+        }, { quoted: msg });
     }
 
-    const broadcastMsg = args.join(" ").trim();
+    // ── تحديد الأمر المستخدم ──
+    const cmd = (helpers && helpers.command) || '';
+    let usedCommand = 'all';
+    if (cmd === 'devmsgwa') usedCommand = 'wa';
+    else if (cmd === 'devmsgtg') usedCommand = 'tg';
+    else if (cmd === 'devmsgfb') usedCommand = 'fb';
+    else if (cmd === 'devmsgtous' || cmd === 'devmsgall' || cmd === 'devmsg') usedCommand = 'all';
+    else {
+        // Fallback for cases where command helper is missing
+        const rawBody = (msg.body || msg.text || '').trim().toLowerCase();
+        if (rawBody.startsWith('.devmsgwa') || rawBody.startsWith('/devmsgwa')) usedCommand = 'wa';
+        else if (rawBody.startsWith('.devmsgtg') || rawBody.startsWith('/devmsgtg')) usedCommand = 'tg';
+        else if (rawBody.startsWith('.devmsgfb') || rawBody.startsWith('/devmsgfb')) usedCommand = 'fb';
+        else usedCommand = 'all';
+    }
+
+    // ── الرسالة ──
+    const broadcastMsg = args.join(' ').trim();
     if (!broadcastMsg) {
         return await sock.sendMessage(chatId, {
-            text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة:* \`.devmsg [الرسالة]\`\n\n*مثال:* \`.devmsg السلام عليكم، تم تحديث البوت!\``,
+            text: `📢 *أوامر البث المتاحة:*\n\n` +
+                `• \`.devmsgwa [رسالة]\` — � واتساب فقط\n` +
+                `• \`.devmsgtg [رسالة]\` — ✈️ تلغرام فقط\n` +
+                `• \`.devmsgfb [رسالة]\` — 📘 فيسبوك فقط\n` +
+                `• \`.devmsgtous [رسالة]\` — 🌍 جميع المنصات\n\n` +
+                `� *إحصائيات المستخدمين الحالية:*\n` +
+                `📱 واتساب: *${readUsers('users.json').length}* مستخدم\n` +
+                `✈️ تلغرام: *${readUsers('tg_users.json').length}* مستخدم\n` +
+                `📘 فيسبوك: *${readUsers('fb_users.json').length}* مستخدم`
         }, { quoted: msg });
     }
 
-    // ═══ Load User Database ═══
-    const dbName = isTelegram ? "tg_users.json" : "users.json";
-    const dataPath = path.join(__dirname, "..", "..", "data", dbName);
+    const messageText =
+        `╔═══════════════════════╗\n` +
+        `║   📢 رسالة من مطور البوت\n` +
+        `╚═══════════════════════╝\n\n` +
+        `${broadcastMsg}\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚔️ *${config.botName}*`;
 
-    // Create the file if it doesn't exist yet
-    if (!fs.existsSync(dataPath)) {
-        fs.ensureDirSync(path.dirname(dataPath));
-        // For Telegram, add current user as first entry
-        const initialData = isTelegram ? [chatId.toString()] : [];
-        fs.writeFileSync(dataPath, JSON.stringify(initialData, null, 2));
-    }
+    fs.ensureDirSync(DATA_DIR);
 
-    let users = [];
-    try {
-        const raw = fs.readFileSync(dataPath, 'utf8');
-        users = JSON.parse(raw);
-        if (!Array.isArray(users)) users = [];
-    } catch (e) {
-        users = isTelegram ? [chatId.toString()] : [];
-    }
-
-    if (users.length === 0) {
+    // ────────────────────────────────────────────
+    // WHATSAPP ONLY
+    // ────────────────────────────────────────────
+    if (usedCommand === 'wa') {
+        const users = readUsers('users.json');
+        if (users.length === 0) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ لا يوجد مستخدمون مسجلون على واتساب بعد.'
+            }, { quoted: msg });
+        }
+        await sock.sendMessage(chatId, {
+            text: `📱 *بث واتساب...*\n👥 ${users.length} مستخدم`
+        }, { quoted: msg });
+        const r = await broadcastToWhatsApp(sock, users, messageText);
         return await sock.sendMessage(chatId, {
-            text: `❌ قائمة المستخدمين فارغة حالياً.\n\n💡 سيتم حفظ المستخدمين تلقائياً عند استخدامهم للبوت.`
+            text: `✅ *انتهى بث واتساب!*\n\n📱 ✅ ${r.success} | ❌ ${r.fail}`
+        }, { quoted: msg });
+    }
+
+    // ────────────────────────────────────────────
+    // TELEGRAM ONLY
+    // ────────────────────────────────────────────
+    if (usedCommand === 'tg') {
+        const users = readUsers('tg_users.json');
+        if (users.length === 0) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ لا يوجد مستخدمون مسجلون على تلغرام بعد.'
+            }, { quoted: msg });
+        }
+        await sock.sendMessage(chatId, {
+            text: `✈️ *بث تلغرام...*\n👥 ${users.length} مستخدم`
+        }, { quoted: msg });
+        const r = await broadcastToTelegram(users, messageText);
+        return await sock.sendMessage(chatId, {
+            text: `✅ *انتهى بث تلغرام!*\n\n✈️ ✅ ${r.success} | ❌ ${r.fail}`
+        }, { quoted: msg });
+    }
+
+    // ────────────────────────────────────────────
+    // FACEBOOK ONLY
+    // ────────────────────────────────────────────
+    if (usedCommand === 'fb') {
+        const users = readUsers('fb_users.json');
+        if (users.length === 0) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ لا يوجد مستخدمون مسجلون على فيسبوك بعد.'
+            }, { quoted: msg });
+        }
+        await sock.sendMessage(chatId, {
+            text: `📘 *بث فيسبوك...*\n👥 ${users.length} مستخدم`
+        }, { quoted: msg });
+        let success = 0, fail = 0;
+        for (const userId of users) {
+            const ok = await sendToFacebook(userId, broadcastMsg);
+            if (ok) success++; else fail++;
+            await new Promise(r => setTimeout(r, 500));
+        }
+        return await sock.sendMessage(chatId, {
+            text: `✅ *انتهى بث فيسبوك!*\n\n📘 ✅ ${success} | ❌ ${fail}`
+        }, { quoted: msg });
+    }
+
+    // ────────────────────────────────────────────
+    // ALL PLATFORMS
+    // ────────────────────────────────────────────
+    const waUsers = readUsers('users.json');
+    const tgUsers = readUsers('tg_users.json');
+    const fbUsers = readUsers('fb_users.json');
+    const total = waUsers.length + tgUsers.length + fbUsers.length;
+
+    if (total === 0) {
+        return await sock.sendMessage(chatId, {
+            text: `❌ *لا يوجد مستخدمون مسجلون على أي منصة بعد.*\n\n💡 سيتم حفظهم تلقائياً عند استخدامهم البوت.`
         }, { quoted: msg });
     }
 
     await sock.sendMessage(chatId, {
-        text: `📢 *جاري البث لـ ${users.length} مستخدم على ${isTelegram ? "تلكرام" : "واتساب"}...*`
+        text: `🌍 *بدأ البث الجماعي لجميع المنصات...*\n\n` +
+            `📱 واتساب: *${waUsers.length}*\n` +
+            `✈️ تلغرام: *${tgUsers.length}*\n` +
+            `📘 فيسبوك: *${fbUsers.length}*\n` +
+            `👥 الإجمالي: *${total}*`
     }, { quoted: msg });
 
-    const messageContent = `╔═══════════════════════╗
-║   📢 رسالة من مطور البوت
-╚═══════════════════════╝
+    // Broadcast in parallel per platform
+    const [waR, tgR] = await Promise.all([
+        broadcastToWhatsApp(sock, waUsers, messageText),
+        broadcastToTelegram(tgUsers, messageText)
+    ]);
 
-${broadcastMsg}
-
-━━━━━━━━━━━━━━━━━━━━━━
-⚔️ *${config.botName}*`;
-
-    let success = 0;
-    let fail = 0;
-
-    for (const userId of users) {
-        try {
-            await sock.sendMessage(userId, { text: messageContent });
-            success++;
-            await new Promise(res => setTimeout(res, isTelegram ? 800 : 2000));
-        } catch (err) {
-            console.error(`[devmsg] Failed to send to ${userId}:`, err.message);
-            fail++;
-        }
+    let fbSuccess = 0, fbFail = 0;
+    for (const userId of fbUsers) {
+        const ok = await sendToFacebook(userId, broadcastMsg);
+        if (ok) fbSuccess++; else fbFail++;
+        await new Promise(r => setTimeout(r, 500));
     }
 
+    const grandSuccess = waR.success + tgR.success + fbSuccess;
+    const grandFail = waR.fail + tgR.fail + fbFail;
+
     await sock.sendMessage(chatId, {
-        text: `✅ *اكتمل البث!*\n\n🚀 نجح: *${success}*\n❌ فشل: *${fail}*\n👥 الإجمالي: *${users.length}*`
+        text: `✅ *اكتمل البث الجماعي!*\n\n` +
+            `📱 *واتساب:* ✅ ${waR.success} | ❌ ${waR.fail}\n` +
+            `✈️ *تلغرام:* ✅ ${tgR.success} | ❌ ${tgR.fail}\n` +
+            `📘 *فيسبوك:* ✅ ${fbSuccess} | ❌ ${fbFail}\n` +
+            `━━━━━━━━━━━━━━━━\n` +
+            `🏆 *الإجمالي:* ✅ ${grandSuccess} | ❌ ${grandFail}`
     }, { quoted: msg });
 };

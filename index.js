@@ -443,14 +443,12 @@ async function startBot(folderName, phoneNumber) {
             "channel": "info/socials", "web": "info/socials", "portfolio": "info/socials", "owner": "info/owner",
             "hamza": "info/socials", "developer": "info/socials", "social": "info/socials", "socials": "info/socials",
             "links": "info/socials", "about": "info/socials", "info": "info/socials",
-            "draw": "image/draw", "صورة": "image/draw", "رسم": "image/draw",
-            "imagine": "ai/imagine", "aiart": "ai/imagine",
             "nano": "ai/nano", "nanopro": "ai/nano", "banana": "ai/nano", "نانو": "ai/nano", "gemini-image": "ai/nano",
             "nanoedit": "ai/nano_edit", "editimg": "ai/nano_edit", "nanobanana": "ai/nano_edit",
             "miramuse": "ai/miramuse", "ai-image": "ai/ai-image",
-            "aiimg": "image/draw", "art": "image/draw", "لوحة": "image/draw",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
+            "devmsgwa": "admin/broadcast", "devmsgtg": "admin/broadcast", "devmsgfb": "admin/broadcast", "devmsgtous": "admin/broadcast", "devmsgall": "admin/broadcast",
             "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
             "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
             "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
@@ -475,7 +473,7 @@ async function startBot(folderName, phoneNumber) {
             "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
             "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg",
             "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai",
-            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen",
+            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen", "photo": "image/gen", "image": "image/gen", "img": "image/gen", "تخيل": "image/gen", "ارسم": "image/gen", "صورة": "image/gen",
             "wallpaper": "image/wallpaper", "4kwallpaper": "image/wallpaper", "خلفية": "image/wallpaper",
             "googleimg": "image/googleimg", "gimage": "image/googleimg", "صور": "image/googleimg",
             "deepimg": "image/deepimg", "deepimage": "image/deepimg"
@@ -501,12 +499,11 @@ async function startBot(folderName, phoneNumber) {
             "دعاء|dua|اذكار|ad3iya": "islamic/ad3iya",
             "طقس|weather": "tools/weather",
             "بينج|ping|status": "tools/ping",
-            "صورة|رسم|draw|imagine|art": "image/draw",
             "فيديو-صورة|img2video": "ai/img2video",
             "يوتيوب|تحميل|ytdl": "thmil/ytdl",
             "tomp3|mp3-تحويل": "tools/tomp3",
             "نانو|تعديل|nano|edit": "image/nano",
-            "gen|generate|genimage": "image/gen",
+            "gen|generate|genimage|photo|image|img|تخيل|ارسم|صورة": "image/gen",
             "قائمة|menu|help": "info/menu"
           };
 
