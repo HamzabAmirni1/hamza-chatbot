@@ -59,18 +59,17 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     const text = args.join(' ').trim();
 
     if (!text) {
-        return await sock.sendMessage(chatId, { text: "📝 يرجى إدخال وصف الصورة (AI Image Labs)\n\nمثال: .ai-image neon city" }, { quoted: msg });
+        return await sock.sendMessage(chatId, { text: "🎨 *توليد صور بالذكاء الاصطناعي*\n\nالمرجو كتابة وصف الصورة.\n\n📌 مثال: .ai-image neon city" }, { quoted: msg });
     }
 
     try {
         await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
-        const waitMsg = await sock.sendMessage(chatId, { text: "🎨 جاري توليد الصورة... المرجو الانتظار." }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "🎨 جاري توليد الصورة... المرجو الانتظار." }, { quoted: msg });
 
         const enPrompt = await translateToEn(text);
         const response = await aiLabs.generateImage(enPrompt);
 
         if (response.success) {
-            try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
             await sock.sendMessage(chatId, {
                 image: { url: response.url },
                 caption: `🎨 *AI Image Labs* ⚔️\n\n📝 *الوصف:* ${text}\n⚔️ ${config.botName}`
@@ -82,6 +81,6 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     } catch (error) {
         console.error('ai-image error:', error);
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-        await sock.sendMessage(chatId, { text: `❌ خطأ في توليد الصورة: ${error.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ فشل توليد الصورة: ${error.message}` }, { quoted: msg });
     }
 };

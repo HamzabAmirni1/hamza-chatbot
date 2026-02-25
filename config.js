@@ -27,14 +27,14 @@ const settings = {
     botThumbnail: './media/hamza.jpg',
 
     // API KEYS
-    geminiApiKey: process.env.GEMINI_API_KEY || 'AIzaSyC2sxGUdolxHJIGS56VLl2xtJCGaG81l2k',
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
     openRouterKey: process.env.OPENROUTER_API_KEY || '',
     xaiApiKey: process.env.XAI_API_KEY || '',         // Grok xAI API Key (for video generation)
     aimlApiKey: process.env.AIML_API_KEY || '',       // aimlapi.com key (Nano Banana Pro / Gemini 3 Pro Image)
 
     // Telegram & Facebook Keys
     telegramToken: process.env.TELEGRAM_TOKEN || '8589218915:AAFoh4mnEsnuQOjZjgDrcSTQus7ClnL2VTA',
-    fbPageAccessToken: process.env.PAGE_ACCESS_TOKEN || 'EAARU3lwIKlcBQolcv6W2K4OVwPmzE1NuEbzI2hkC0ZCCHeP7mCxcIdPoeYQK2NBWssi18CVXmh50DDQaXvFi4bTc6caNmZCx2gixpRNzM5GaM41XMPDIfQnwZBQRJa3YrptSkYzjlhgV3gztQHB2SMSATRtjnfFwcRN0thuexLMFMgmZC2CuWQKQRMkimjtgOcGHdgZDZD',
+    fbPageAccessToken: process.env.PAGE_ACCESS_TOKEN || 'EAARU3lwIKlcBQz4GqbCw2Vc6ZAAPKytsEfhN6nCZBbXHdIRQZCchkjUq9BB5k622kDDRQaZCgBRB4pTCRN30hG25QPTZCYvyoYRsZB7MlBpHyHjb9ZAbbnZCkNAEmMFXZB35zCG2xCUjpNVQhWFP00KmTwNP1MryAeRgZBkRbMOZCSaGv6o0zP5XRWEq15cB6gYk6PbwT2BiQZDZD',
     fbVerifyToken: process.env.VERIFY_TOKEN || 'HAMZA_BOT_VERIFY_TOKEN',
 
     // Internal URL management
