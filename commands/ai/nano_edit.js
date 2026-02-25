@@ -90,19 +90,21 @@ module.exports = async (sock, sender, msg, args, { command }) => {
 
     if (!mime.startsWith("image/")) {
         return await sock.sendMessage(sender, {
-            text: `*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*\n*┊🦅┊:•⪼ ⌝خطأ⌞*\n> :•⪼ ⌝يرجى إرسال أو الرد على صورة⌞\n> :•⪼ ⌝مثال: .${command} تحويل الوجه إلى أنمي⌞\n*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*`
+            text: `🦅 *H A M Z A  A M I R N I*\n\n╭━━━ ⌜ ⚠️ خطأ في الوسائط ⌟ ━━━╮\n┃\n┃ 📥 *يرجى إرسال صورة أو الرد عليها*\n┃ 💡 *مثال:* .${command} تحويل الوجه إلى أنمي\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`
         }, { quoted: msg });
     }
 
     const text = args.join(" ");
     if (!text) {
         return await sock.sendMessage(sender, {
-            text: `*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*\n*┊🦅┊:•⪼ ⌝تنبيه⌞*\n> :•⪼ ⌝يرجى كتابة وصف التعديل⌞\n> :•⪼ ⌝مثال: .${command} تغيير الملابس إلى بدلة رسمية⌞\n*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*`
+            text: `🦅 *H A M Z A  A M I R N I*\n\n╭━━━ ⌜ 📝 تنبيه: طلب ناقص ⌟ ━━━╮\n┃\n┃ 🖋️ *يرجى كتابة وصف التعديل المطلوب*\n┃ 💡 *مثال:* .${command} تغيير الملابس إلى بدلة\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`
         }, { quoted: msg });
     }
 
     await sock.sendMessage(sender, { react: { text: "🕒", key: msg.key } });
-    const waitMsg = await sock.sendMessage(sender, { text: "⏳ جاري تعديل الصورة بالذكاء الاصطناعي... قد يستغرق الأمر دقيقة." }, { quoted: msg });
+    const waitMsg = await sock.sendMessage(sender, {
+        text: `🦅 *H A M Z A  A M I R N I*\n\n╭━━━━━━━━━━━━━━━━━━━━╮\n┃ ⏳ *جاري تعديل الصورة بالذكاء الاصطناعي...*\n┃ 🖌️ *الطلب:* ${text}\n╰━━━━━━━━━━━━━━━━━━━━╯\n\n💡 *قد يستغرق الأمر 30-60 ثانية*`
+    }, { quoted: msg });
 
     try {
         const quotedMsg = { message: q };
@@ -116,15 +118,16 @@ module.exports = async (sock, sender, msg, args, { command }) => {
         const result = await processImageAI(buffer, text);
 
         const caption = `
-*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*
-*┊🦅┊:•⪼ ⌝تم تعديل الصورة بنجاح⌞*
-*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*
+🦅 *H A M Z A  A M I R N I  B O T*
 
-↵📡╏الوصف ↶
-> ⊢${text}╎❯
+╭━━━ ⌜ ✨ تم التعديل بنجاح ⌟ ━━━╮
+┃
+┃ �️ *الوصف:* ${text}
+┃ 🏆 *المحرك:* Nano Banana Editor
+┃
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*
-> *Hamza Amirni Bot*
+*🚀 تم بواسطة حمزة اعمرني*
 `.trim();
 
         await sock.sendMessage(
@@ -134,10 +137,10 @@ module.exports = async (sock, sender, msg, args, { command }) => {
                 caption: caption,
                 contextInfo: {
                     externalAdReply: {
-                        title: "تعديل الصور بالذكاء الاصطناعي",
-                        body: "Nano Banana Editor",
+                        title: "H A M Z A  A M I R N I  A I",
+                        body: "Nano Banana AI Editor",
                         thumbnailUrl: result.output,
-                        sourceUrl: "https://aienhancer.ai",
+                        sourceUrl: "https://instagram.com/hamza_amirni_01",
                         mediaType: 1,
                         renderLargerThumbnail: true
                     }
@@ -153,7 +156,7 @@ module.exports = async (sock, sender, msg, args, { command }) => {
         console.error(e);
         await sock.sendMessage(sender, {
             edit: waitMsg.key,
-            text: `*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*\n*┊🦅┊:•⪼ ⌝فشل التعديل⌞*\n> :•⪼ ⌝تأكد من أن الصورة واضحة والوصف مفهوم⌞\n*⎔ ⋅ ───━ •﹝🦅﹞• ━─── ⋅ ⎔*`
+            text: `🦅 *H A M Z A  A M I R N I*\n\n╭━━━ ⌜ ❌ فشل التعديل ⌟ ━━━╮\n┃\n┃ ⚠️ تأكد من وضوح الصورة والوصف\n┃ 💡 حاول بجملة أبسط بالإنجليزية\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`
         });
         await sock.sendMessage(sender, { react: { text: "❌", key: msg.key } });
     }
