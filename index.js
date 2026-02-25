@@ -370,7 +370,7 @@ async function startBot(folderName, phoneNumber) {
             "tiktok": "thmil/tiktok", "تيكتوك": "thmil/tiktok",
             "ytmp4": "thmil/ytmp4", "ytmp4v2": "thmil/ytmp4v2", "ytdl": "thmil/ytdl",
             "pinterest": "thmil/pinterest", "pin": "thmil/pinterest",
-            "ad3iya": "islamic/ad3iya", "dua": "islamic/ad3iya", "دعاء": "islamic/ad3iya", "اذكار": "islamic/ad3iya",
+            "ad3iya": "islamic/ad3iya", "dua": "islamic/ad3iya", "دعاء": "islamic/ad3iya", "اذكار": "islamic/ad3iya", "ad3iya30": "islamic/ad3iya30",
             "ramadan": "islamic/ramadan", "رمضان": "islamic/ramadan", "دعاء-رمضان": "islamic/ramadan", "نصيحة-رمضان": "islamic/ramadan",
             "khatm": "islamic/khatm", "ختمة": "islamic/khatm",
             "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
