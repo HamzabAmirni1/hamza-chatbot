@@ -66,20 +66,25 @@ async function broadcastToWhatsApp(sock, users, text) {
 }
 
 // ═══ فحص صلاحية المطور ═══
-function isOwner(chatId, msg, isTelegram) {
+function isOwner(chatId, msg, isTelegram, isFacebook) {
+    const id = chatId.toString();
     if (isTelegram) {
         const username = (msg.from && msg.from.username) ? msg.from.username.toLowerCase() : '';
-        const id = chatId.toString();
         return username === 'hamzaamirni' || config.ownerNumber.some(n => id.includes(n));
     }
-    return config.ownerNumber.includes(chatId.split("@")[0]);
+    if (isFacebook) {
+        return config.ownerNumber.includes(id);
+    }
+    // WhatsApp
+    return config.ownerNumber.includes(id.split("@")[0]);
 }
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
 
     // ── فحص الصلاحية ──
-    if (!isOwner(chatId, msg, isTelegram)) {
+    if (!isOwner(chatId, msg, isTelegram, isFacebook)) {
         return await sock.sendMessage(chatId, {
             text: "❌ هذا الأمر خاص بالمطور فقط."
         }, { quoted: msg });
