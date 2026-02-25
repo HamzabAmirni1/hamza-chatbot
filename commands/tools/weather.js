@@ -30,33 +30,46 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     });
 
     try {
-        const apiUrl = `https://apis.davidcyriltech.my.id/weather?city=${encodeURIComponent(city)}`;
-        const { data } = await axios.get(apiUrl);
+        let weatherData = null;
 
-        if (!data.success || !data.data) {
+        // Try Siputzx API
+        try {
+            const res = await axios.get(`https://api.siputzx.my.id/api/weather?city=${encodeURIComponent(city)}`);
+            if (res.data?.status && res.data.data) weatherData = res.data.data;
+        } catch (e) { }
+
+        // Try Vreden Fallback
+        if (!weatherData) {
+            try {
+                const res = await axios.get(`https://api.vreden.my.id/api/weather?city=${encodeURIComponent(city)}`);
+                if (res.data?.status && res.data.result) weatherData = res.data.result;
+            } catch (e) { }
+        }
+
+        if (!weatherData) {
             return await sendWithChannelButton(
                 sock,
                 chatId,
-                `❌ ما لقيتش معلومات على المدينة: *${city}*`,
+                `❌ ما لقيتش معلومات على المدينة: *${city}* أو السيرفر متوقف حالياً.`,
                 msg,
             );
         }
 
-        const d = data.data;
-        const emoji = getWeatherEmoji(d.weather);
+        const d = weatherData;
+        const emoji = getWeatherEmoji(d.weather || d.condition);
         const weatherText =
-            `🌍 *حالة الطقس في ${d.location}, ${d.country}*\n\n` +
-            `🌡️ *درجة الحرارة:* ${d.temperature}°C\n` +
-            `🤔 *كتحس بـ:* ${d.feels_like}°C\n` +
-            `${emoji} *الحالة:* ${d.description}\n` +
+            `🌍 *حالة الطقس في ${d.location || d.city}, ${d.country || ''}*\n\n` +
+            `🌡️ *درجة الحرارة:* ${d.temperature || d.temp}°C\n` +
+            `🤔 *كتحس بـ:* ${d.feels_like || d.feelslike || d.temp}°C\n` +
+            `${emoji} *الحالة:* ${d.description || d.weather || d.condition}\n` +
             `💧 *الرطوبة:* ${d.humidity}%\n` +
-            `💨 *سرعة الرياح:* ${d.wind_speed} m/s\n` +
-            `⏲️ *الضغط الجوي:* ${d.pressure} hPa\n\n` +
+            `💨 *سرعة الرياح:* ${d.wind_speed || d.wind} m/s\n\n` +
             `🕒 *الوقت:* ${new Date().toLocaleTimeString("ar-MA")}\n` +
             `⚔️ ${config.botName}`;
 
         await sendWithChannelButton(sock, chatId, weatherText, msg);
     } catch (e) {
+        console.error("Weather Error:", e.message);
         await sendWithChannelButton(
             sock,
             chatId,
