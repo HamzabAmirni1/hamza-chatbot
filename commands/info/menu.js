@@ -5,94 +5,127 @@ const path = require('path');
 
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
+    let imageMessage;
 
-    async function createImage(url) {
-        const { imageMessage } = await generateWAMessageContent({
-            image: { url }
-        }, {
-            upload: sock.waUploadToServer
-        });
-        return imageMessage;
-    }
-
-    async function createLocalImage(buffer) {
-        const { imageMessage } = await generateWAMessageContent({
-            image: buffer
-        }, {
-            upload: sock.waUploadToServer
-        });
-        return imageMessage;
-    }
-
-    let menuHeaderImage;
     try {
         if (fs.existsSync(imagePath)) {
-            menuHeaderImage = await createLocalImage(fs.readFileSync(imagePath));
+            const buffer = fs.readFileSync(imagePath);
+            const content = await generateWAMessageContent({ image: buffer }, { upload: sock.waUploadToServer });
+            imageMessage = content.imageMessage;
         } else {
-            menuHeaderImage = await createImage("https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg");
+            const content = await generateWAMessageContent({ image: { url: "https://pollinations.ai/p/cool-robot-assistant" } }, { upload: sock.waUploadToServer });
+            imageMessage = content.imageMessage;
         }
     } catch (e) {
         console.error("Menu image error", e);
     }
 
-    const sections = [
+    // AI & Creative Card
+    const textAI = `🤖 *${settings.botName.toUpperCase()} AI*
+⚡ *Dev:* ${settings.botOwner}
+
+━━━━━━━━━━━━━━━━
+🎨 *AI & IMAGE*
+.imagine | .draw | .nano | .hd
+.upscale | .colorize | .imgedit
+.sketch | .sketch2 | .blur | .brat
+.gimg | .wallpaper | .bg | .ghibli
+
+🎬 *AI VIDEO & CHAT*
+.img2video | .aivideo | .grok
+.gpt4o | .hl (Vision)
+━━━━━━━━━━━━━━━━
+`;
+
+    // Tools & More Card
+    const textOther = `📁 *EXTRA FEATURES*
+━━━━━━━━━━━━━━━━
+📥 *DOWNLOADER*
+.play | .video | .fb | .ig | .lyrics
+.tiktok | .pin | .ytdl | .capcut
+.tomp3
+
+🌙 *ISLAMIC*
+.quran | .qmp3 | .ad3iya | .ayah
+
+🇲🇦 *MAROC & TOOLS*
+.hespress | .alwadifa | .ffnews
+.weather | .ping | .style | .toimg
+.alloschool | .tempnum | .tempnum
+━━━━━━━━━━━━━━━━
+`;
+
+    const cards = [
         {
-            title: "🎨 الذكاء الاصطناعي - صور",
-            text: "🖼️ .imagine | .draw — توليد صورة\n⚡ .nano — صورة Nano Banana 4K\n✏️ .nanoedit — تعديل صورة Nano\n🎭 .ai-image — Pollinations Art\n🌸 .miramuse — Miramuse AI Art\n🌿 .ghibli — فن Studio Ghibli\n🔧 .imgeditor — ImgEditor AI\n✨ .imgedit — تعديل AI Pro\n🔍 .upscale — رفع جودة 4x\n🎨 .colorize — تلوين الصور\n✏️ .sketch | .sketch2 — رسم رصاص\n📸 .gimg — بحث صور Google\n🌆 .wallpaper — خلفيات 4K\n💀 .removebg | .bg — حذف خلفية"
+            body: proto.Message.InteractiveMessage.Body.fromObject({
+                text: textAI
+            }),
+            header: proto.Message.InteractiveMessage.Header.fromObject({
+                title: `👋 Hlan, @${msg.pushName || 'User'}`,
+                hasMediaAttachment: !!imageMessage,
+                imageMessage: imageMessage
+            }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                buttons: [
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Instagram",
+                            url: settings.instagram
+                        })
+                    },
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "WhatsApp Channel",
+                            url: settings.officialChannel
+                        })
+                    },
+                    {
+                        "name": "quick_reply",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Contact Owner 👤",
+                            id: ".owner"
+                        })
+                    }
+                ]
+            })
         },
         {
-            title: "🎬 الذكاء الاصطناعي - فيديو",
-            text: "🤖 .aivideo — توليد فيديو AI\n⚡ .grokvideo — Grok AI Video\n📽️ .img2video — صورة ➜ فيديو AI\n💬 .gpt4o — GPT-4o Chat\n👁️ .hl — تحليل الصور"
-        },
-        {
-            title: "📥 قسم التحميل",
-            text: "▶️ .play | .song — تحميل أغنية YT\n🎬 .video | .vid — فيديو YouTube\n⬇️ .ytdl | .ytmp4 — YouTube DL\n📘 .fb — Facebook\n📸 .ig — Instagram\n🎵 .tiktok — TikTok\n📌 .pinterest — Pinterest\n🎬 .capcut — CapCut\n🎵 .tomp3 — فيديو ➜ MP3"
-        },
-        {
-            title: "🕋 الخدمات الإسلامية",
-            text: "📖 .quran — قراءة سورة\n🎙️ .quranmp3 — تلاوة mp3\n📄 .quranpdf — تحميل PDF\n🔊 .quransura — سورة صوت\n📝 .ayah — آية عشوائية\n📚 .tafsir — تفسير آية\n🙏 .ad3iya — أدعية\n🌙 .ramadan — دعاء رمضان\n✅ .khatm — متابعة ختمة"
-        },
-        {
-            title: "🇲🇦 المغرب & أخرى",
-            text: "📰 .hespress — أخبار هسبريس\n💼 .alwadifa — وظائف المغرب\n🏫 .alloschool — دروس مدرسية\n🌤️ .weather — حالة الطقس\n📶 .ping — حالة البوت\n🎮 .ffnews — أخبار فري فاير\n✨ .style — تزيين النصوص"
+            body: proto.Message.InteractiveMessage.Body.fromObject({
+                text: textOther
+            }),
+            header: proto.Message.InteractiveMessage.Header.fromObject({
+                title: `🛠️ Download & Tools`,
+                hasMediaAttachment: false
+            }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                buttons: [
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "YouTube",
+                            url: settings.youtube
+                        })
+                    },
+                    {
+                        "name": "cta_url",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Facebook Page",
+                            url: settings.facebookPage || settings.facebook
+                        })
+                    },
+                    {
+                        "name": "quick_reply",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "Show Menu 📜",
+                            id: ".menu"
+                        })
+                    }
+                ]
+            })
         }
     ];
-
-    const cards = sections.map((sec, idx) => ({
-        body: proto.Message.InteractiveMessage.Body.fromObject({
-            text: sec.text
-        }),
-        header: proto.Message.InteractiveMessage.Header.fromObject({
-            title: sec.title,
-            hasMediaAttachment: idx === 0,
-            imageMessage: idx === 0 ? menuHeaderImage : undefined
-        }),
-        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-            buttons: [
-                {
-                    "name": "cta_url",
-                    "buttonParamsJson": JSON.stringify({
-                        display_text: "📸 Instagram",
-                        url: settings.instagram
-                    })
-                },
-                {
-                    "name": "cta_url",
-                    "buttonParamsJson": JSON.stringify({
-                        display_text: "📢 WhatsApp Channel",
-                        url: settings.officialChannel
-                    })
-                },
-                {
-                    "name": "quick_reply",
-                    "buttonParamsJson": JSON.stringify({
-                        display_text: "👤 Owner",
-                        id: ".owner"
-                    })
-                }
-            ]
-        })
-    }));
 
     const message = generateWAMessageFromContent(chatId, {
         viewOnceMessage: {
@@ -103,10 +136,13 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 },
                 interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                     body: proto.Message.InteractiveMessage.Body.create({
-                        text: `🤖 *${settings.botName.toUpperCase()} PREMIUM*`
+                        text: "Simple & Fast Bot"
                     }),
                     footer: proto.Message.InteractiveMessage.Footer.create({
-                        text: `乂 ${settings.botName} 2026`
+                        text: "Hamza Bot 2026"
+                    }),
+                    header: proto.Message.InteractiveMessage.Header.create({
+                        hasMediaAttachment: false
                     }),
                     carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
                         cards: cards
@@ -117,5 +153,5 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     }, { quoted: msg });
 
     await sock.relayMessage(chatId, message.message, { messageId: message.key.id });
-    await sock.sendMessage(chatId, { react: { text: "📜", key: msg.key } });
+    await sock.sendMessage(chatId, { react: { text: "⚡", key: msg.key } });
 };
