@@ -14,7 +14,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
 ━━━━━━━━━━━━━━━━
 🎨 *AI & IMAGE*
-.gen | .deepimg | .draw | .nano
+.gen | .deepimg | .nano
 .imgedit | .hd | .upscale | .colorize
 .brat | .img2video | .sketch | .blur
 
