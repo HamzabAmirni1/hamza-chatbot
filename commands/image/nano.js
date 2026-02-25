@@ -2,9 +2,8 @@
    • الميزة: تعديل الصور بالذكاء الاصطناعي - نانو بنانا
    • المطور: حمزة اعمرني (𝐇𝐀𝐌𝐙𝐀 𝐀𝐌𝐈𝐑𝐍𝐈)
    • القناة: https://whatsapp.com/channel/0029ValXRoHCnA7yKopcrn1p
-**/
+ **/
 
-const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 const axios = require("axios");
 const CryptoJS = require("crypto-js");
 const fs = require("fs");
@@ -91,26 +90,46 @@ async function processImageAI(buffer, prompt) {
     }
 }
 
-module.exports = async (sock, chatId, msg, args) => {
+module.exports = async (sock, chatId, msg, args, helpers) => {
+    const isTelegram = helpers && helpers.isTelegram;
     let targetMsg = msg;
-    if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
-        const quotedInfo = msg.message.extendedTextMessage.contextInfo;
-        targetMsg = {
-            key: {
-                remoteJid: chatId,
-                id: quotedInfo.stanzaId,
-                participant: quotedInfo.participant
-            },
-            message: quotedInfo.quotedMessage
-        };
-    }
+    let buffer;
 
-    const mime = targetMsg.message?.imageMessage?.mimetype || targetMsg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || "";
+    if (isTelegram) {
+        // Telegram Media Logic
+        buffer = await sock.downloadMedia(msg);
+        if (!buffer) {
+            return await sock.sendMessage(chatId, {
+                text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* .nano تحويل الوجه إلى أنمي\n*✨ ──────────────── ✨*`
+            }, { quoted: msg });
+        }
+    } else {
+        // WhatsApp Media Logic
+        const { downloadMediaMessage } = require("@whiskeysockets/baileys");
+        if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+            const quotedInfo = msg.message.extendedTextMessage.contextInfo;
+            targetMsg = {
+                key: {
+                    remoteJid: chatId,
+                    id: quotedInfo.stanzaId,
+                    participant: quotedInfo.participant
+                },
+                message: quotedInfo.quotedMessage
+            };
+        }
 
-    if (!mime.startsWith("image/")) {
-        return await sock.sendMessage(chatId, {
-            text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* .nano تحويل الوجه إلى أنمي\n*✨ ──────────────── ✨*`
-        }, { quoted: msg });
+        const mime = targetMsg.message?.imageMessage?.mimetype || targetMsg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || "";
+
+        if (!mime.startsWith("image/")) {
+            return await sock.sendMessage(chatId, {
+                text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* .nano تحويل الوجه إلى أنمي\n*✨ ──────────────── ✨*`
+            }, { quoted: msg });
+        }
+
+        buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, {
+            logger: undefined,
+            reuploadRequest: sock.updateMediaMessage
+        });
     }
 
     const text = args.join(" ");
@@ -127,11 +146,6 @@ module.exports = async (sock, chatId, msg, args) => {
     const waitMsg = await sock.sendMessage(chatId, { text: "🔄 جاري معالجة طلبك وتعديل الصورة بذكاء نانو... يرجى الانتظار." }, { quoted: msg });
 
     try {
-        const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, {
-            logger: undefined,
-            reuploadRequest: sock.updateMediaMessage
-        });
-
         if (!buffer) throw new Error("فشل تحميل الصورة");
 
         const result = await processImageAI(buffer, text);

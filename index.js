@@ -474,7 +474,8 @@ async function startBot(folderName, phoneNumber) {
             "style": "tools/style", "font": "tools/style", "decoration": "tools/style",
             "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
             "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg",
-            "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai"
+            "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai",
+            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen"
           };
 
           if (allCmds[command]) {
@@ -502,6 +503,7 @@ async function startBot(folderName, phoneNumber) {
             "يوتيوب|تحميل|ytdl": "thmil/ytdl",
             "tomp3|mp3-تحويل": "tools/tomp3",
             "نانو|تعديل|nano|edit": "image/nano",
+            "gen|generate|genimage": "image/gen",
             "قائمة|menu|help": "info/menu"
           };
 

@@ -3,24 +3,12 @@ const settings = require('../../config');
 const fs = require('fs-extra');
 const path = require('path');
 
-module.exports = async (sock, chatId, msg, args, commands, userLang) => {
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    const isTelegram = helpers && helpers.isTelegram;
     const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
     let imageMessage;
 
-    try {
-        if (fs.existsSync(imagePath)) {
-            const buffer = fs.readFileSync(imagePath);
-            const content = await generateWAMessageContent({ image: buffer }, { upload: sock.waUploadToServer });
-            imageMessage = content.imageMessage;
-        } else {
-            const content = await generateWAMessageContent({ image: { url: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg" } }, { upload: sock.waUploadToServer });
-            imageMessage = content.imageMessage;
-        }
-    } catch (e) {
-        console.error("Menu image error", e);
-    }
-
-    // Compact Menu Text with NEW Features
+    // Compact Menu Text
     const menuText = `🤖 *${settings.botName.toUpperCase()}*
 ⚡ *Dev:* ${settings.botOwner}
 
@@ -42,6 +30,40 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 .ffnews | .style | .toimg | .alloschool
 ━━━━━━━━━━━━━━━━
 `;
+
+    if (isTelegram) {
+        const photo = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
+
+        return await sock.sendMessage(chatId, {
+            image: photo,
+            caption: menuText,
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "📸 Instagram", url: settings.instagram },
+                        { text: "🎥 YouTube", url: settings.youtube }
+                    ],
+                    [
+                        { text: "📢 WhatsApp Channel", url: settings.officialChannel },
+                        { text: "👤 Contact Owner", callback_data: ".owner" }
+                    ]
+                ]
+            }
+        });
+    }
+
+    try {
+        if (fs.existsSync(imagePath)) {
+            const buffer = fs.readFileSync(imagePath);
+            const content = await generateWAMessageContent({ image: buffer }, { upload: sock.waUploadToServer });
+            imageMessage = content.imageMessage;
+        } else {
+            const content = await generateWAMessageContent({ image: { url: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg" } }, { upload: sock.waUploadToServer });
+            imageMessage = content.imageMessage;
+        }
+    } catch (e) {
+        console.error("Menu image error", e);
+    }
 
     const cards = [
         {
