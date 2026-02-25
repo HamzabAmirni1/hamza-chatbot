@@ -25,16 +25,23 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 👤 *المطور:* ${settings.botOwner}
 
 ━━━━━━━━━━━━━━━━
-🎨 *الذكاء الاصطناعي والإبداع*
-.imagine | .ai-image | .miramuse
-.draw | .nano | .hd | .bg | .sketch
-.gpt4o | .hl | .img2video | .brat
+🎨 *الذكاء الاصطناعي (صور)*
+.imagine | .draw | .nano (4K)
+.nanoedit (تعديل) | .hd | .bg
+.sketch | .miramuse | .ai-image
+━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━
+🎬 *الذكاء الاصطناعي (فيديو)*
+.aivideo (مجاني) | .grokvideo
+.img2video | .brat-vd
 ━━━━━━━━━━━━━━━━
 
 ━━━━━━━━━━━━━━━━
 🕋 *الخدمات الإسلامية (رمضان)*
-.ramadan | .khatm | .quran | .quranmp3
-.ad3iya | .ayah | .tafsir | .qdl (تنزيل)
+.ramadan | .ad3iya30 (30 يوم)
+.qdl (تنزيل) | .quran | .quranmp3
+.ad3iya | .ayah | .tafsir | .khatm
 ━━━━━━━━━━━━━━━━
 
 📥 *قسم التحميل (Downloaders)*
@@ -42,13 +49,9 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 .pinterest | .ytdl | .ytmp4
 ━━━━━━━━━━━━━━━━
 
-🛠️ *الأدوات والخدمات*
-.tomp3 (فيديو ➔ صوت)
+🛠️ *الأدوات والذكاء*
+.gpt4o | .hl (Vision) | .brata
 .sticker | .weather | .ping | .tempnum
-━━━━━━━━━━━━━━━━
-
-📚 *التعليم*
-.alloschool (Morocco)
 ━━━━━━━━━━━━━━━━
 
 💡 *ملاحظة:* البوت يفهم لغتك تلقائياً! حاول التكلم معه بدون أوامر.
