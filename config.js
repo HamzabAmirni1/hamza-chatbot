@@ -26,11 +26,16 @@ const settings = {
     publicUrl: process.env.PUBLIC_URL || '', // Add your Koyeb/Render URL here to keep it awake
     botThumbnail: './media/hamza.jpg',
 
-    // API KEYS (Set these in Koyeb Environment Variables for security!)
-    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    // API KEYS
+    geminiApiKey: process.env.GEMINI_API_KEY || 'AIzaSyC2sxGUdolxHJIGS56VLl2xtJCGaG81l2k',
     openRouterKey: process.env.OPENROUTER_API_KEY || '',
     xaiApiKey: process.env.XAI_API_KEY || '',         // Grok xAI API Key (for video generation)
     aimlApiKey: process.env.AIML_API_KEY || '',       // aimlapi.com key (Nano Banana Pro / Gemini 3 Pro Image)
+
+    // Telegram & Facebook Keys
+    telegramToken: process.env.TELEGRAM_TOKEN || '8589218915:AAFoh4mnEsnuQOjZjgDrcSTQus7ClnL2VTA',
+    fbPageAccessToken: process.env.PAGE_ACCESS_TOKEN || 'EAARU3lwIKlcBQolcv6W2K4OVwPmzE1NuEbzI2hkC0ZCCHeP7mCxcIdPoeYQK2NBWssi18CVXmh50DDQaXvFi4bTc6caNmZCx2gixpRNzM5GaM41XMPDIfQnwZBQRJa3YrptSkYzjlhgV3gztQHB2SMSATRtjnfFwcRN0thuexLMFMgmZC2CuWQKQRMkimjtgOcGHdgZDZD',
+    fbVerifyToken: process.env.VERIFY_TOKEN || 'HAMZA_BOT_VERIFY_TOKEN',
 
     // Internal URL management
     publicUrl: (function () {
