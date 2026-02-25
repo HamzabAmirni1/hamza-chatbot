@@ -1,7 +1,7 @@
 const yts = require('yt-search');
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
-const settings = require('../settings');
-const { t } = require('../lib/language');
+const settings = require('../../config');
+const { t } = require('../../lib/language');
 
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     const query = args.join(' ');

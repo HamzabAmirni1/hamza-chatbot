@@ -1,80 +1,99 @@
-const axios = require('axios');
-const fs = require('fs-extra');
+const yts = require('yt-search');
 const config = require('../../config');
+const { downloadYouTube } = require('../../lib/ytdl');
+const axios = require('axios');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     try {
-        const text = args.join(" ");
+        const text = args.join(" ").trim();
 
         if (!text) {
             return await sock.sendMessage(chatId, {
-                text: "🎵 *Spotify Play Command*\n\n" +
-                    "المرجو كتابة اسم الأغنية.\n\n" +
+                text: "� *تحميل الأغاني والمقاطع الصوتية*\n\n" +
+                    "المرجو كتابة اسم الأغنية أو رابط اليوتيوب.\n\n" +
                     "📌 مثال:\n" +
-                    ".play Blinding Lights\n\n" +
-                    "هذا الأمر يبحث في Spotify ويحمل الأغنية بجودة عالية."
+                    ".play سورة الملك\n" +
+                    ".play https://youtube.com/watch?v=..."
             }, { quoted: msg });
         }
 
-        if (text.length > 100) {
-            return await sock.sendMessage(chatId, { text: "❌ عنوان الأغنية طويل جداً. يرجى اختصاره." }, { quoted: msg });
-        }
-
         await sock.sendMessage(chatId, { react: { text: '⌛', key: msg.key } });
+        const waitMsg = await sock.sendMessage(chatId, { text: "🔍 جاري البحث والتحميل... المرجو الانتظار." }, { quoted: msg });
 
-        const res = await axios.get(
-            `https://api.vreden.my.id/api/spotify?query=${encodeURIComponent(text)}`
-        );
-        const json = res.data;
+        let videoUrl = text;
+        let videoTitle = "";
+        let videoThumb = "";
+        let duration = "";
 
-        if (!json.status || !json.result) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
-            return await sock.sendMessage(chatId, { text: `❌ لم يتم العثور على نتائج لـ: *${text}*` }, { quoted: msg });
+        if (!text.startsWith("http")) {
+            const { videos } = await yts(text);
+            if (!videos || videos.length === 0) {
+                await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
+                return await sock.sendMessage(chatId, { text: `❌ لم يتم العثور على نتائج لـ: *${text}*` }, { quoted: msg });
+            }
+            const video = videos[0];
+            videoUrl = video.url;
+            videoTitle = video.title;
+            videoThumb = video.thumbnail;
+            duration = video.timestamp;
+        } else {
+            // If it's a URL, try to get info
+            try {
+                const videoId = (text.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
+                if (videoId) {
+                    videoThumb = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`;
+                }
+            } catch (e) { }
         }
 
-        const song = json.result;
-        const title = song.title || "Unknown Song";
-        const artist = song.artists || "Unknown Artist";
-        const audioUrl = song.download;
+        const audioData = await downloadYouTube(videoUrl, 'mp3');
+        if (!audioData) {
+            throw new Error("جميع محركات التحميل فشلت في استخراج الصوت.");
+        }
 
-        await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
+        const finalUrl = audioData.download || audioData.downloadUrl;
+        const finalTitle = audioData.title || videoTitle || "Audio";
+
+        try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
 
         // Send audio (playable)
         await sock.sendMessage(
             chatId,
             {
-                audio: { url: audioUrl },
+                audio: { url: finalUrl },
                 mimetype: "audio/mpeg",
-                fileName: `${title}.mp3`,
+                fileName: `${finalTitle}.mp3`,
                 contextInfo: {
                     externalAdReply: {
-                        title: title.substring(0, 30),
-                        body: artist.substring(0, 30),
-                        thumbnailUrl: song.image || "",
-                        sourceUrl: song.external_url || "",
+                        title: finalTitle.substring(0, 50),
+                        body: config.botName,
+                        thumbnailUrl: videoThumb || "",
                         mediaType: 1,
-                        renderLargerThumbnail: true
+                        renderLargerThumbnail: true,
+                        sourceUrl: videoUrl
                     }
                 }
             },
             { quoted: msg }
         );
 
-        // Send as document (downloadable)
+        // Also send as document (optional, but requested often for high quality/non-voice format)
         await sock.sendMessage(
             chatId,
             {
-                document: { url: audioUrl },
+                document: { url: finalUrl },
                 mimetype: "audio/mpeg",
-                fileName: `${title.replace(/[<>:"/\\|?*]/g, "_")}.mp3`,
-                caption: `🎵 *${title}*\n👤 ${artist}\n\n*🚀 Downloaded via Hamza Bot*`
+                fileName: `${finalTitle.replace(/[<>:"/\\|?*]/g, "_")}.mp3`,
+                caption: `🎵 *${finalTitle}*\n⏱️ *Duration:* ${duration || 'N/A'}\n\n*🚀 Downloaded via ${config.botName}*`
             },
             { quoted: msg }
         );
 
+        await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
+
     } catch (e) {
-        console.error("Spotify Play Error:", e);
+        console.error("Play Command Error:", e);
         await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
-        await sock.sendMessage(chatId, { text: `❌ فشل تحميل الأغنية.\n\nError: ${e.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ فشل تحميل الملف الصوتي.\n\n⚠️ السبب: ${e.message}` }, { quoted: msg });
     }
 };
