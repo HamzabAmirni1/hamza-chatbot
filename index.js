@@ -473,7 +473,7 @@ async function startBot(folderName, phoneNumber) {
             "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
             "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg",
             "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai",
-            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen",
+            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen", "photo": "image/gen", "image": "image/gen", "img": "image/gen", "تخيل": "image/gen", "ارسم": "image/gen", "صورة": "image/gen",
             "wallpaper": "image/wallpaper", "4kwallpaper": "image/wallpaper", "خلفية": "image/wallpaper",
             "googleimg": "image/googleimg", "gimage": "image/googleimg", "صور": "image/googleimg",
             "deepimg": "image/deepimg", "deepimage": "image/deepimg"
@@ -499,12 +499,11 @@ async function startBot(folderName, phoneNumber) {
             "دعاء|dua|اذكار|ad3iya": "islamic/ad3iya",
             "طقس|weather": "tools/weather",
             "بينج|ping|status": "tools/ping",
-            "صورة|رسم|draw|imagine|art": "image/draw",
             "فيديو-صورة|img2video": "ai/img2video",
             "يوتيوب|تحميل|ytdl": "thmil/ytdl",
             "tomp3|mp3-تحويل": "tools/tomp3",
             "نانو|تعديل|nano|edit": "image/nano",
-            "gen|generate|genimage": "image/gen",
+            "gen|generate|genimage|photo|image|img|تخيل|ارسم|صورة": "image/gen",
             "قائمة|menu|help": "info/menu"
           };
 
