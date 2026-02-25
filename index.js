@@ -424,7 +424,9 @@ async function startBot(folderName, phoneNumber) {
             "hespress": "morocco/hespress", "hespressread": "morocco/hespress", "أخبار": "morocco/hespress", "news": "morocco/hespress",
             "alwadifa": "morocco/alwadifa", "وظائف": "morocco/alwadifa", "wdifaread": "morocco/alwadifa",
             "ffnews": "tools/ffnews", "freefire": "tools/ffnews",
-            "style": "tools/style", "font": "tools/style", "decoration": "tools/style"
+            "style": "tools/style", "font": "tools/style", "decoration": "tools/style",
+            "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
+            "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg"
           };
 
           if (allCmds[command]) {

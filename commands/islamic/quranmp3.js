@@ -171,7 +171,7 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
         const cards = [];
         for (let i = 0; i < topReciters.length; i++) {
             const r = topReciters[i];
-            const moshafName = r.moshaf[0]?.name || "مصحف";
+            const moshafName = r.moshaf[0]?.name || "مصحف كامل";
             const imgMsg = await createHeaderImage(i);
 
             const buttons = targetSurahId ?
@@ -179,22 +179,29 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
                     {
                         "name": "quick_reply",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: `🎧 تحميل التلاوة`,
+                            display_text: `🎧 استماع لـ ${surahList.find(s => s.number == targetSurahId)?.name || 'السورة'}`,
                             id: `${settings.prefix}qdl ${r.id} ${targetSurahId}`
+                        })
+                    },
+                    {
+                        "name": "quick_reply",
+                        "buttonParamsJson": JSON.stringify({
+                            display_text: "📜 قائمة السور",
+                            id: `${settings.prefix}quransurah ${r.id}`
                         })
                     }
                 ] :
                 [{
                     "name": "quick_reply",
-                    "buttonParamsJson": JSON.stringify({ display_text: "📜 قائمة السور", id: `${settings.prefix}quransurah ${r.id}` })
+                    "buttonParamsJson": JSON.stringify({ display_text: "📖 عرض قائمة السور", id: `${settings.prefix}quransurah ${r.id}` })
                 }];
 
             cards.push({
                 body: proto.Message.InteractiveMessage.Body.fromObject({
-                    text: `👤 *القارئ:* ${r.name}\n📖 *الرواية:* ${moshafName}\n🔢 *عدد السور:* ${r.moshaf[0]?.surah_total || '114'}`
+                    text: `👤 *القــارئ:* ${r.name}\n📜 *الرواية:* ${moshafName}\n🕋 *المرجع:* mp3quran.net\n\n🕊️ استمع للقرآن الكريم براحة وطمأنينة.`
                 }),
                 header: proto.Message.InteractiveMessage.Header.fromObject({
-                    title: r.name,
+                    title: `🎙️ ${r.name}`,
                     hasMediaAttachment: !!imgMsg,
                     imageMessage: imgMsg
                 }),
@@ -207,10 +214,10 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
             const moreImgMsg = await createHeaderImage(topReciters.length);
             cards.push({
                 body: proto.Message.InteractiveMessage.Body.fromObject({
-                    text: `🔍 *هل تبحث عن قارئ آخر؟*\n\nاضغط أدناه لعرض قائمة بجميع القراء المتوفرين.`
+                    text: `🔍 *البحث عن قراء آخرين*\n\nتتوفر لدينا قاعدة بيانات شاملة لأكثر من 200 قارئ من مختلف دول العالم الإسلامي.`
                 }),
                 header: proto.Message.InteractiveMessage.Header.fromObject({
-                    title: "🔍 المزيد من القراء",
+                    title: "🌟 استكشف المزيد",
                     hasMediaAttachment: !!moreImgMsg,
                     imageMessage: moreImgMsg
                 }),
@@ -218,7 +225,7 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
                     buttons: [{
                         "name": "quick_reply",
                         "buttonParamsJson": JSON.stringify({
-                            display_text: "📜 عرض كل القراء",
+                            display_text: "📜 عرض الملحق الكامل",
                             id: `${settings.prefix}quranmp3 ${targetSurahId} --more`
                         })
                     }]
@@ -226,7 +233,7 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
             });
         }
 
-        const title = targetSurahId ? `🎧 *اختر القارئ لسورة ${targetSurahId}*` : "🕌 *قائمة القراء*";
+        const title = targetSurahId ? `🕋 *اختر القارئ المفضل لسورة ${surahList.find(s => s.number == targetSurahId)?.name || targetSurahId}*` : "🕌 *دليل القراء والمصاحف*";
         const botMsg = generateWAMessageFromContent(chatId, {
             viewOnceMessage: {
                 message: {

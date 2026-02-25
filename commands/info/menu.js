@@ -41,7 +41,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     const textOther = `📁 *EXTRA FEATURES*
 ━━━━━━━━━━━━━━━━
 📥 *DOWNLOADER*
-.play | .video | .fb | .ig
+.play | .video | .fb | .ig | .lyrics
 .tiktok | .pin | .ytdl | .capcut
 .tomp3
 
@@ -50,8 +50,8 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
 🇲🇦 *MAROC & TOOLS*
 .hespress | .alwadifa | .ffnews
-.weather | .ping | .style | .font
-.alloschool | .tempnum
+.weather | .ping | .style | .toimg
+.alloschool | .tempnum | .tempnum
 ━━━━━━━━━━━━━━━━
 `;
 
