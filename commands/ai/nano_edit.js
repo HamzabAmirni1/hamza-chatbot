@@ -43,6 +43,7 @@ async function processImageAI(buffer, prompt) {
             "https://aienhancer.ai/api/v1/k/image-enhance/create",
             {
                 model: 2,
+                function: "magic_edit",
                 image: `data:image/jpeg;base64,${imgBase64}`,
                 settings
             },

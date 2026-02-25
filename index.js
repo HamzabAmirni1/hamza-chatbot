@@ -53,6 +53,12 @@ const processedMessages = new Set();
 const sessionBaseDir = path.join(__dirname, "sessions");
 if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
 
+// Boot Sequence Delay
+console.log(chalk.cyan("⏱️  Waiting 5 seconds... Instance created. Preparing to start..."));
+setTimeout(() => {
+  console.log(chalk.green("🚀 Starting Hamza Chatbot with Enhanced Stability..."));
+}, 5000);
+
 // Memory monitoring - Restart if RAM gets too high (Target: 512MB Server)
 setInterval(() => {
   const used = process.memoryUsage().rss / 1024 / 1024;
@@ -201,16 +207,21 @@ async function startBot(folderName, phoneNumber) {
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
-    version, logger: pino({ level: "silent" }), printQRInTerminal: !(folderName === "session_1"), // Only print QR for main unless specified
+    version,
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: !(folderName === "session_1"),
     browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
     },
     getMessage: async (key) => ({ conversation: config.botName }),
-    defaultQueryTimeoutMs: 60000, connectTimeoutMs: 60000,
-    keepAliveIntervalMs: 30000, retryRequestDelayMs: 5000,
-    generateHighQualityLinkPreview: true, markOnlineOnConnect: true,
+    defaultQueryTimeoutMs: 120000,
+    connectTimeoutMs: 120000,
+    keepAliveIntervalMs: 10000,
+    shouldSyncHistory: false,
+    syncFullHistory: false,
+    markOnlineOnConnect: true,
   });
 
   if (!sock.authState.creds.registered) {
@@ -248,6 +259,7 @@ async function startBot(folderName, phoneNumber) {
       // Session backup - wrapped in try-catch to prevent crashes
       setTimeout(async () => {
         try {
+          if (!sock.ws || sock.ws.readyState !== 1) return; // Prevent crash if closed
           const credsPath = path.join(sessionDir, "creds.json");
           if (fs.existsSync(credsPath)) {
             const creds = fs.readFileSync(credsPath);
@@ -261,7 +273,7 @@ async function startBot(folderName, phoneNumber) {
         } catch (e) {
           console.log(`[${folderName}] Session backup skipped:`, e.message);
         }
-      }, 5000); // Wait 5 seconds after connection before sending
+      }, 10000); // Wait 10 seconds after connection before sending
 
       try {
         startDuasScheduler(sock, { sendWithChannelButton, config });
