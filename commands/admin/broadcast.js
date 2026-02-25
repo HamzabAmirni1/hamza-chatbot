@@ -5,66 +5,88 @@ const config = require('../../config');
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const isTelegram = helpers && helpers.isTelegram;
 
-    // Check permission
+    // ═══ Permission Check ═══
     if (isTelegram) {
-        // Simple check for Telegram: if it's from the known developer username 'hamzaamirni' or a specific ID
-        const senderUsername = msg.from.username;
-        if (senderUsername !== 'hamzaamirni' && !config.ownerNumber.includes(chatId)) {
-            return await sock.sendMessage(chatId, { text: "❌ هذا الأمر خاص بالمطور فقط على تلكرام." });
+        const senderUsername = (msg.from && msg.from.username) ? msg.from.username.toLowerCase() : '';
+        const senderId = chatId.toString();
+        const isOwner = senderUsername === 'hamzaamirni' ||
+            config.ownerNumber.some(n => senderId.includes(n));
+        if (!isOwner) {
+            return await sock.sendMessage(chatId, {
+                text: "❌ هذا الأمر خاص بالمطور فقط."
+            });
         }
     } else {
         const senderNum = chatId.split("@")[0];
         if (!config.ownerNumber.includes(senderNum)) {
-            return await sock.sendMessage(chatId, { text: "❌ هذا الأمر خاص بالمطور فقط." }, { quoted: msg });
+            return await sock.sendMessage(chatId, {
+                text: "❌ هذا الأمر خاص بالمطور فقط."
+            }, { quoted: msg });
         }
     }
 
     const broadcastMsg = args.join(" ").trim();
     if (!broadcastMsg) {
         return await sock.sendMessage(chatId, {
-            text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة:* .devmsg [الرسالة]\n\n*مثال:* .devmsg السلام عليكم، تم تحديث البوت!`,
+            text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة:* \`.devmsg [الرسالة]\`\n\n*مثال:* \`.devmsg السلام عليكم، تم تحديث البوت!\``,
         }, { quoted: msg });
     }
 
-    // Determine target database based on platform
+    // ═══ Load User Database ═══
     const dbName = isTelegram ? "tg_users.json" : "users.json";
     const dataPath = path.join(__dirname, "..", "..", "data", dbName);
 
+    // Create the file if it doesn't exist yet
     if (!fs.existsSync(dataPath)) {
-        return await sock.sendMessage(chatId, { text: `❌ لم يتم العثور على قاعدة بيانات ${isTelegram ? "تلكرام" : "واتساب"}.` }, { quoted: msg });
+        fs.ensureDirSync(path.dirname(dataPath));
+        // For Telegram, add current user as first entry
+        const initialData = isTelegram ? [chatId.toString()] : [];
+        fs.writeFileSync(dataPath, JSON.stringify(initialData, null, 2));
     }
 
     let users = [];
     try {
-        users = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+        const raw = fs.readFileSync(dataPath, 'utf8');
+        users = JSON.parse(raw);
+        if (!Array.isArray(users)) users = [];
     } catch (e) {
-        return await sock.sendMessage(chatId, { text: "❌ فشل قراءة قائمة المستخدمين." }, { quoted: msg });
+        users = isTelegram ? [chatId.toString()] : [];
     }
 
     if (users.length === 0) {
-        return await sock.sendMessage(chatId, { text: "❌ قائمة المستخدمين فارغة." }, { quoted: msg });
+        return await sock.sendMessage(chatId, {
+            text: `❌ قائمة المستخدمين فارغة حالياً.\n\n💡 سيتم حفظ المستخدمين تلقائياً عند استخدامهم للبوت.`
+        }, { quoted: msg });
     }
 
-    await sock.sendMessage(chatId, { text: `⏳ جاري البدء ببث الرسالة لـ *${users.length}* مستخدم على ${isTelegram ? "تلكرام" : "واتساب"}...` }, { quoted: msg });
+    await sock.sendMessage(chatId, {
+        text: `📢 *جاري البث لـ ${users.length} مستخدم على ${isTelegram ? "تلكرام" : "واتساب"}...*`
+    }, { quoted: msg });
+
+    const messageContent = `╔═══════════════════════╗
+║   📢 رسالة من مطور البوت
+╚═══════════════════════╝
+
+${broadcastMsg}
+
+━━━━━━━━━━━━━━━━━━━━━━
+⚔️ *${config.botName}*`;
 
     let success = 0;
     let fail = 0;
 
     for (const userId of users) {
         try {
-            await sock.sendMessage(userId, {
-                text: `╔═══════════════════════════════════╗\n║    📢 رسالة من مطور البوت\n╚═══════════════════════════════════╝\n\n${broadcastMsg}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚔️ ${config.botName}\n📢 ${config.officialChannel}`,
-            });
+            await sock.sendMessage(userId, { text: messageContent });
             success++;
-            // Longer delay for Telegram to avoid flood wait
-            await new Promise((res) => setTimeout(res, isTelegram ? 1000 : 2000));
+            await new Promise(res => setTimeout(res, isTelegram ? 800 : 2000));
         } catch (err) {
-            console.error(`Failed to send to ${userId}:`, err.message);
+            console.error(`[devmsg] Failed to send to ${userId}:`, err.message);
             fail++;
         }
     }
 
     await sock.sendMessage(chatId, {
-        text: `✅ *اكتمل البث الجماعي!*\n\n🚀 نجح: ${success}\n❌ فشل: ${fail}\n👥 الإجمالي: ${users.length}`,
+        text: `✅ *اكتمل البث!*\n\n🚀 نجح: *${success}*\n❌ فشل: *${fail}*\n👥 الإجمالي: *${users.length}*`
     }, { quoted: msg });
 };
