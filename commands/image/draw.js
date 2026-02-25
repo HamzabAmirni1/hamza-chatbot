@@ -45,8 +45,11 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
 
+        const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+        const buffer = Buffer.from(response.data, 'binary');
+
         await sock.sendMessage(chatId, {
-            image: { url },
+            image: buffer,
             caption: `*✨ ───❪ HAMZA AMIRNI AI ❫─── ✨*\n\n🎨 *تم رسم الصورة بنجاح*\n\n📝 *الوصف:* ${prompt}\n🎭 *الموديل:* ${model}\n\n*🚀 تـم الـتـولـيـد بـوسـاطـة AI*`,
             contextInfo: {
                 externalAdReply: {

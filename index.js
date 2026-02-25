@@ -473,7 +473,8 @@ async function startBot(folderName, phoneNumber) {
             "ffnews": "tools/ffnews", "freefire": "tools/ffnews",
             "style": "tools/style", "font": "tools/style", "decoration": "tools/style",
             "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
-            "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg"
+            "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg",
+            "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai"
           };
 
           if (allCmds[command]) {
@@ -500,6 +501,7 @@ async function startBot(folderName, phoneNumber) {
             "فيديو-صورة|img2video": "ai/img2video",
             "يوتيوب|تحميل|ytdl": "thmil/ytdl",
             "tomp3|mp3-تحويل": "tools/tomp3",
+            "نانو|تعديل|nano|edit": "image/nano",
             "قائمة|menu|help": "info/menu"
           };
 

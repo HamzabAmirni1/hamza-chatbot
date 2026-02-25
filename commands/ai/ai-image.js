@@ -74,8 +74,12 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
         if (response.success) {
             try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
+
+            const imgRes = await axios.get(response.url, { responseType: 'arraybuffer', timeout: 30000 });
+            const buffer = Buffer.from(imgRes.data, 'binary');
+
             await sock.sendMessage(chatId, {
-                image: { url: response.url },
+                image: buffer,
                 caption: `🎨 *AI Image Labs* ⚔️\n\n📝 *الوصف:* ${text}\n⚔️ ${config.botName}`
             }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });
@@ -86,8 +90,12 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             const fallbackUrl = `https://pollinations.ai/prompt/${encodeURIComponent(enPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux&enhance=true`;
 
             try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
+
+            const imgRes = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 30000 });
+            const buffer = Buffer.from(imgRes.data, 'binary');
+
             await sock.sendMessage(chatId, {
-                image: { url: fallbackUrl },
+                image: buffer,
                 caption: `🎨 *AI Image (Fallback)* ⚔️\n\n📝 *الوصف:* ${text}\n⚔️ ${config.botName}`
             }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });

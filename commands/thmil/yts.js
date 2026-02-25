@@ -1,9 +1,10 @@
 const yts = require('yt-search');
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
-const settings = require('../settings');
-const { t } = require('../lib/language');
+const settings = require('../../config');
+const { t } = require('../../lib/language');
 
-module.exports = async (sock, chatId, msg, args, commands, userLang) => {
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    const isTelegram = helpers && helpers.isTelegram;
     const query = args.join(' ');
 
     if (!query) {
@@ -22,6 +23,31 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             return await sock.sendMessage(chatId, { text: t('yts.no_result', {}, userLang) }, { quoted: msg });
         }
 
+        if (isTelegram) {
+            // Telegram implementation
+            let responseText = `📺 *YouTube Search Results* 📺\n\n📌 Results for: *${query}*\n\n`;
+            let buttons = [];
+
+            for (let i = 0; i < Math.min(videos.length, 6); i++) {
+                const v = videos[i];
+                responseText += `${i + 1}. *${v.title}*\n⏱️ *Duration:* ${v.timestamp}\n👀 *Views:* ${v.views}\n\n`;
+
+                // Add buttons in pairs for each result
+                buttons.push([
+                    { text: `${i + 1} 📹 Video`, callback_data: `.video ${v.url}` },
+                    { text: `${i + 1} 🎵 Audio`, callback_data: `.play ${v.url}` }
+                ]);
+            }
+
+            return await sock.sendMessage(chatId, {
+                text: responseText,
+                reply_markup: {
+                    inline_keyboard: buttons
+                }
+            });
+        }
+
+        // WhatsApp implementation (Carousel)
         async function createHeaderImage(url) {
             try {
                 const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });

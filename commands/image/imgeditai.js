@@ -107,8 +107,11 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
 
         try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
 
+        const responseBuffer = await axios.get(resultUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const finalBuffer = Buffer.from(responseBuffer.data, 'binary');
+
         await sock.sendMessage(chatId, {
-            image: { url: resultUrl },
+            image: finalBuffer,
             caption: `╔══════════════════════╗\n║  ✏️ *IMGEDITOR AI PRO* ║\n╚══════════════════════╝\n\n✅ *تم التعديل بنجاح!*\n📝 *الوصف:* ${prompt}\n\n*🚀 Hamza Amirni Bot*\n─────────────────────\n📸 instagram.com/hamza.amirni`,
             contextInfo: {
                 externalAdReply: {
