@@ -9,6 +9,7 @@
     "dependencies": {
         "@whiskeysockets/baileys": "^6.7.18",
         "axios": "^1.6.0",
+        "body-parser": "^2.2.2",
         "chalk": "^4.1.2",
         "cheerio": "^1.2.0",
         "crypto-js": "^4.1.1",
@@ -16,6 +17,7 @@
         "form-data": "^4.0.0",
         "fs-extra": "^11.1.1",
         "moment-timezone": "^0.5.43",
+        "node-telegram-bot-api": "^0.67.0",
         "pino": "^7.0.0",
         "ruhend-scraper": "^9.0.8",
         "yt-search": "^2.11.0"

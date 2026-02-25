@@ -45,6 +45,9 @@ const {
 } = require('./commands/lib/utils');
 const { loadDuasData, saveDuasData, startDuasScheduler } = require("./lib/islamic");
 const { startRamadanScheduler } = require("./lib/ramadanScheduler");
+const { startTelegramBot } = require("./lib/telegram");
+const { handleFacebookMessage } = require("./lib/facebook");
+const bodyParser = require("body-parser");
 const { Boom } = require("@hapi/boom");
 
 // Store processed message IDs to prevent duplicates
@@ -105,6 +108,7 @@ const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 8000;
+app.use(bodyParser.json());
 
 // 🚀 Enhanced Keep-Alive Server for Koyeb (Prevents Sleep Mode)
 app.get("/", (req, res) => {
@@ -131,6 +135,39 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => res.status(200).json({ status: "healthy", uptime: getUptime() }));
 app.get("/ping", (req, res) => res.status(200).send("pong"));
+
+// Facebook Webhook Authentication
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode && token) {
+    if (mode === "subscribe" && token === (config.fbVerifyToken || "HAMZA_BOT_VERIFY_TOKEN")) {
+      console.log(chalk.green("✅ Facebook Webhook Verified!"));
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  }
+});
+
+// Facebook Webhook Message Handling
+app.post("/webhook", (req, res) => {
+  const body = req.body;
+  if (body.object === "page") {
+    body.entry.forEach((entry) => {
+      entry.messaging.forEach((event) => {
+        if (event.message && event.message.text) {
+          handleFacebookMessage(event);
+        }
+      });
+    });
+    res.status(200).send("EVENT_RECEIVED");
+  } else {
+    res.sendStatus(404);
+  }
+});
 
 app.listen(port, "0.0.0.0", () => {
   console.log(chalk.green(`✅ Server listening on port ${port} (0.0.0.0)`));
@@ -553,6 +590,9 @@ async function startBot(folderName, phoneNumber) {
 
 // Start Main Bot
 startBot("session_1", config.pairingNumber);
+
+// Start Telegram Bot
+startTelegramBot();
 
 // Start Extra Bots
 if (config.extraNumbers && config.extraNumbers.length > 0) {
