@@ -30,6 +30,7 @@ const settings = {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     openRouterKey: process.env.OPENROUTER_API_KEY || '',
     xaiApiKey: process.env.XAI_API_KEY || '',         // Grok xAI API Key (for video generation)
+    aimlApiKey: process.env.AIML_API_KEY || '',       // aimlapi.com key (Nano Banana Pro / Gemini 3 Pro Image)
 
     // Internal URL management
     publicUrl: (function () {

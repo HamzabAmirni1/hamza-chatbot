@@ -386,6 +386,7 @@ async function startBot(folderName, phoneNumber) {
             "links": "info/socials", "about": "info/socials", "info": "info/socials",
             "draw": "image/draw", "صورة": "image/draw", "رسم": "image/draw",
             "imagine": "ai/imagine", "aiart": "ai/imagine",
+            "nano": "ai/nano", "nanopro": "ai/nano", "banana": "ai/nano", "نانو": "ai/nano", "gemini-image": "ai/nano",
             "miramuse": "ai/miramuse", "ai-image": "ai/ai-image",
             "aiimg": "image/draw", "art": "image/draw", "لوحة": "image/draw",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
