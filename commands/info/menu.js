@@ -5,20 +5,6 @@ const path = require('path');
 
 module.exports = async (sock, chatId, msg, args, commands, userLang) => {
     const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
-    let imageMessage;
-
-    try {
-        if (fs.existsSync(imagePath)) {
-            const buffer = fs.readFileSync(imagePath);
-            const content = await generateWAMessageContent({ image: buffer }, { upload: sock.waUploadToServer });
-            imageMessage = content.imageMessage;
-        } else {
-            const content = await generateWAMessageContent({ image: { url: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg" } }, { upload: sock.waUploadToServer });
-            imageMessage = content.imageMessage;
-        }
-    } catch (e) {
-        console.error("Menu image error", e);
-    }
 
     const now = new Date();
     const hour = now.getHours();
@@ -43,12 +29,12 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 🔧 *.imgeditor [وصف]* — ImgEditor AI
 ✨ *.imgedit [وصف]* — تعديل AI Pro
 🔍 *.upscale* — رفع جودة 4x
-🎨 *.colorize* — تلوين صور بالأبيض والأسود
+🎨 *.colorize* — تلوين الصور
 ✏️ *.sketch* | *.sketch2* — رسم رصاص
 📸 *.gimg [كلمة]* — بحث صور Google
-🌆 *.wallpaper [نوع/search]* — خلفيات 4K
-� *.brat [نص]* — ستيكر Brat
-�💀 *.removebg* | *.bg* — حذف خلفية
+🌆 *.wallpaper [نوع]* — خلفيات 4K
+🐸 *.brat [نص]* — ستيكر Brat
+💀 *.removebg* | *.bg* — حذف خلفية
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🎬 *[ ذكاء اصطناعي — فيديو ]*
@@ -62,14 +48,14 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 ━━━━━━━━━━━━━━━━━━━━━━
 🧠 *.gpt4o [سؤال]* — GPT-4o Chat
 👁️ *.hl* | *.تحليل* — تحليل الصور
-💡 *أو كلمه مباشرة بدون أمر!*
+💡 *كلمه مباشرة بدون أمر وهو يرد!*
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📥 *[ التحميل — Downloaders ]*
 ━━━━━━━━━━━━━━━━━━━━━━
 ▶️ *.play* | *.song* — تحميل أغنية YT
-🎬 *.video* | *.vid* — تحميل فيديو YT
-⬇️ *.ytdl* | *.ytmp4* — يوتيوب DL
+🎬 *.video* | *.vid* — فيديو YouTube
+⬇️ *.ytdl* | *.ytmp4* — YouTube DL
 📘 *.fb [رابط]* — Facebook
 📸 *.ig [رابط]* — Instagram
 🎵 *.tiktok [رابط]* — TikTok
@@ -111,7 +97,7 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 ℹ️ *[ المعلومات — Info ]*
 ━━━━━━━━━━━━━━━━━━━━━━
 👤 *.owner* — معلومات المطور
-🔗 *.socials* — روابط التواصل الاجتماعي
+🔗 *.socials* — روابط التواصل
 💳 *.credits* — رصيد الاستخدام
 📜 *.menu* | *.قائمة* — هذه القائمة
 
@@ -119,76 +105,88 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 乂 *${settings.botName}* Premium 2026
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
-    const cards = [
-        {
-            body: proto.Message.InteractiveMessage.Body.fromObject({
-                text: menuText
-            }),
-            header: proto.Message.InteractiveMessage.Header.fromObject({
-                title: `🤖 ${settings.botName} — القائمة الكاملة`,
-                hasMediaAttachment: !!imageMessage,
-                imageMessage: imageMessage
-            }),
-            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-                buttons: [
-                    {
-                        "name": "cta_url",
-                        "buttonParamsJson": JSON.stringify({
-                            display_text: "📸 Instagram",
-                            url: settings.instagram
-                        })
-                    },
-                    {
-                        "name": "cta_url",
-                        "buttonParamsJson": JSON.stringify({
-                            display_text: "📢 قناة WhatsApp",
-                            url: settings.officialChannel
-                        })
-                    },
-                    {
-                        "name": "cta_url",
-                        "buttonParamsJson": JSON.stringify({
-                            display_text: "🎥 YouTube",
-                            url: settings.youtube
-                        })
-                    },
-                    {
-                        "name": "quick_reply",
-                        "buttonParamsJson": JSON.stringify({
-                            display_text: "👤 المطور (Owner)",
-                            id: ".owner"
-                        })
-                    }
-                ]
-            })
+    // ① إرسال الصورة + المنو الكامل
+    try {
+        let imageBuffer = null;
+        if (fs.existsSync(imagePath)) {
+            imageBuffer = fs.readFileSync(imagePath);
         }
-    ];
 
-    const message = generateWAMessageFromContent(chatId, {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: {
-                    deviceListMetadata: {},
-                    deviceListMetadataVersion: 2
-                },
-                interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-                    body: proto.Message.InteractiveMessage.Body.create({
-                        text: `✨ ${settings.botName} — أقوى بوت واتساب بالذكاء الاصطناعي 🤖`
-                    }),
-                    footer: proto.Message.InteractiveMessage.Footer.create({
-                        text: `乂 ${settings.botName} Premium 2026`
-                    }),
-                    header: proto.Message.InteractiveMessage.Header.create({
-                        hasMediaAttachment: false
-                    }),
-                    carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
-                        cards: cards
+        if (imageBuffer) {
+            await sock.sendMessage(chatId, {
+                image: imageBuffer,
+                caption: menuText,
+            }, { quoted: msg });
+        } else {
+            await sock.sendMessage(chatId, {
+                image: { url: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg" },
+                caption: menuText,
+            }, { quoted: msg });
+        }
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: menuText }, { quoted: msg });
+    }
+
+    // ② إرسال رسالة منفصلة بالـ Buttons
+    try {
+        const buttonsMsg = generateWAMessageFromContent(chatId, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+                        body: proto.Message.InteractiveMessage.Body.create({
+                            text: `🔗 *روابط ${settings.botName}*`
+                        }),
+                        footer: proto.Message.InteractiveMessage.Footer.create({
+                            text: `乂 ${settings.botName} Premium 2026`
+                        }),
+                        header: proto.Message.InteractiveMessage.Header.create({
+                            hasMediaAttachment: false
+                        }),
+                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                            buttons: [
+                                {
+                                    name: "cta_url",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "📸 Instagram",
+                                        url: settings.instagram
+                                    })
+                                },
+                                {
+                                    name: "cta_url",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "📢 قناة WhatsApp",
+                                        url: settings.officialChannel
+                                    })
+                                },
+                                {
+                                    name: "cta_url",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "🎥 YouTube",
+                                        url: settings.youtube
+                                    })
+                                },
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "👤 المطور (Owner)",
+                                        id: ".owner"
+                                    })
+                                }
+                            ]
+                        })
                     })
-                })
+                }
             }
-        }
-    }, { quoted: msg });
+        }, {});
 
-    await sock.relayMessage(chatId, message.message, { messageId: message.key.id });
+        await sock.relayMessage(chatId, buttonsMsg.message, { messageId: buttonsMsg.key.id });
+    } catch (e) {
+        console.error("Buttons error:", e.message);
+    }
+
     await sock.sendMessage(chatId, { react: { text: "📜", key: msg.key } });
 };
