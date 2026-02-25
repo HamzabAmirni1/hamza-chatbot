@@ -13,10 +13,14 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ⚡ *Dev:* ${settings.botOwner}
 
 ━━━━━━━━━━━━━━━━
-🎨 *AI & CREATIVE*
-.img2video | .sketch | .blur | .brat
-.nano | .hd | .draw | .gpt4o | .hl
-.upscale | .colorize | .imgedit | .sketch2
+🎨 *AI & IMAGE*
+.gen | .deepimg | .draw | .nano
+.imgedit | .hd | .upscale | .colorize
+.brat | .img2video | .sketch | .blur
+
+🖼️ *PHOTO SEARCH*
+.wallpaper | .googleimg | .4kwallpaper
+.toimg | .style | .gimage
 
 📥 *DOWNLOADER*
 .play | .video | .fb | .ig | .ytmp4
@@ -25,9 +29,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 🌙 *ISLAMIC*
 .quranmp3 | .qdl | .ad3iya | .ayah | .tafsir
 
-🛠️ *UTILITY & TOOLS*
-.sticker | .ping | .weather | .tempnum
-.ffnews | .style | .toimg | .alloschool
+🛠️ *TOOLS*
+.sticker | .ping | .weather | .yts
+.ffnews | .alloschool | .tempnum
 ━━━━━━━━━━━━━━━━
 `;
 

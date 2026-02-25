@@ -475,7 +475,10 @@ async function startBot(folderName, phoneNumber) {
             "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
             "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg",
             "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai",
-            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen"
+            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen",
+            "wallpaper": "image/wallpaper", "4kwallpaper": "image/wallpaper", "خلفية": "image/wallpaper",
+            "googleimg": "image/googleimg", "gimage": "image/googleimg", "صور": "image/googleimg",
+            "deepimg": "image/deepimg", "deepimage": "image/deepimg"
           };
 
           if (allCmds[command]) {
