@@ -422,7 +422,9 @@ async function startBot(folderName, phoneNumber) {
             "wallpaper": "image/wallpaper", "wp": "image/wallpaper", "خلفية": "image/wallpaper", "4kwp": "image/wallpaper",
             "capcut": "thmil/capcut", "capcutdl": "thmil/capcut",
             "hespress": "morocco/hespress", "hespressread": "morocco/hespress", "أخبار": "morocco/hespress", "news": "morocco/hespress",
-            "alwadifa": "morocco/alwadifa", "وظائف": "morocco/alwadifa", "wdifaread": "morocco/alwadifa"
+            "alwadifa": "morocco/alwadifa", "وظائف": "morocco/alwadifa", "wdifaread": "morocco/alwadifa",
+            "ffnews": "tools/ffnews", "freefire": "tools/ffnews",
+            "style": "tools/style", "font": "tools/style", "decoration": "tools/style"
           };
 
           if (allCmds[command]) {
