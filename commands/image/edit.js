@@ -26,8 +26,18 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
         }, { quoted: msg });
     }
 
-    await sock.sendMessage(chatId, { react: { text: "🕒", key: msg.key } });
-    const waitMsg = await sock.sendMessage(chatId, { text: "⏳ جاري المعالجة... يرجى الانتظار." }, { quoted: msg });
+    await sock.sendMessage(chatId, { react: { text: "⏱", key: msg.key } });
+    const waitMsg = await sock.sendMessage(chatId, { text: `✨ *──────────────────────* ✨\n\n⏳ جاري معالجة الصورة بالذكاء الاصطناعي...\n\n✨ *──────────────────────* ✨` }, { quoted: msg });
+
+    const labels = {
+        "enhance": ["📈", "تحسين الجودة"],
+        "upscale": ["🔍", "تحسين الدقة 4x"],
+        "remove-bg": ["✂️", "حذف الخلفية"],
+        "colorize": ["🎨", "تلوين الصورة"],
+        "ghibli": ["🌿", "فن جيبلي Studio Ghibli"],
+        "nano": ["🧠", "تعديل Nano AI"],
+    };
+    const [icon, labelName] = labels[aiType] || ["🧠", "تعديل AI"];
 
     try {
         if (aiType === "ghibli") {
@@ -70,11 +80,11 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
         try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
         await sock.sendMessage(chatId, {
             image: { url: resultUrl },
-            caption: `✨ *───❪ HAMZA AMIRNI ❫───* ✨\n\n✅ *تمت العملية بنجاح!*\n\n*🚀 تـم بواسطة الذكاء الاصطناعي*`,
+            caption: `✨ *──────────────────────* ✨\n        HAMZA AMIRNI BOT\n✨ *──────────────────────* ✨\n\n${icon} *${labelName}*\n✅ *تمت العملية بنجاح!*${aiPrompt ? '\n\n📝 *الوصف:* ' + aiPrompt : ''}\n\n*🚀 Powered by Hamza Amirni Bot*\n──────────────────────\n📸 instagram.com/hamza.amirni`,
             contextInfo: {
                 externalAdReply: {
-                    title: "Hamza Amirni AI Processor",
-                    body: "Developer: Hamza Amirni",
+                    title: `${icon} ${labelName} - Hamza Amirni`,
+                    body: "🚀 AI Image Processing",
                     thumbnailUrl: resultUrl,
                     mediaType: 1,
                     renderLargerThumbnail: true,
