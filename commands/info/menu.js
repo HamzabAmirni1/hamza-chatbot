@@ -90,6 +90,8 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 ━━━━━━━━━━━━━━━━━━━━━━
 🌤️ *.weather [مدينة]* — حالة الطقس
 📶 *.ping* | *.status* — حالة البوت
+🎮 *.ffnews* — أخبار Free Fire
+✨ *.style [text]* — تزيين النصوص
 📱 *.tempnum* — رقم هاتف مؤقت مجاني
 🌫️ *.blur* — تضبيب صورة
 
