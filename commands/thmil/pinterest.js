@@ -82,43 +82,54 @@ async function searchPinterest(query) {
     }
 }
 
-async function pinterestCommand(sock, chatId, msg, args, commands, userLang, match) {
+async function pinterestCommand(sock, chatId, msg, args, helpers, userLang, match) {
     const query = match || args.join(' ');
+    const isTelegram = helpers && helpers.isTelegram;
+
     if (!query) {
         return sock.sendMessage(chatId, { text: `• *Example:*\n .pinterest cat` }, { quoted: msg });
     }
 
-    await sock.sendMessage(chatId, { text: '*_`جاري التحميل`_*' }, { quoted: msg });
+    await sock.sendMessage(chatId, { react: { text: "📌", key: msg.key } });
 
     try {
-        async function createImage(url) {
-            const { imageMessage } = await generateWAMessageContent({
-                image: { url }
-            }, {
-                upload: sock.waUploadToServer
-            });
-            return imageMessage;
-        }
-
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-        }
-
         let result = await searchPinterest(query);
         if (!result.status) {
             return sock.sendMessage(chatId, { text: `⚠️ ${result.message}` }, { quoted: msg });
         }
 
-        let pins = result.pins.slice(0, 5); // Reduced to 5 for better performance/reliability
-        shuffleArray(pins);
+        let pins = result.pins.slice(0, 5);
+
+        if (isTelegram) {
+            // Telegram implementation: Send first image with description and buttons
+            // You can also send a media group, but let's stick to a clean single result + buttons for now
+            const pin = pins[0];
+            const caption = `📌 *Pinterest Result:* ${query}\n\n` +
+                `📝 *Title:* ${pin.title}\n` +
+                `👤 *By:* ${pin.uploader.full_name}\n\n` +
+                `🔗 [View on Pinterest](${pin.pin_url})`;
+
+            return await sock.sendMessage(chatId, {
+                image: { url: pin.image },
+                caption: caption,
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "📸 Instagram", url: settings.instagram }],
+                        [{ text: "📢 WhatsApp Channel", url: settings.officialChannel }]
+                    ]
+                }
+            });
+        }
+
+        // WhatsApp implementation (Carousel)
+        async function createImage(url) {
+            const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });
+            return imageMessage;
+        }
 
         let push = [];
         let i = 1;
         for (let pin of pins) {
-            let imageUrl = pin.image;
             push.push({
                 body: proto.Message.InteractiveMessage.Body.fromObject({
                     text: `📌 *العنوان:* ${pin.title}\n📝 *الوصف:* ${pin.description}\n👤 *الناشر:* ${pin.uploader.full_name} (@${pin.uploader.username})\n🔗 *الرابط:* ${pin.pin_url}`
@@ -126,35 +137,14 @@ async function pinterestCommand(sock, chatId, msg, args, commands, userLang, mat
                 header: proto.Message.InteractiveMessage.Header.fromObject({
                     title: `الصورة ${i++}`,
                     hasMediaAttachment: true,
-                    imageMessage: await createImage(imageUrl)
+                    imageMessage: await createImage(pin.image)
                 }),
                 nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
                     buttons: [
-                        {
-                            "name": "cta_url",
-                            "buttonParamsJson": `{"display_text":"عرض على Pinterest","url":"${pin.pin_url}"}`
-                        },
-                        {
-                            "name": "cta_url",
-                            "buttonParamsJson": JSON.stringify({
-                                display_text: "Instagram",
-                                url: settings.instagram
-                            })
-                        },
-                        {
-                            "name": "cta_url",
-                            "buttonParamsJson": JSON.stringify({
-                                display_text: "WhatsApp Channel",
-                                url: settings.officialChannel
-                            })
-                        },
-                        {
-                            "name": "quick_reply",
-                            "buttonParamsJson": JSON.stringify({
-                                display_text: "Contact Owner 👤",
-                                id: ".owner"
-                            })
-                        }
+                        { "name": "cta_url", "buttonParamsJson": `{"display_text":"عرض على Pinterest","url":"${pin.pin_url}"}` },
+                        { "name": "cta_url", "buttonParamsJson": JSON.stringify({ display_text: "Instagram", url: settings.instagram }) },
+                        { "name": "cta_url", "buttonParamsJson": JSON.stringify({ display_text: "WhatsApp Channel", url: settings.officialChannel }) },
+                        { "name": "quick_reply", "buttonParamsJson": JSON.stringify({ display_text: "Contact Owner 👤", id: ".owner" }) }
                     ]
                 })
             });
@@ -163,23 +153,11 @@ async function pinterestCommand(sock, chatId, msg, args, commands, userLang, mat
         const bot = generateWAMessageFromContent(chatId, {
             viewOnceMessage: {
                 message: {
-                    messageContextInfo: {
-                        deviceListMetadata: {},
-                        deviceListMetadataVersion: 2
-                    },
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
                     interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-                        body: proto.Message.InteractiveMessage.Body.create({
-                            text: `نتائج البحث عن: ${query}`
-                        }),
-                        footer: proto.Message.InteractiveMessage.Footer.create({
-                            text: '🤖 Hamza Bot'
-                        }),
-                        header: proto.Message.InteractiveMessage.Header.create({
-                            hasMediaAttachment: false
-                        }),
-                        carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
-                            cards: [...push]
-                        })
+                        body: proto.Message.InteractiveMessage.Body.create({ text: `نتائج البحث عن: ${query}` }),
+                        footer: proto.Message.InteractiveMessage.Footer.create({ text: '🤖 Hamza Bot' }),
+                        carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({ cards: push })
                     })
                 }
             }

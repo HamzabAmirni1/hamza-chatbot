@@ -37,7 +37,7 @@ const surahList = [
     { number: 113, name: "الفلق" }, { number: 114, name: "الناس" }
 ];
 
-async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
+async function quranMp3Command(sock, chatId, msg, args, helpers, userLang) {
     let query = args.join(' ').trim();
     const isMoreRequest = query.includes('--more');
     if (isMoreRequest) query = query.replace('--more', '').trim();
@@ -55,6 +55,7 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
     }
 
     const directSurahId = getSurahNumber(query);
+    const isTelegram = helpers && helpers.isTelegram;
 
     try {
         const response = await axios.get('https://mp3quran.net/api/v3/reciters?language=ar', { timeout: 15000 });
@@ -88,6 +89,25 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
         const topReciters = filteredReciters.slice(0, 10);
         const imageUrl = "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
 
+        if (isTelegram) {
+            let text = `👤 *دليل القراء* 👤\n\n`;
+            let buttons = [];
+
+            topReciters.forEach((r, i) => {
+                text += `${i + 1}. *${r.name}*\n📜 ${r.moshaf[0]?.name || "مصحف كامل"}\n\n`;
+                if (targetSurahId) {
+                    buttons.push([{ text: `🎧 استماع سورة ${targetSurahId} - ${r.name}`, callback_data: `${settings.prefix}qdl ${r.id} ${targetSurahId}` }]);
+                } else {
+                    buttons.push([{ text: `📖 قائمة السور - ${r.name}`, callback_data: `${settings.prefix}quransura ${r.id}` }]);
+                }
+            });
+
+            return await sock.sendMessage(chatId, {
+                text: text,
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+
         let push = [];
         for (let r of topReciters) {
             const moshafName = r.moshaf[0]?.name || "مصحف كامل";
@@ -103,7 +123,7 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
             ] : [
                 {
                     "name": "quick_reply",
-                    "buttonParamsJson": JSON.stringify({ display_text: "� قائمة السور", id: `${settings.prefix}quransurah ${r.id}` })
+                    "buttonParamsJson": JSON.stringify({ display_text: " قائمة السور", id: `${settings.prefix}quransurah ${r.id}` })
                 }
             ];
 
@@ -115,7 +135,7 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
                 },
                 {
                     "name": "quick_reply",
-                    "buttonParamsJson": JSON.stringify({ display_text: "� Owner", id: ".owner" })
+                    "buttonParamsJson": JSON.stringify({ display_text: " Owner", id: ".owner" })
                 }
             );
 
@@ -168,9 +188,25 @@ async function quranMp3Command(sock, chatId, msg, args, commands, userLang) {
 }
 
 // Reuse original showSurahFormatCard logic but ensure Pinterest-like structure
-async function showSurahFormatCard(sock, chatId, msg, surahId) {
+async function showSurahFormatCard(sock, chatId, msg, surahId, helpers) {
+    const isTelegram = helpers && helpers.isTelegram;
     const surahNameObj = surahList.find(s => s.number == parseInt(surahId));
     const surahName = surahNameObj ? surahNameObj.name : `السورة ${surahId}`;
+
+    if (isTelegram) {
+        return await sock.sendMessage(chatId, {
+            text: `📖 *سورة ${surahName}*\n\nيرجى اختيار الطريقة التي تود بها عرض السورة:\n\n🎧 *صوت:* استماع وتحميل بصوت القارئ الذي تفضله\n📖 *قراءة:* عرض نص السورة كاملاً للقراءة`,
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "🎧 استماع (Audio)", callback_data: `${settings.prefix}quranmp3 ${surahId} --audio` },
+                        { text: "📖 قراءة (Text)", callback_data: `${settings.prefix}quranread ${surahId}` }
+                    ],
+                    [{ text: "📢 القناة الرسمية", url: settings.officialChannel }]
+                ]
+            }
+        });
+    }
 
     async function createImage(url) {
         const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });
@@ -198,7 +234,7 @@ async function showSurahFormatCard(sock, chatId, msg, surahId) {
                 },
                 {
                     "name": "cta_url",
-                    "buttonParamsJson": JSON.stringify({ display_text: "� القناة الرسمية", url: settings.officialChannel })
+                    "buttonParamsJson": JSON.stringify({ display_text: " القناة الرسمية", url: settings.officialChannel })
                 }
             ]
         })
