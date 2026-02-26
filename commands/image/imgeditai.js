@@ -52,12 +52,33 @@ class ImgEditorAI {
     }
 }
 
-module.exports = async (sock, chatId, msg, args, extra, userLang) => {
-    const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    const directImg = msg.message?.imageMessage;
-    const hasQuotedImg = quotedMsg?.imageMessage || quotedMsg?.documentWithCaptionMessage?.message?.imageMessage;
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    let q = msg;
+    let isImage = false;
 
-    if (!hasQuotedImg && !directImg) {
+    if (helpers?.isTelegram) {
+        isImage = !!(msg.photo || msg.reply_to_message?.photo);
+        if (!msg.photo && msg.reply_to_message?.photo) {
+            q = msg.reply_to_message;
+        }
+    } else {
+        const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const directImg = msg.message?.imageMessage;
+        const hasQuotedImg = quotedMsg?.imageMessage || quotedMsg?.documentWithCaptionMessage?.message?.imageMessage;
+
+        if (hasQuotedImg) {
+            q = {
+                message: quotedMsg,
+                key: msg.message.extendedTextMessage.contextInfo,
+            };
+            isImage = true;
+        } else if (directImg) {
+            q = msg;
+            isImage = true;
+        }
+    }
+
+    if (!isImage) {
         return await sock.sendMessage(chatId, {
             text: `╔══════════════════════╗\n║  ✏️ *IMGEDITOR AI PRO* ║\n╚══════════════════════╝\n\n📸 *الرجاء الرد على صورة مع وصف التعديل*\n\n*أمثلة:*\n.imgedit اجعلها كرتون\n.imgedit حولها لأنمي\n.imgedit cyberpunk style\n\n─────────────────────\n📸 instagram.com/hamza.amirni`,
         }, { quoted: msg });
@@ -75,20 +96,14 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
     }, { quoted: msg });
 
     try {
-        let targetMsg = msg;
-        if (hasQuotedImg) {
-            targetMsg = {
-                message: quotedMsg,
-                key: msg.message.extendedTextMessage.contextInfo,
-            };
-        }
-
-        const buffer = await downloadMediaMessage(
-            targetMsg,
-            'buffer',
-            {},
-            { logger: pino({ level: 'silent' }) }
-        );
+        const buffer = sock.downloadMediaMessage
+            ? await sock.downloadMediaMessage(q)
+            : await downloadMediaMessage(
+                q,
+                'buffer',
+                {},
+                { logger: pino({ level: 'silent' }) }
+            );
 
         await sock.sendMessage(chatId, { edit: waitMsg.key, text: `╔══════════════════════╗\n║  ✏️ *IMGEDITOR AI PRO* ║\n╚══════════════════════╝\n\n📤 *جاري رفع الصورة...*` });
 
