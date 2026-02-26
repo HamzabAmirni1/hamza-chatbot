@@ -112,6 +112,25 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
             return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على ملفات في هذا الرابط." }, { quoted: msg });
         }
 
+        const isTelegram = helpers && helpers.isTelegram;
+        const isFacebook = helpers && helpers.isFacebook;
+
+        if (isTelegram || isFacebook) {
+            let textText = `📂 *قائمة الملفات المتاحة:* \n\n`;
+            let buttons = [];
+            files.slice(0, 10).forEach((f, i) => {
+                textText += `${i + 1}. ${f.title}\n`;
+                if (isTelegram) buttons.push([{ text: `📄 ${f.title.substring(0, 25)}...`, callback_data: `${settings.prefix}alloschoolget ${f.url}` }]);
+            });
+
+            if (isFacebook) textText += "\n💡 اكتب .alloschoolget مع رابط الملف لتحميله.";
+
+            return await sock.sendMessage(chatId, {
+                text: textText,
+                ...(isTelegram ? { reply_markup: { inline_keyboard: buttons } } : {})
+            });
+        }
+
         const sections = [{
             title: '📄 الملفات المتاحة للتحميل',
             rows: files.map(f => ({
@@ -153,6 +172,25 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
 
     if (!results.length) {
         return await sock.sendMessage(chatId, { text: "❌ لم يتم العثور على نتائج لبحثك." }, { quoted: msg });
+    }
+
+    const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
+
+    if (isTelegram || isFacebook) {
+        let textText = `🔎 *نتائج البحث عن:* ${text}\n\n`;
+        let buttons = [];
+        results.slice(0, 10).forEach((r, i) => {
+            textText += `${i + 1}. ${r.title}\n`;
+            if (isTelegram) buttons.push([{ text: `📚 ${r.title.substring(0, 25)}...`, callback_data: `${settings.prefix}alloschool ${r.url}` }]);
+        });
+
+        if (isFacebook) textText += "\n💡 اكتب .alloschool مع رابط النتيجة لعرض الملفات.";
+
+        return await sock.sendMessage(chatId, {
+            text: textText,
+            ...(isTelegram ? { reply_markup: { inline_keyboard: buttons } } : {})
+        });
     }
 
     const sections = [{
