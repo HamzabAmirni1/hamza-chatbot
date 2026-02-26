@@ -2,50 +2,18 @@ const axios = require('axios');
 const { sendWithChannelButton } = require('../lib/utils');
 const config = require('../../config');
 
-/**
- * Weather condition translation to Arabic/Darija
- */
+const WEATHER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
+};
+
 const conditionMap = {
-    "Clear": "صافي ☀️",
-    "Sunny": "مشمس ☀️",
-    "Partly cloudy": "غائم جزئياً ⛅",
-    "Cloudy": "غائم ☁️",
-    "Overcast": "مغيم بزاف ☁️",
-    "Mist": "ضباب خفيف 🌫️",
-    "Patchy rain possible": "احتمال شتا خفيفة 🌧️",
-    "Patchy snow possible": "احتمال ثلج خفيف ❄️",
-    "Patchy sleeting possible": "احتمال تبروري 🌨️",
-    "Patchy freezing drizzle possible": "احتمال رذاذ متجمد ❄️",
-    "Thundery outbreaks possible": "احتمال عواصف رعدية ⛈️",
-    "Blowing snow": "عواصف ثلجية ❄️",
-    "Blizzard": "عاصفة ثلجية قوية 🌨️",
-    "Fog": "ضباب كثيف 🌫️",
-    "Freezing fog": "ضباب متجمد 🌫️",
-    "Patchy light drizzle": "رذاذ خفيف 🌧️",
-    "Light drizzle": "رذاذ 🌧️",
-    "Freezing drizzle": "رذاذ متجمد ❄️",
-    "Heavy freezing drizzle": "رذاذ متجمد قوي ❄️",
-    "Patchy light rain": "شتا خفيفة 🌧️",
-    "Light rain": "شتا خفيفة 🌧️",
-    "Moderate rain at times": "شتا متوسطة مرة مرة 🌧️",
-    "Moderate rain": "شتا متوسطة 🌧️",
-    "Heavy rain at times": "شتا قوية مرة مرة 🌧️",
-    "Heavy rain": "شتا قوية 🌧️",
-    "Light freezing rain": "شتا متجمدة خفيفة ❄️",
-    "Moderate or heavy freezing rain": "شتا متجمدة ❄️",
-    "Light sleet": "تبروري خفيف 🌨️",
-    "Moderate or heavy sleet": "تبروري 🌨️",
-    "Patchy light snow": "ثلج خفيف ❄️",
-    "Light snow": "ثلج خفيف ❄️",
-    "Patchy moderate snow": "ثلج متوسط ❄️",
-    "Moderate snow": "ثلج متوسط ❄️",
-    "Patchy heavy snow": "ثلج كثيف ❄️",
-    "Heavy snow": "ثلج كثيف ❄️",
-    "Ice pellets": "تبروري صغير 🌨️",
-    "Light rain shower": "زخات مطرية خفيفة 🌧️",
-    "Moderate or heavy rain shower": "زخات مطرية 🌧️",
-    "Torrential rain shower": "أمطار طوفانية 🌊",
-    "Thunderstorm": "عاصفة رعدية ⛈️"
+    "Clear": "صافي ☀️", "Sunny": "مشمس ☀️", "Partly cloudy": "غائم جزئياً ⛅",
+    "Cloudy": "غائم ☁️", "Overcast": "مغيم بزاف ☁️", "Mist": "ضباب خفيف 🌫️",
+    "Patchy rain possible": "احتمال شتا 🌧️", "Thundery outbreaks possible": "رعد ⛈️",
+    "Fog": "ضباب 🌫️", "Light rain": "شتا خفيفة 🌧️", "Moderate rain": "شتا متوسطة 🌧️",
+    "Heavy rain": "شتا قوية 🌧️", "Thunderstorm": "عاصفة رعدية ⛈️",
+    "Patchy light rain with thunder": "رعد وشتا ⛈️"
 };
 
 function translateCondition(condition) {
@@ -53,25 +21,29 @@ function translateCondition(condition) {
     return conditionMap[condition] || condition;
 }
 
-module.exports = async (sock, chatId, msg, args, commands, userLang) => {
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const city = args.join(' ').trim();
+    const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
+
     if (!city) {
-        return await sendWithChannelButton(
-            sock,
-            chatId,
-            `🌍 *حالة الطقس (Weather)*\n\n📝 *الطريقة:* .weather [اسم المدينة]\n*مثال:* .weather Er-rachidia\n\n⚔️ ${config.botName}`,
-            msg,
-        );
+        const usageText = `🌍 *حالة الطقس (Weather)*\n\n📝 *الطريقة:* .weather [اسم المدينة]\n*مثال:* .weather Casablanca\n\n⚔️ ${config.botName}`;
+        if (isTelegram || isFacebook) return await sock.sendMessage(chatId, { text: usageText }, { quoted: msg });
+        return await sendWithChannelButton(sock, chatId, usageText, msg);
     }
 
     await sock.sendMessage(chatId, { react: { text: "🌡️", key: msg.key } });
 
     try {
         let d = null;
+        console.log(`[Weather] Fetching for: ${city}`);
 
-        // Method 1: wttr.in (Global & Stable)
         try {
-            const res = await axios.get(`https://wttr.in/${encodeURIComponent(city)}?format=j1`, { timeout: 10000 });
+            const res = await axios.get(`https://wttr.in/${encodeURIComponent(city)}?format=j1`, {
+                headers: WEATHER_HEADERS,
+                timeout: 15000
+            });
+
             if (res.data?.current_condition?.[0]) {
                 const cur = res.data.current_condition[0];
                 const loc = res.data.nearest_area?.[0];
@@ -82,13 +54,13 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                     feels_like: cur.FeelsLikeC,
                     condition: cur.weatherDesc?.[0]?.value,
                     humidity: cur.humidity,
-                    wind: cur.windspeedKmph,
-                    source: 'wttr.in'
+                    wind: cur.windspeedKmph
                 };
             }
-        } catch (e) { }
+        } catch (e) {
+            console.error(`[Weather] wttr.in failed: ${e.message}`);
+        }
 
-        // Fallback: Siputzx
         if (!d) {
             try {
                 const res = await axios.get(`https://api.siputzx.my.id/api/weather?city=${encodeURIComponent(city)}`, { timeout: 10000 });
@@ -101,30 +73,25 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                         feels_like: sd.feels_like || sd.feelslike || sd.temperature,
                         condition: sd.description || sd.weather,
                         humidity: sd.humidity,
-                        wind: sd.wind_speed || sd.wind,
-                        source: 'Siputzx'
+                        wind: sd.wind_speed || sd.wind
                     };
                 }
             } catch (e) { }
         }
 
         if (!d) {
-            return await sendWithChannelButton(
-                sock,
-                chatId,
-                `❌ عذراً، لم أتمكن من العثور على معلومات لمدينة: *${city}*\nتأكد من كتابة الاسم بشكل صحيح (بالفرنسية أو الإنجليزية).`,
-                msg,
-            );
+            return await sock.sendMessage(chatId, {
+                text: `❌ ما لقيتش معلومات على مدينة: *${city}*`
+            }, { quoted: msg });
         }
 
         const conditionDesc = translateCondition(d.condition);
-
         const weatherText =
             `╔══════════════════════╗\n` +
-            `🌍 *حالة الطقس في ${d.location}*\n` +
+            `🌍 *الطقس في ${d.location}*\n` +
             `╚══════════════════════╝\n\n` +
-            `🌡️ *الحرارة الحالية:* ${d.temperature}°C\n` +
-            `🤔 *تحس كأنها:* ${d.feels_like}°C\n` +
+            `🌡️ *الحرارة:* ${d.temperature}°C\n` +
+            `🤔 *كتتحس بـ:* ${d.feels_like}°C\n` +
             `☁️ *الحالة:* ${conditionDesc}\n` +
             `💧 *الرطوبة:* ${d.humidity}%\n` +
             `💨 *الرياح:* ${d.wind} km/h\n` +
@@ -133,11 +100,16 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             `🕒 *آخر تحديث:* ${new Date().toLocaleTimeString("ar-MA")}\n` +
             `⚔️ *${config.botName}*`;
 
-        await sendWithChannelButton(sock, chatId, weatherText, msg);
+        if (isTelegram || isFacebook) {
+            await sock.sendMessage(chatId, { text: weatherText }, { quoted: msg });
+        } else {
+            await sendWithChannelButton(sock, chatId, weatherText, msg);
+        }
+
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
     } catch (e) {
-        console.error("Weather Error:", e.message);
-        await sendWithChannelButton(sock, chatId, `❌ حدث خطأ غير متوقع في جلب البيانات. حاول مجدداً لاحقاً.`, msg);
+        console.error("[Weather] Error:", e.message);
+        await sock.sendMessage(chatId, { text: `❌ وقع مشكل فجلب البيانات. جرب من بعد.` }, { quoted: msg });
     }
 };

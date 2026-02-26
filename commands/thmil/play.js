@@ -1,6 +1,6 @@
 const yts = require('yt-search');
 const config = require('../../config');
-const { downloadYouTube } = require('../../lib/ytdl');
+const { downloadYouTube, getBuffer } = require('../../lib/ytdl');
 const axios = require('axios');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
@@ -9,7 +9,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         if (!text) {
             return await sock.sendMessage(chatId, {
-                text: "� *تحميل الأغاني والمقاطع الصوتية*\n\n" +
+                text: "🎵 *تحميل الأغاني والمقاطع الصوتية*\n\n" +
                     "المرجو كتابة اسم الأغنية أو رابط اليوتيوب.\n\n" +
                     "📌 مثال:\n" +
                     ".play سورة الملك\n" +
@@ -37,7 +37,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             videoThumb = video.thumbnail;
             duration = video.timestamp;
         } else {
-            // If it's a URL, try to get info
             try {
                 const videoId = (text.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
                 if (videoId) {
@@ -47,47 +46,79 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         }
 
         const audioData = await downloadYouTube(videoUrl, 'mp3');
-        if (!audioData) {
-            throw new Error("جميع محركات التحميل فشلت في استخراج الصوت.");
+        if (!audioData || !audioData.download) {
+            throw new Error("جميع محركات التحميل فشلت في استخراج الصوت حالياً.");
         }
 
-        const finalUrl = audioData.download || audioData.downloadUrl;
+        const finalUrl = audioData.download;
         const finalTitle = audioData.title || videoTitle || "Audio";
 
         try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
 
-        // Send audio (playable)
-        await sock.sendMessage(
-            chatId,
-            {
-                audio: { url: finalUrl },
-                mimetype: "audio/mpeg",
-                fileName: `${finalTitle}.mp3`,
-                contextInfo: {
-                    externalAdReply: {
-                        title: finalTitle.substring(0, 50),
-                        body: config.botName,
-                        thumbnailUrl: videoThumb || "",
-                        mediaType: 1,
-                        renderLargerThumbnail: true,
-                        sourceUrl: videoUrl
+        // Attempt to send audio
+        try {
+            await sock.sendMessage(
+                chatId,
+                {
+                    audio: { url: finalUrl },
+                    mimetype: "audio/mpeg",
+                    fileName: `${finalTitle}.mp3`,
+                    contextInfo: {
+                        externalAdReply: {
+                            title: finalTitle.substring(0, 50),
+                            body: config.botName,
+                            thumbnailUrl: audioData.thumb || videoThumb || "",
+                            mediaType: 1,
+                            renderLargerThumbnail: true,
+                            sourceUrl: videoUrl
+                        }
                     }
-                }
-            },
-            { quoted: msg }
-        );
+                },
+                { quoted: msg }
+            );
+        } catch (sendErr) {
+            console.error("[Play] Direct URL send failed, trying buffer...", sendErr.message);
+            const buffer = await getBuffer(finalUrl);
+            if (!buffer) throw new Error("فشل تحميل الملف الصوتي كبفر أيضاً.");
 
-        // Also send as document (optional, but requested often for high quality/non-voice format)
-        await sock.sendMessage(
-            chatId,
-            {
-                document: { url: finalUrl },
-                mimetype: "audio/mpeg",
-                fileName: `${finalTitle.replace(/[<>:"/\\|?*]/g, "_")}.mp3`,
-                caption: `🎵 *${finalTitle}*\n⏱️ *Duration:* ${duration || 'N/A'}\n\n*🚀 Downloaded via ${config.botName}*`
-            },
-            { quoted: msg }
-        );
+            await sock.sendMessage(
+                chatId,
+                {
+                    audio: buffer,
+                    mimetype: "audio/mpeg",
+                    fileName: `${finalTitle}.mp3`
+                },
+                { quoted: msg }
+            );
+        }
+
+        // Send as document
+        try {
+            await sock.sendMessage(
+                chatId,
+                {
+                    document: { url: finalUrl },
+                    mimetype: "audio/mpeg",
+                    fileName: `${finalTitle.replace(/[<>:"/\\|?*]/g, "_")}.mp3`,
+                    caption: `🎵 *${finalTitle}*\n⏱️ *Duration:* ${duration || 'N/A'}\n\n*🚀 Downloaded via ${config.botName}*`
+                },
+                { quoted: msg }
+            );
+        } catch (e) {
+            const buffer = await getBuffer(finalUrl);
+            if (buffer) {
+                await sock.sendMessage(
+                    chatId,
+                    {
+                        document: buffer,
+                        mimetype: "audio/mpeg",
+                        fileName: `${finalTitle.replace(/[<>:"/\\|?*]/g, "_")}.mp3`,
+                        caption: `🎵 *${finalTitle}*\n⏱️ *Duration:* ${duration || 'N/A'}\n\n*🚀 Downloaded via ${config.botName}*`
+                    },
+                    { quoted: msg }
+                );
+            }
+        }
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
 
