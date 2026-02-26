@@ -1,4 +1,4 @@
-const { downloadYouTube } = require('../../lib/ytdl');
+const { downloadYouTube, getBuffer } = require('../../lib/ytdl');
 
 const handler = async (sock, chatId, msg, args, helpers, userLang) => {
     // Extract command from msg text or helpers
@@ -30,24 +30,47 @@ const handler = async (sock, chatId, msg, args, helpers, userLang) => {
         const { title, download } = res;
 
         if (!isMp3) {
-            await sock.sendMessage(chatId, {
-                video: { url: download },
-                caption: `🎬 *${title}*\n🚀 Downloaded via Hamza Bot`
-            }, { quoted: msg });
+            try {
+                await sock.sendMessage(chatId, {
+                    video: { url: download },
+                    caption: `🎬 *${title}*\n🚀 Downloaded via Hamza Bot`
+                }, { quoted: msg });
+            } catch (e) {
+                console.log("[YTMP4] Video direct send failed, trying buffer...");
+                const buffer = await getBuffer(download, res.referer);
+                if (buffer) {
+                    await sock.sendMessage(chatId, {
+                        video: buffer,
+                        caption: `🎬 *${title}*\n🚀 Downloaded via Hamza Bot (Buffer)`
+                    }, { quoted: msg });
+                } else throw e;
+            }
         } else {
-            await sock.sendMessage(chatId, {
-                audio: { url: download },
-                mimetype: 'audio/mpeg',
-                fileName: `${title}.mp3`,
-                contextInfo: {
-                    externalAdReply: {
-                        title: title,
-                        body: "Hamza Bot YouTube Downloader",
-                        mediaType: 1,
-                        sourceUrl: url
+            try {
+                await sock.sendMessage(chatId, {
+                    audio: { url: download },
+                    mimetype: 'audio/mpeg',
+                    fileName: `${title}.mp3`,
+                    contextInfo: {
+                        externalAdReply: {
+                            title: title,
+                            body: "Hamza Bot YouTube Downloader",
+                            mediaType: 1,
+                            sourceUrl: url
+                        }
                     }
-                }
-            }, { quoted: msg });
+                }, { quoted: msg });
+            } catch (e) {
+                console.log("[YTMP3] Audio direct send failed, trying buffer...");
+                const buffer = await getBuffer(download, res.referer);
+                if (buffer) {
+                    await sock.sendMessage(chatId, {
+                        audio: buffer,
+                        mimetype: 'audio/mpeg',
+                        fileName: `${title}.mp3`
+                    }, { quoted: msg });
+                } else throw e;
+            }
         }
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });

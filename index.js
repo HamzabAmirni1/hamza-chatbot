@@ -417,7 +417,7 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        const cmdMatch = body && body.match(/^[\.]?([a-zA-Z0-9]+)(\s+.*|$)/i);
+        const cmdMatch = body && body.match(/^[\.]?([a-zA-Z0-9\u0600-\u06FF]+)(\s+.*|$)/i);
         if (cmdMatch) {
           const command = cmdMatch[1].toLowerCase();
           const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
@@ -434,13 +434,13 @@ async function startBot(folderName, phoneNumber) {
             "khatm": "islamic/khatm", "ختمة": "islamic/khatm",
             "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
             "quran": "islamic/quran", "سورة": "islamic/quran", "continue": "islamic/continue", "tafsir": "islamic/tafsir", "تفسير": "islamic/tafsir",
-            "quranmp3": "islamic/quranmp3", "quranread": "islamic/quranread", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah", "qurancard": "islamic/qurancard", "quranpdf": "islamic/quranpdf",
             "weather": "tools/weather", "طقس": "tools/weather", "جو": "tools/weather", "حالة-الطقس": "tools/weather", "wether": "tools/weather",
             "ping": "tools/ping", "بينج": "tools/ping", "tempnum": "tools/tempnum", "getsms": "tools/tempnum",
             "credits": "tools/credits", "quota": "tools/credits", "status": "tools/ping",
             "menu": "info/menu", "help": "info/menu", "قائمة": "info/menu",
             "tg": "info/socials", "telegram": "info/socials", "yt": "info/socials", "youtube": "info/socials",
             "channel": "info/socials", "web": "info/socials", "portfolio": "info/socials", "owner": "info/owner",
+            "quranread": "islamic/quranread", "quranmp3": "islamic/quranmp3", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah", "qurancard": "islamic/qurancard", "quranpdf": "islamic/quranpdf",
             "hamza": "info/socials", "developer": "info/socials", "social": "info/socials", "socials": "info/socials",
             "links": "info/socials", "about": "info/socials", "info": "info/socials",
             "nano": "ai/nano", "nanopro": "ai/nano", "banana": "ai/nano", "نانو": "ai/nano", "gemini-image": "ai/nano",
@@ -509,8 +509,9 @@ async function startBot(folderName, phoneNumber) {
 
           let nlcFound = false;
           for (const [key, path] of Object.entries(nlcKeywords)) {
-            // Check if the keyword exists anywhere in the message for Islamic/Visual tools
-            if (new RegExp(`(${key})`, "i").test(lowerBody)) {
+            // Use word boundary for English and simple check for Arabic (starting with keyword)
+            const regex = new RegExp(`(^|\\s)(${key})(\\s|$)`, "i");
+            if (regex.test(lowerBody)) {
               try {
                 let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
                 // For Quran, if they mentions a surah name but not the word "quran", we should still try.
