@@ -37,15 +37,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
 
         await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
-        // Send thumbnail/info
-        try {
-            const thumb = videoThumbnail || `https://i.ytimg.com/vi/${ytId}/sddefault.jpg`;
-            await sock.sendMessage(chatId, {
-                image: { url: thumb },
-                caption: `🎬 *جاري تحميل الفيديو...*\n\n📝 *العنوان:* ${videoTitle || searchQuery}\n⚔️ ${config.botName}`
-            }, { quoted: msg });
-        } catch (e) { }
-
         // Use centralized downloader
         const videoData = await downloadYouTube(videoUrl, 'video');
         if (!videoData || !videoData.download) throw new Error("جميع طرق التحميل فشلت حالياً.");
@@ -57,18 +48,18 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
                 video: { url: finalUrl },
                 mimetype: 'video/mp4',
                 fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-                caption: `✅ *تم التحميل بنجاح*\n\n⚔️ ${config.botName}`
+                caption: `✅ *تم التحميل بنجاح*\n\n🎬 *${videoData.title || videoTitle}*\n⚔️ ${config.botName}`
             }, { quoted: msg });
         } catch (sendErr) {
             console.log("[Video] Direct send failed, trying buffer...");
-            const buffer = await getBuffer(finalUrl);
+            const buffer = await getBuffer(finalUrl, videoData.referer);
             if (!buffer) throw new Error("فشل تحميل الفيديو كبفر أيضاً.");
 
             await sock.sendMessage(chatId, {
                 video: buffer,
                 mimetype: 'video/mp4',
                 fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-                caption: `✅ *تم التحميل بنجاح (بفر)*\n\n⚔️ ${config.botName}`
+                caption: `✅ *تم التحميل بنجاح (بفر)*\n\n🎬 *${videoData.title || videoTitle}*\n⚔️ ${config.botName}`
             }, { quoted: msg });
         }
 
