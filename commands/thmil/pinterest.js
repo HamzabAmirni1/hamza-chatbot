@@ -109,7 +109,7 @@ async function pinterestCommand(sock, chatId, msg, args, helpers, userLang, matc
                 `👤 *By:* ${pin.uploader.full_name}\n\n` +
                 `🔗 [View on Pinterest](${pin.pin_url})`;
 
-            return await sock.sendMessage(chatId, {
+            await sock.sendMessage(chatId, {
                 image: { url: pin.image },
                 caption: caption,
                 ...(isTelegram ? {
@@ -121,6 +121,7 @@ async function pinterestCommand(sock, chatId, msg, args, helpers, userLang, matc
                     }
                 } : {})
             });
+            return; // Add return here
         }
 
         // WhatsApp implementation (Carousel)
