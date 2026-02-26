@@ -73,14 +73,33 @@ class IllariaUpscaler {
     }
 }
 
-module.exports = async (sock, chatId, msg, args, extra, userLang) => {
-    // Check for quoted image
-    const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    const directImg = msg.message?.imageMessage;
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    let q = msg;
+    let isImage = false;
 
-    const hasQuotedImg = quotedMsg?.imageMessage || quotedMsg?.documentWithCaptionMessage?.message?.imageMessage;
+    if (helpers?.isTelegram) {
+        isImage = !!(msg.photo || msg.reply_to_message?.photo);
+        if (!msg.photo && msg.reply_to_message?.photo) {
+            q = msg.reply_to_message;
+        }
+    } else {
+        const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const directImg = msg.message?.imageMessage;
+        const hasQuotedImg = quotedMsg?.imageMessage || quotedMsg?.documentWithCaptionMessage?.message?.imageMessage;
 
-    if (!hasQuotedImg && !directImg) {
+        if (hasQuotedImg) {
+            q = {
+                message: quotedMsg,
+                key: msg.message.extendedTextMessage.contextInfo,
+            };
+            isImage = true;
+        } else if (directImg) {
+            q = msg;
+            isImage = true;
+        }
+    }
+
+    if (!isImage) {
         return await sock.sendMessage(chatId, {
             text: `╔══════════════════╗\n║  🔍 *UPSCALER AI*  ║\n╚══════════════════╝\n\n📸 *الرجاء الرد على صورة*\n\n*الأمر:* .upscale\n\n✨ سيتم تحسين جودة الصورة 4x\n─────────────────────\n📸 instagram.com/hamza.amirni`,
         }, { quoted: msg });
@@ -91,20 +110,14 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
     }, { quoted: msg });
 
     try {
-        let targetMsg = msg;
-        if (hasQuotedImg) {
-            targetMsg = {
-                message: quotedMsg,
-                key: msg.message.extendedTextMessage.contextInfo,
-            };
-        }
-
-        const buffer = await downloadMediaMessage(
-            targetMsg,
-            'buffer',
-            {},
-            { logger: pino({ level: 'silent' }) }
-        );
+        const buffer = sock.downloadMediaMessage
+            ? await sock.downloadMediaMessage(q)
+            : await downloadMediaMessage(
+                q,
+                'buffer',
+                {},
+                { logger: pino({ level: 'silent' }) }
+            );
 
         const upscaler = new IllariaUpscaler();
         const resultUrl = await upscaler.process(buffer, {

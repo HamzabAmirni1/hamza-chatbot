@@ -7,15 +7,23 @@ const settings = require('../../config');
 async function tomp3Command(sock, sender, msg, args, helpers) {
     // Determine the target message (direct or quoted)
     let targetMessage = msg;
-    let isVideo = msg.message?.videoMessage;
+    let isVideo = false;
 
-    if (!isVideo && msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage) {
-        const quotedInfo = msg.message.extendedTextMessage.contextInfo;
-        targetMessage = {
-            key: { remoteJid: sender, id: quotedInfo.stanzaId, participant: quotedInfo.participant },
-            message: quotedInfo.quotedMessage
-        };
-        isVideo = true;
+    if (helpers?.isTelegram) {
+        isVideo = !!(msg.video || msg.reply_to_message?.video);
+        if (!msg.video && msg.reply_to_message?.video) {
+            targetMessage = msg.reply_to_message;
+        }
+    } else {
+        isVideo = !!msg.message?.videoMessage;
+        if (!isVideo && msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage) {
+            const quotedInfo = msg.message.extendedTextMessage.contextInfo;
+            targetMessage = {
+                key: { remoteJid: sender, id: quotedInfo.stanzaId, participant: quotedInfo.participant },
+                message: quotedInfo.quotedMessage
+            };
+            isVideo = true;
+        }
     }
 
     if (!isVideo) {
@@ -26,10 +34,12 @@ async function tomp3Command(sock, sender, msg, args, helpers) {
         await sock.sendMessage(sender, { react: { text: "⏳", key: msg.key } });
 
         // Download video buffer
-        const buffer = await downloadMediaMessage(targetMessage, 'buffer', {}, {
-            logger: undefined,
-            reuploadRequest: sock.updateMediaMessage
-        });
+        const buffer = sock.downloadMediaMessage
+            ? await sock.downloadMediaMessage(targetMessage)
+            : await downloadMediaMessage(targetMessage, 'buffer', {}, {
+                logger: undefined,
+                reuploadRequest: sock.updateMediaMessage
+            });
 
         if (!buffer) throw new Error("Failed to download video.");
 

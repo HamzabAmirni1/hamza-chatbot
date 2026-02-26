@@ -4,17 +4,29 @@ const axios = require('axios');
 const FormData = require('form-data');
 const { uploadToTmpfiles, uploadToCatbox } = require('../../lib/media');
 
-module.exports = async (sock, chatId, msg, args) => {
-    let q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
-    let mime = (q.imageMessage || q.documentWithCaptionMessage?.message?.imageMessage)?.mimetype || "";
+module.exports = async (sock, chatId, msg, args, helpers) => {
+    let q = msg;
+    let mime = "";
+    let isImage = false;
 
-    // Check if the message itself is an image
-    if (!mime.startsWith("image/") && msg.message?.imageMessage) {
-        q = msg.message;
-        mime = msg.message.imageMessage.mimetype;
+    if (helpers?.isTelegram) {
+        isImage = !!(msg.photo || msg.reply_to_message?.photo);
+        if (!msg.photo && msg.reply_to_message?.photo) {
+            q = msg.reply_to_message;
+        }
+        mime = isImage ? "image/jpeg" : "";
+    } else {
+        q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
+        mime = (q.imageMessage || q.documentWithCaptionMessage?.message?.imageMessage)?.mimetype || "";
+
+        if (!mime.startsWith("image/") && msg.message?.imageMessage) {
+            q = msg.message;
+            mime = msg.message.imageMessage.mimetype;
+        }
+        isImage = mime.startsWith("image/");
     }
 
-    if (!mime.startsWith("image/")) {
+    if (!isImage) {
         return await sock.sendMessage(chatId, {
             text: `⚠️ *يرجى الرد على صورة لتحويلها لفيديو:*\n\n*.img2video <الوصف>*\n\nمثال:\n.img2video اجعلها تتحرك ببطء`
         }, { quoted: msg });
@@ -31,13 +43,14 @@ module.exports = async (sock, chatId, msg, args) => {
         await sock.sendMessage(chatId, { react: { text: "🔁", key: msg.key } });
         const waitMsg = await sock.sendMessage(chatId, { text: "⏳ جاري رفع الصورة للسيرفر المؤقت (Catbox)..." }, { quoted: msg });
 
-        const quotedMsg = { message: q };
-        const buffer = await downloadMediaMessage(
-            quotedMsg,
-            "buffer",
-            {},
-            { logger: pino({ level: "silent" }) },
-        );
+        const buffer = sock.downloadMediaMessage
+            ? await sock.downloadMediaMessage(q)
+            : await downloadMediaMessage(
+                { message: q },
+                "buffer",
+                {},
+                { logger: pino({ level: "silent" }) },
+            );
 
         // Try Catbox first, then Tmpfiles
         let imageUrl = await uploadToCatbox(buffer);
