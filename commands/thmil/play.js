@@ -78,7 +78,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             );
         } catch (sendErr) {
             console.error("[Play] Direct URL send failed, trying buffer...", sendErr.message);
-            const buffer = await getBuffer(finalUrl);
+            const buffer = await getBuffer(finalUrl, audioData.referer);
             if (!buffer) throw new Error("فشل تحميل الملف الصوتي كبفر أيضاً.");
 
             await sock.sendMessage(
@@ -105,7 +105,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
                 { quoted: msg }
             );
         } catch (e) {
-            const buffer = await getBuffer(finalUrl);
+            const buffer = await getBuffer(finalUrl, audioData.referer);
             if (buffer) {
                 await sock.sendMessage(
                     chatId,
