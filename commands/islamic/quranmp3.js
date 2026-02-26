@@ -82,8 +82,11 @@ async function quranMp3Command(sock, chatId, msg, args, helpers, userLang) {
         ];
 
         let filteredReciters = reciters.filter(r => highlightReciters.some(p => r.name.includes(p)));
-        if (reciterQuery) {
-            filteredReciters = reciters.filter(r => r.name.includes(reciterQuery));
+
+        // Fix for filtering when tags like --audio are present
+        const cleanReciterQuery = reciterQuery.replace(/--(audio|more)/g, '').trim();
+        if (cleanReciterQuery) {
+            filteredReciters = reciters.filter(r => r.name.includes(cleanReciterQuery));
         }
 
         const topReciters = filteredReciters.slice(0, 10);
@@ -213,7 +216,10 @@ async function showSurahFormatCard(sock, chatId, msg, surahId, helpers) {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            { text: "🎧 استماع (Audio)", callback_data: `${settings.prefix}quranmp3 ${surahId} --audio` },
+                            { text: "🎧 الكل (Choose)", callback_data: `${settings.prefix}quranmp3 ${surahId} --audio` },
+                            { text: "👤 العفاسي (Direct)", callback_data: `${settings.prefix}qdl 8 ${surahId}` }
+                        ],
+                        [
                             { text: "📖 قراءة (Text)", callback_data: `${settings.prefix}quranread ${surahId}` }
                         ],
                         [{ text: "📢 القناة الرسمية", url: settings.officialChannel }]
