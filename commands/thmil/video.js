@@ -1,7 +1,7 @@
 const axios = require('axios');
 const yts = require('yt-search');
 const config = require('../../config');
-const { downloadYouTube } = require('../../lib/ytdl');
+const { downloadYouTube, getBuffer } = require('../../lib/ytdl');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
     try {
@@ -48,17 +48,29 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
 
         // Use centralized downloader
         const videoData = await downloadYouTube(videoUrl, 'video');
+        if (!videoData || !videoData.download) throw new Error("جميع طرق التحميل فشلت حالياً.");
 
-        if (!videoData) throw new Error("جميع طرق التحميل فشلت حالياً.");
+        const finalUrl = videoData.download;
 
-        const finalUrl = videoData.download || videoData.downloadUrl || videoData.url;
+        try {
+            await sock.sendMessage(chatId, {
+                video: { url: finalUrl },
+                mimetype: 'video/mp4',
+                fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
+                caption: `✅ *تم التحميل بنجاح*\n\n⚔️ ${config.botName}`
+            }, { quoted: msg });
+        } catch (sendErr) {
+            console.log("[Video] Direct send failed, trying buffer...");
+            const buffer = await getBuffer(finalUrl);
+            if (!buffer) throw new Error("فشل تحميل الفيديو كبفر أيضاً.");
 
-        await sock.sendMessage(chatId, {
-            video: { url: finalUrl },
-            mimetype: 'video/mp4',
-            fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-            caption: `✅ *تم التحميل بنجاح*\n\n⚔️ ${config.botName}`
-        }, { quoted: msg });
+            await sock.sendMessage(chatId, {
+                video: buffer,
+                mimetype: 'video/mp4',
+                fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
+                caption: `✅ *تم التحميل بنجاح (بفر)*\n\n⚔️ ${config.botName}`
+            }, { quoted: msg });
+        }
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
 
