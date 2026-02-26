@@ -1,6 +1,7 @@
 const axios = require('axios');
 const settings = require('../../config');
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+const { getBuffer } = require('../../lib/ytdl');
 
 function getSurahName(number) {
     const s = [
@@ -159,6 +160,19 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             });
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (err2) {
+            console.log("CDN audio failed, trying buffer fallback...", err2.message);
+            const buffer = await getBuffer(audioUrl);
+            if (buffer) {
+                try {
+                    await sock.sendMessage(chatId, {
+                        audio: buffer,
+                        mimetype: 'audio/mpeg',
+                        fileName: `سورة ${surahName}.mp3`
+                    });
+                    return await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+                } catch (e3) { }
+            }
+
             console.error("All audio methods failed:", err2.message);
             await sock.sendMessage(chatId, {
                 text: `❌ تعذر إرسال الصوت. حاول مرة أخرى أو اختر قارئ آخر.\n💡 .quranmp3`
