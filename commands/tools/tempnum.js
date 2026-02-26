@@ -3,8 +3,8 @@ const cheerio = require('cheerio');
 const { proto, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
 const config = require('../../config');
 
-module.exports = async (sock, chatId, msg, args, commands, userLang) => {
-    const cmd = commands.command;
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    const cmd = helpers && helpers.command ? helpers.command : "tempnum";
 
     if (cmd === 'tempnum') {
         await sock.sendMessage(chatId, { react: { text: "📱", key: msg.key } });
@@ -43,6 +43,21 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
             });
 
             text += `\n💡 اختار الرقم اللي بغيتي واضغط على الزر باش تشوف الميساجات اللي وصلوه.`;
+
+            const isTelegram = helpers && helpers.isTelegram;
+
+            if (isTelegram) {
+                let buttons = [];
+                numbers.slice(0, 10).forEach((n, i) => {
+                    buttons.push([{ text: `📩 SMS: ${n.number} (${n.country})`, callback_data: `${config.prefix}getsms ${n.link}` }]);
+                });
+
+                await sock.sendMessage(chatId, { delete: waitMsg.key });
+                return await sock.sendMessage(chatId, {
+                    text: text,
+                    reply_markup: { inline_keyboard: buttons }
+                });
+            }
 
             const botMsg = generateWAMessageFromContent(chatId, {
                 viewOnceMessage: {
