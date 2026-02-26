@@ -5,6 +5,7 @@ const path = require('path');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
     const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
     let imageMessage;
 
@@ -35,24 +36,26 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ━━━━━━━━━━━━━━━━
 `;
 
-    if (isTelegram) {
+    if (isTelegram || isFacebook) {
         const photo = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
 
         return await sock.sendMessage(chatId, {
             image: photo,
             caption: menuText,
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { text: "📸 Instagram", url: settings.instagram },
-                        { text: "🎥 YouTube", url: settings.youtube }
-                    ],
-                    [
-                        { text: "📢 WhatsApp Channel", url: settings.officialChannel },
-                        { text: "👤 Contact Owner", callback_data: ".owner" }
+            ...(isTelegram ? {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "📸 Instagram", url: settings.instagram },
+                            { text: "🎥 YouTube", url: settings.youtube }
+                        ],
+                        [
+                            { text: "📢 WhatsApp Channel", url: settings.officialChannel },
+                            { text: "👤 Contact Owner", callback_data: ".owner" }
+                        ]
                     ]
-                ]
-            }
+                }
+            } : {})
         });
     }
 

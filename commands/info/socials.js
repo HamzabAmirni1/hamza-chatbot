@@ -57,24 +57,32 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ايلى بغيتي تصاوب شي بوت بحالي ولا عندك مشروع ويب، تواصل مع حمزة نيشان! ✨`;
 
             const isTelegram = helpers && helpers.isTelegram;
+            const isFacebook = helpers && helpers.isFacebook;
 
             try {
                 const imagePath = path.join(__dirname, "..", "..", "media", "hamza.jpg");
                 const hasImage = fs.existsSync(imagePath);
                 const photo = hasImage ? fs.readFileSync(imagePath) : "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
 
-                if (isTelegram) {
+                if (isTelegram || isFacebook) {
+                    let caption = ownerInfoText;
+                    if (isFacebook) {
+                        caption += `\n\n📢 *Channel:* ${config.officialChannel}\n📸 *Instagram:* ${config.instagram}\n📘 *Facebook:* ${config.facebook}\n🌐 *Portfolio:* ${config.portfolio}`;
+                    }
+
                     return await sock.sendMessage(chatId, {
                         image: photo,
-                        caption: ownerInfoText,
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{ text: "📢 WhatsApp Channel", url: config.officialChannel }],
-                                [{ text: "📸 Instagram", url: config.instagram }],
-                                [{ text: "📘 Facebook", url: config.facebook }],
-                                [{ text: "🌐 Portfolio / Contact", url: config.portfolio }]
-                            ]
-                        }
+                        caption: caption,
+                        ...(isTelegram ? {
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{ text: "📢 WhatsApp Channel", url: config.officialChannel }],
+                                    [{ text: "📸 Instagram", url: config.instagram }],
+                                    [{ text: "📘 Facebook", url: config.facebook }],
+                                    [{ text: "🌐 Portfolio / Contact", url: config.portfolio }]
+                                ]
+                            }
+                        } : {})
                     });
                 }
 

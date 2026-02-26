@@ -85,6 +85,7 @@ async function searchPinterest(query) {
 async function pinterestCommand(sock, chatId, msg, args, helpers, userLang, match) {
     const query = match || args.join(' ');
     const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
 
     if (!query) {
         return sock.sendMessage(chatId, { text: `• *Example:*\n .pinterest cat` }, { quoted: msg });
@@ -100,9 +101,8 @@ async function pinterestCommand(sock, chatId, msg, args, helpers, userLang, matc
 
         let pins = result.pins.slice(0, 5);
 
-        if (isTelegram) {
-            // Telegram implementation: Send first image with description and buttons
-            // You can also send a media group, but let's stick to a clean single result + buttons for now
+        if (isTelegram || isFacebook) {
+            // Telegram/Facebook implementation: Send first image with description and buttons (if Telegram)
             const pin = pins[0];
             const caption = `📌 *Pinterest Result:* ${query}\n\n` +
                 `📝 *Title:* ${pin.title}\n` +
@@ -112,12 +112,14 @@ async function pinterestCommand(sock, chatId, msg, args, helpers, userLang, matc
             return await sock.sendMessage(chatId, {
                 image: { url: pin.image },
                 caption: caption,
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "📸 Instagram", url: settings.instagram }],
-                        [{ text: "📢 WhatsApp Channel", url: settings.officialChannel }]
-                    ]
-                }
+                ...(isTelegram ? {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "📸 Instagram", url: settings.instagram }],
+                            [{ text: "📢 WhatsApp Channel", url: settings.officialChannel }]
+                        ]
+                    }
+                } : {})
             });
         }
 

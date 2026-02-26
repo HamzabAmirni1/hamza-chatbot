@@ -45,17 +45,20 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             text += `\n💡 اختار الرقم اللي بغيتي واضغط على الزر باش تشوف الميساجات اللي وصلوه.`;
 
             const isTelegram = helpers && helpers.isTelegram;
+            const isFacebook = helpers && helpers.isFacebook;
 
-            if (isTelegram) {
+            if (isTelegram || isFacebook) {
                 let buttons = [];
                 numbers.slice(0, 10).forEach((n, i) => {
-                    buttons.push([{ text: `📩 SMS: ${n.number} (${n.country})`, callback_data: `${config.prefix}getsms ${n.link}` }]);
+                    if (isTelegram) buttons.push([{ text: `📩 SMS: ${n.number} (${n.country})`, callback_data: `${config.prefix}getsms ${n.link}` }]);
                 });
+
+                if (isFacebook) text += "\n\n💡 اكتب .getsms مع رابط الرقم باش تشوف الميساجات.";
 
                 await sock.sendMessage(chatId, { delete: waitMsg.key });
                 return await sock.sendMessage(chatId, {
                     text: text,
-                    reply_markup: { inline_keyboard: buttons }
+                    ...(isTelegram ? { reply_markup: { inline_keyboard: buttons } } : {})
                 });
             }
 

@@ -7,6 +7,7 @@ const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys
 
 async function quranCommand(sock, chatId, msg, args, helpers, userLang) {
     const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
 
     // If user provides arguments (e.g. .quran fatiha), show format selection card
     if (args.length > 0) {
@@ -39,23 +40,27 @@ async function quranCommand(sock, chatId, msg, args, helpers, userLang) {
         "113. الفلق", "114. الناس"
     ];
 
-    if (isTelegram) {
-        let text = `🕌 *أهلاً بك في قسم القرآن الكريم*\n\nيرجى اختيار السورة من القائمة 👇\n\n`;
-        let buttons = [];
+    if (isTelegram || isFacebook) {
+        let text = `🕌 *أهلاً بك في قسم القرآن الكريم*\n\nيرجى اختيار السورة وكتابة رقمها (مثلاً: .quran 18)\n\n`;
 
-        // Telegram - Show top/common surahs or split into rows
-        const commonSurahs = [1, 18, 36, 55, 56, 67];
-        commonSurahs.forEach(id => {
-            const name = surahs[id - 1];
-            buttons.push([{ text: name, callback_data: `${settings.prefix}quran ${id}` }]);
-        });
+        if (isTelegram) {
+            let buttons = [];
+            const commonSurahs = [1, 18, 36, 55, 56, 67];
+            commonSurahs.forEach(id => {
+                const name = surahs[id - 1];
+                buttons.push([{ text: name, callback_data: `${settings.prefix}quran ${id}` }]);
+            });
+            buttons.push([{ text: "📜 عرض القائمة الكاملة", callback_data: `${settings.prefix}quransura` }]);
 
-        buttons.push([{ text: "📜 عرض القائمة الكاملة", callback_data: `${settings.prefix}quransura` }]);
-
-        return await sock.sendMessage(chatId, {
-            text: text,
-            reply_markup: { inline_keyboard: buttons }
-        });
+            return await sock.sendMessage(chatId, {
+                text: text + "👇 القائمة السريعة:",
+                reply_markup: { inline_keyboard: buttons }
+            });
+        } else {
+            // Facebook - Text List
+            text += surahs.slice(0, 30).join('\n') + "\n...";
+            return await sock.sendMessage(chatId, { text });
+        }
     }
 
     try {

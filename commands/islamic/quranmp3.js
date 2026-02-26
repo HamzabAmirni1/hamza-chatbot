@@ -89,22 +89,27 @@ async function quranMp3Command(sock, chatId, msg, args, helpers, userLang) {
         const topReciters = filteredReciters.slice(0, 10);
         const imageUrl = "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
 
-        if (isTelegram) {
+        const isFacebook = helpers && helpers.isFacebook;
+
+        if (isTelegram || isFacebook) {
             let text = `👤 *دليل القراء* 👤\n\n`;
             let buttons = [];
 
             topReciters.forEach((r, i) => {
-                text += `${i + 1}. *${r.name}*\n📜 ${r.moshaf[0]?.name || "مصحف كامل"}\n\n`;
-                if (targetSurahId) {
-                    buttons.push([{ text: `🎧 استماع سورة ${targetSurahId} - ${r.name}`, callback_data: `${settings.prefix}qdl ${r.id} ${targetSurahId}` }]);
-                } else {
-                    buttons.push([{ text: `📖 قائمة السور - ${r.name}`, callback_data: `${settings.prefix}quransura ${r.id}` }]);
+                text += `${i + 1}. *${r.name}*\n📜 ${r.moshaf[0]?.name || "مصحف كامل"}\n`;
+                if (isFacebook) text += `🔗 ${settings.prefix}qdl ${r.id} ${targetSurahId || '1'}\n\n`;
+                else if (isTelegram) {
+                    if (targetSurahId) {
+                        buttons.push([{ text: `🎧 استماع سورة ${targetSurahId} - ${r.name}`, callback_data: `${settings.prefix}qdl ${r.id} ${targetSurahId}` }]);
+                    } else {
+                        buttons.push([{ text: `📖 قائمة السور - ${r.name}`, callback_data: `${settings.prefix}quransura ${r.id}` }]);
+                    }
                 }
             });
 
             return await sock.sendMessage(chatId, {
                 text: text,
-                reply_markup: { inline_keyboard: buttons }
+                ...(isTelegram ? { reply_markup: { inline_keyboard: buttons } } : {})
             });
         }
 
@@ -193,18 +198,28 @@ async function showSurahFormatCard(sock, chatId, msg, surahId, helpers) {
     const surahNameObj = surahList.find(s => s.number == parseInt(surahId));
     const surahName = surahNameObj ? surahNameObj.name : `السورة ${surahId}`;
 
-    if (isTelegram) {
+    const isFacebook = helpers && helpers.isFacebook;
+
+    if (isTelegram || isFacebook) {
+        let text = `📖 *سورة ${surahName}*\n\nيرجى اختيار الطريقة التي تود بها عرض السورة:\n\n🎧 *صوت:* استماع وتحميل بصوت القارئ الذي تفضله\n📖 *قراءة:* عرض نص السورة كاملاً للقراءة`;
+
+        if (isFacebook) {
+            text += `\n\n🎧 لاستماع: ${settings.prefix}quranmp3 ${surahId}\n📖 لقراءة: ${settings.prefix}quranread ${surahId}`;
+        }
+
         return await sock.sendMessage(chatId, {
-            text: `📖 *سورة ${surahName}*\n\nيرجى اختيار الطريقة التي تود بها عرض السورة:\n\n🎧 *صوت:* استماع وتحميل بصوت القارئ الذي تفضله\n📖 *قراءة:* عرض نص السورة كاملاً للقراءة`,
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { text: "🎧 استماع (Audio)", callback_data: `${settings.prefix}quranmp3 ${surahId} --audio` },
-                        { text: "📖 قراءة (Text)", callback_data: `${settings.prefix}quranread ${surahId}` }
-                    ],
-                    [{ text: "📢 القناة الرسمية", url: settings.officialChannel }]
-                ]
-            }
+            text: text,
+            ...(isTelegram ? {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🎧 استماع (Audio)", callback_data: `${settings.prefix}quranmp3 ${surahId} --audio` },
+                            { text: "📖 قراءة (Text)", callback_data: `${settings.prefix}quranread ${surahId}` }
+                        ],
+                        [{ text: "📢 القناة الرسمية", url: settings.officialChannel }]
+                    ]
+                }
+            } : {})
         });
     }
 
