@@ -93,6 +93,31 @@ module.exports = async (sock, chatId, msg, args) => {
         return sock.sendMessage(chatId, { text: table }, { quoted: msg });
     }
 
+    // ─── .salat [city name] — Change city for everyone ──────────────────────────
+    if (sub && !['on', 'off', 'now', 'enable', 'disable', 'status', 'city', 'مدينة'].includes(sub)) {
+        const city = args.join(' ').trim();
+        const country = 'MA'; // Default to Morocco
+
+        await sock.sendMessage(chatId, { react: { text: '⏳', key: msg.key } });
+        const timings = await fetchPrayerTimes(city, country);
+
+        if (!timings) {
+            await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
+            return sock.sendMessage(chatId, { text: `❌ فشل العثور على مدينة باسم *${city}* في المغرب (MA). حاول كتابتها بالإنجليزية أو تأكد من الاسم.` }, { quoted: msg });
+        }
+
+        setPrayerCity(city, country);
+        await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
+
+        const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+        let table = `✅ *تم تغيير المدينة بنجاح!* 🌍\n📍 *المدينة:* ${city}\n\n🕌 *أوقات الصلاة اليوم:* \n━━━━━━━━━━━━━━━━━━\n`;
+        for (const p of prayers) {
+            table += `${PRAYER_EMOJIS[p]} *${PRAYER_NAMES[p]?.ar || p}*: ${timings[p]?.substring(0, 5) || '--:--'}\n`;
+        }
+        table += `━━━━━━━━━━━━━━━━━━\n💡 سيتم إرسال التذكيرات الآن بناءً على توقيت *${city}*.\n\n⚔️ _${config.botName}_`;
+        return sock.sendMessage(chatId, { text: table }, { quoted: msg });
+    }
+
     // ─── OWNER ONLY commands ──────────────────────────────────────────────────
     if (isOwner(sender)) {
 
@@ -104,30 +129,6 @@ module.exports = async (sock, chatId, msg, args) => {
         if (sub === 'disable' || sub === 'وقف-الكل') {
             setPrayerEnabled(false);
             return sock.sendMessage(chatId, { text: `🔴 نظام التذكير موقوف كلياً.` }, { quoted: msg });
-        }
-
-        // .salat city [city] [country]
-        if (sub === 'city' || sub === 'مدينة') {
-            const city = args[1];
-            const country = (args[2] || 'MA').toUpperCase();
-            if (!city) {
-                return sock.sendMessage(chatId, {
-                    text: `❌ مثال: *.salat city Casablanca MA*\n*.salat city Paris FR*\n*.salat city Riyadh SA*`
-                }, { quoted: msg });
-            }
-            setPrayerCity(city, country);
-            const timings = await fetchPrayerTimes(city, country);
-            if (!timings) {
-                return sock.sendMessage(chatId, { text: `❌ فشل التحقق من المدينة *${city}*.` }, { quoted: msg });
-            }
-
-            const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-            let table = `✅ *تم تغيير المدينة: ${city} (${country})* 🌍\n\n🕌 *أوقات اليوم:*\n━━━━━━━━━━━━━━━━━━\n`;
-            for (const p of prayers) {
-                table += `${PRAYER_EMOJIS[p]} *${PRAYER_NAMES[p]?.ar || p}*: ${timings[p]?.substring(0, 5) || '--:--'}\n`;
-            }
-            table += `━━━━━━━━━━━━━━━━━━\n⚔️ _${config.botName}_`;
-            return sock.sendMessage(chatId, { text: table }, { quoted: msg });
         }
 
         // .salat status
