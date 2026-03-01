@@ -572,13 +572,13 @@ async function startBot(folderName, phoneNumber) {
           const context = getContext(sender);
           const isRecentImg = context.lastImage && Date.now() - context.lastImage.timestamp < 5 * 60 * 1000;
           if (isRecentImg && body.length > 2 && !body.startsWith(".")) {
-            const visionPromises = [];
-            if (config.geminiApiKey) visionPromises.push(getGeminiResponse(sender, body, context.lastImage.buffer, context.lastImage.mime));
-            if (config.openRouterKey) visionPromises.push(getOpenRouterResponse(sender, body, context.lastImage.buffer));
-
             try {
-              if (visionPromises.length > 0) reply = await Promise.any(visionPromises);
-            } catch (e) { }
+              const analyze = require('./commands/ai/analyze');
+              await analyze(sock, sender, msg, body.split(" "), { buffer: context.lastImage.buffer, mime: context.lastImage.mime, caption: body }, "ar");
+              continue; // analyze handles the reply
+            } catch (e) {
+              console.error("NL Vision Error:", e.message);
+            }
           }
 
           if (!reply) {
