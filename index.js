@@ -171,7 +171,11 @@ app.post("/webhook", (req, res) => {
   if (body.object === "page") {
     body.entry.forEach((entry) => {
       entry.messaging.forEach((event) => {
-        if (event.message && event.message.text) {
+        // Accept text messages AND photo/video attachments
+        // Previously only event.message.text was handled — photos were silently ignored!
+        const hasText = event.message && event.message.text;
+        const hasAttachment = event.message && event.message.attachments && event.message.attachments.length > 0;
+        if ((hasText || hasAttachment) && !event.message.is_echo) {
           handleFacebookMessage(event);
         }
       });
