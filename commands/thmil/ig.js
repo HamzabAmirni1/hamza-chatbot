@@ -1,61 +1,44 @@
-const { igdl } = require('ruhend-scraper');
+const axios = require('axios');
+const { t } = require('../../lib/language');
 const settings = require('../../config');
 
-module.exports = async (sock, chatId, msg, args, helpers) => {
-    const igUrl = args[0];
-
-    if (!igUrl || !igUrl.match(/(https?:\/\/(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:p|reel|tv)\/[^\s]+)/i)) {
-        return await sock.sendMessage(chatId, {
-            text: `⚠️ *استخدام خاطئ!*\n\n📝 *الطريقة الصحيحة:*\n.ig [رابط المنشور]\n\n*مثال:* .ig https://www.instagram.com/reel/xxx`
-        }, { quoted: msg });
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
-
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     try {
-        const downloadData = await igdl(igUrl);
-        if (downloadData?.data?.length) {
-            const mediaList = downloadData.data;
-            // Limit to 5 media to avoid spam/ban
-            for (let i = 0; i < Math.min(5, mediaList.length); i++) {
-                const media = mediaList[i];
-                const mediaUrl = media.url;
-                const isVideo = media.type === "video" || /\.(mp4|mov|avi|mkv|webm)$/i.test(mediaUrl) || igUrl.includes("/reel/") || igUrl.includes("/tv/");
+        const url = args[0];
+        if (!url) return sock.sendMessage(chatId, { text: "المرجو وضع رابط إنستغرام." }, { quoted: msg });
 
-                const caption = `✅ *تم التحميل بنجاح!*\n\n🚀 ${settings.botName}`;
+        await sock.sendMessage(chatId, { react: { text: '⌛', key: msg.key } });
 
-                const contextInfo = {
-                    externalAdReply: {
-                        title: "Instagram Downloader",
-                        body: settings.botName,
-                        thumbnailUrl: "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg",
-                        mediaType: isVideo ? 2 : 1,
-                        sourceUrl: igUrl
-                    }
-                };
+        const apis = [
+            `https://api.siputzx.my.id/api/d/instagram?url=${encodeURIComponent(url)}`,
+            `https://api.vreden.web.id/api/instagram?url=${encodeURIComponent(url)}`,
+            `https://api.yupra.my.id/api/downloader/instagram?url=${encodeURIComponent(url)}`
+        ];
 
-                if (isVideo) {
-                    await sock.sendMessage(chatId, {
-                        video: { url: mediaUrl },
-                        caption,
-                        mimetype: "video/mp4",
-                        contextInfo
-                    }, { quoted: msg });
-                } else {
-                    await sock.sendMessage(chatId, {
-                        image: { url: mediaUrl },
-                        caption,
-                        contextInfo
-                    }, { quoted: msg });
+        let downloadUrl = null;
+        for (const api of apis) {
+            try {
+                const res = await axios.get(api);
+                const data = res.data;
+                if (data.status && (data.data?.[0]?.url || data.result?.[0]?.url || data.data?.url || data.result?.url)) {
+                    const result = data.data || data.result;
+                    downloadUrl = Array.isArray(result) ? result[0].url : (result.url || result);
+                    break;
                 }
-            }
-            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-        } else {
-            throw new Error("No media found");
+            } catch (e) { }
         }
+
+        if (!downloadUrl) throw new Error("Failed to download Instagram content.");
+
+        await sock.sendMessage(chatId, {
+            video: { url: downloadUrl },
+            caption: `✅ *Instagram Download*\n\n⚔️ ${settings.botName}`
+        }, { quoted: msg });
+
+        await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
+
     } catch (e) {
-        console.error('Error in ig downloader:', e);
-        await sock.sendMessage(chatId, { text: `❌ فشل تحميل المنشور. الرابط قد يكون خاصاً أو لم يتم العثور عليه.` }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        await sock.sendMessage(chatId, { text: `❌ ${e.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
     }
 };

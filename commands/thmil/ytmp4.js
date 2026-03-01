@@ -1,85 +1,60 @@
-const { downloadYouTube, getBuffer } = require('../../lib/ytdl');
+const axios = require('axios');
+const settings = require('../../config');
 
-const handler = async (sock, chatId, msg, args, helpers, userLang) => {
-    // Extract command from msg text or helpers
-    const text = (msg.text || msg.body || '').toLowerCase();
-    const isMp3 = text.includes('mp3') || text.includes('song') || text.includes('audio');
+module.exports = async (sock, chatId, msg, args) => {
+    if (!args[0]) return sock.sendMessage(chatId, { text: 'المرجو وضع رابط يوتيوب.' }, { quoted: msg });
 
-    if (args.length < 1) {
-        return sock.sendMessage(chatId, {
-            text: `Format:\n- *ytmp4 <url> [quality]* (for video)\n- *ytmp3 <url>* (for audio)\n\n*Available quality:* 360, 480, 720 (default: 720p)`
-        }, { quoted: msg });
-    }
+    const url = args[0];
+    const quality = args[1] || '720';
 
-    let url = args[0];
-    if (!url.startsWith('http')) {
-        return sock.sendMessage(chatId, { text: "Please enter a valid YouTube link." }, { quoted: msg });
-    }
+    await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
     try {
-        await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
+        const apis = [
+            `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(url)}`,
+            `https://api.vreden.web.id/api/ytmp4?url=${encodeURIComponent(url)}`,
+            `https://p.savenow.to/ajax/download.php?copyright=0&format=${quality}&url=${encodeURIComponent(url)}&api=dfcb6d76f2f6a9894gjkege8a4ab232222`
+        ];
 
-        const type = isMp3 ? 'audio' : 'video';
-        const res = await downloadYouTube(url, type);
+        let downloadUrl = null;
+        let title = 'Video';
 
-        if (!res || !res.download) {
-            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            return sock.sendMessage(chatId, { text: `*Error:* All download methods failed for this video.` }, { quoted: msg });
-        }
-
-        const { title, download } = res;
-
-        if (!isMp3) {
+        for (const api of apis) {
             try {
-                await sock.sendMessage(chatId, {
-                    video: { url: download },
-                    caption: `🎬 *${title}*\n🚀 Downloaded via Hamza Bot`
-                }, { quoted: msg });
-            } catch (e) {
-                console.log("[YTMP4] Video direct send failed, trying buffer...");
-                const buffer = await getBuffer(download, res.referer);
-                if (buffer) {
-                    await sock.sendMessage(chatId, {
-                        video: buffer,
-                        caption: `🎬 *${title}*\n🚀 Downloaded via Hamza Bot (Buffer)`
-                    }, { quoted: msg });
-                } else throw e;
-            }
-        } else {
-            try {
-                await sock.sendMessage(chatId, {
-                    audio: { url: download },
-                    mimetype: 'audio/mpeg',
-                    fileName: `${title}.mp3`,
-                    contextInfo: {
-                        externalAdReply: {
-                            title: title,
-                            body: "Hamza Bot YouTube Downloader",
-                            mediaType: 1,
-                            sourceUrl: url
+                const res = await axios.get(api, { timeout: 15000 });
+                const data = res.data;
+                if (data.status || data.success || data.progress_url) {
+                    if (data.progress_url) {
+                        // Savenow logic
+                        for (let i = 0; i < 20; i++) {
+                            const status = await axios.get(data.progress_url);
+                            if (status.data?.download_url) {
+                                downloadUrl = status.data.download_url;
+                                title = data.info?.title || title;
+                                break;
+                            }
+                            await new Promise(r => setTimeout(r, 2000));
                         }
+                    } else {
+                        downloadUrl = data.data?.download || data.result?.download || data.data?.url || data.result?.url;
+                        title = data.data?.title || data.result?.title || title;
                     }
-                }, { quoted: msg });
-            } catch (e) {
-                console.log("[YTMP3] Audio direct send failed, trying buffer...");
-                const buffer = await getBuffer(download, res.referer);
-                if (buffer) {
-                    await sock.sendMessage(chatId, {
-                        audio: buffer,
-                        mimetype: 'audio/mpeg',
-                        fileName: `${title}.mp3`
-                    }, { quoted: msg });
-                } else throw e;
-            }
+                    if (downloadUrl) break;
+                }
+            } catch (e) { }
         }
+
+        if (!downloadUrl) throw new Error("Failed to download video.");
+
+        await sock.sendMessage(chatId, {
+            video: { url: downloadUrl },
+            caption: `🎬 *${title}*\n\n🚀 ${settings.botName}`
+        }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
     } catch (e) {
-        console.error("YTMP4 Error:", e);
-        sock.sendMessage(chatId, { text: `*Download failed!*` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ ${e.message}` }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 };
-
-module.exports = handler;
