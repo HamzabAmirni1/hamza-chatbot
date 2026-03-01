@@ -107,7 +107,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         addToHistory(chatId, "user", userPrompt, { buffer: imgBuffer, mime: 'image/jpeg' });
         addToHistory(chatId, "assistant", fullText);
 
-        await sock.sendMessage(chatId, { text: `🤖 *Analysis:*\n\n${fullText}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: fullText }, { quoted: msg });
 
     } catch (err) {
         console.error(err);
