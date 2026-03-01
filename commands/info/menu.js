@@ -12,27 +12,32 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     // Compact Menu Text
     const menuText = `🤖 *${settings.botName.toUpperCase()}*
 ⚡ *Dev:* ${settings.botOwner}
+📅 *Date:* ${new Date().toLocaleDateString('ar-MA')}
 
 ━━━━━━━━━━━━━━━━
 🎨 *AI & IMAGE*
 .gen | .deepimg | .nano
 .imgedit | .hd | .upscale | .colorize
 .brat | .img2video | .sketch | .blur
-
-🖼️ *PHOTO SEARCH*
-.wallpaper | .googleimg | .4kwallpaper
-.toimg | .style | .gimage
+.draw | .imagine | .style | .hl
 
 📥 *DOWNLOADER*
 .play | .video | .fb | .ig | .ytmp4
 .tiktok | .pinterest | .lyrics | .capcut
+.yts | .tomp3 | .ytdl | .ytmp4v2
 
-🌙 *ISLAMIC*
-.quranmp3 | .qdl | .ad3iya | .ayah | .tafsir
+🕋 *ISLAMIC & RAMADAN*
+.quran | .quranmp3 | .qdl | .qurancard
+.ramadan on/off | .ad3iya30 | .khatm
+.salat on/off | .ayah | .tafsir | .dua
 
-🛠️ *TOOLS*
-.sticker | .ping | .weather | .yts
-.ffnews | .alloschool | .tempnum
+🛡️ *GROUP ADMIN (TG)*
+.kick | .ban | .promote | .tagall
+.antilink on/off
+
+🛠️ *TOOLS & INFOS*
+.sticker | .ping | .weather | .status
+.tempnum | .alloschool | .owner
 ━━━━━━━━━━━━━━━━
 `;
 
