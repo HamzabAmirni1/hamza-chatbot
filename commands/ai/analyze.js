@@ -26,6 +26,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     try {
         let imgBuffer;
         if (passedBuffer) {
+            console.log(`[AI Analyzer] Receiving buffer from passedBuffer (${passedBuffer.length} bytes)`);
             imgBuffer = passedBuffer;
         } else {
             const { downloadMediaMessage } = require('@whiskeysockets/baileys');
