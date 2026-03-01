@@ -44,7 +44,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             await sock.sendMessage(chatId, { text: "⏳ *Scanning image...*" }, { quoted: msg });
         }
 
-        const { getGeminiResponse, getOpenRouterResponse } = require('../../lib/ai');
+        const { getGeminiResponse, getOpenRouterResponse, getObitoAnalyze, getHFVision } = require('../../lib/ai');
         let fullText = "";
 
         // --- Priority 1: Official Gemini API ---
@@ -65,26 +65,45 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             }
         }
 
-        // --- Priority 3: NoteGPT Fallback (Legacy) ---
+        // --- Priority 3: Obito Vision API (Fast Fallback) ---
+        if (!fullText) {
+            try {
+                console.log(`[AI Analyzer] Trying Obito Vision...`);
+                fullText = await getObitoAnalyze(imgBuffer, userRequest || "Analyze this image in detail.", "image/jpeg");
+            } catch (e) {
+                console.error(`[AI Analyzer] Obito failed:`, e.message);
+            }
+        }
+
+        // --- Priority 4: NoteGPT Fallback (Legacy) ---
         if (!fullText) {
             try {
                 console.log(`[AI Analyzer] Trying NoteGPT Fallback...`);
-                // Upload to Catbox for public URL
                 const form = new FormData();
                 form.append('reqtype', 'fileupload');
                 form.append('fileToUpload', imgBuffer, { filename: 'image.jpg', contentType: 'image/jpeg' });
                 const uploadRes = await axios.post('https://catbox.moe/user/api.php', form, { headers: form.getHeaders(), timeout: 20000 });
                 const imageUrl = uploadRes.data.trim();
+                console.log(`[AI Analyzer] Catbox URL: ${imageUrl}`);
 
                 if (imageUrl.startsWith('http')) {
                     const payload = {
                         message: `${systemInstruction}\n\nUSER REQUEST: ${userRequest || "علق بجمالية"}`,
                         language: detectLanguage(userRequest),
                         model: "gemini-1.5-flash",
-                        image_urls: [imageUrl]
+                        tone: "conversational",
+                        length: "short",
+                        conversation_id: chatId.replace(/[^a-zA-Z0-9]/g, '-'),
+                        image_urls: [imageUrl],
+                        stream_url: "/api/v2/homework/stream"
                     };
                     const noteRes = await axios.post('https://notegpt.io/api/v2/homework/stream', payload, {
-                        headers: { 'Content-Type': 'application/json', 'Origin': 'https://notegpt.io' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Origin': 'https://notegpt.io',
+                            'Referer': 'https://notegpt.io/ai-answer-generator',
+                            'User-Agent': 'Mozilla/5.0'
+                        },
                         responseType: 'stream'
                     });
 
@@ -94,7 +113,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
                             for (const line of lines) {
                                 if (line.startsWith('data: ')) {
                                     try {
-                                        const data = JSON.parse(line.slice(6));
+                                        const jsonStr = line.slice(6);
+                                        if (!jsonStr) continue;
+                                        const data = JSON.parse(jsonStr);
                                         if (data.text) fullText += data.text;
                                         if (data.done) resolve();
                                     } catch (e) { }
@@ -111,7 +132,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             }
         }
 
-        if (!fullText) throw new Error("Could not analyze image. Please try again later.");
+        if (!fullText) {
+            throw new Error("Could not analyze image. All models are currently busy or keys are missing.");
+        }
 
         // --- ROBUST CLEANUP ---
         function cleanResponse(text) {
@@ -123,7 +146,8 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
                 .replace(/### Analysis/gi, '')
                 .replace(/Question \d+:/gi, '')
                 .replace(/Answer:/gi, '')
-                .replace(/أنت مساعد ذكي متعدد اللغات[\s\S]*?اجعل الرد مباشراً\./g, '') // Remove leaked prompt
+                .replace(/USER REQUEST:.*$/m, '')
+                .replace(/أنت مساعد ذكي متعدد اللغات[\s\S]*?اجعل الرد مباشراً\./g, '')
                 .replace(/\n{3,}/g, '\n\n')
                 .trim();
         }
