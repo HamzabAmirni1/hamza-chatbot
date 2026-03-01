@@ -94,10 +94,10 @@ async function sendWithChannelButton(sock, jid, text, quoted) {
     if (fs.existsSync(imagePath)) {
         contextInfo = {
             externalAdReply: {
-                title: config.botName,
-                body: "Click to visit our official website ✨",
+                title: "Hamza Amirni | Full-Stack Developer 💻",
+                body: "Click to explore our latest projects & tools ✨",
                 thumbnail: fs.readFileSync(imagePath),
-                sourceUrl: Math.random() > 0.5 ? config.portfolio : config.officialChannel,
+                sourceUrl: Math.random() > 0.4 ? config.portfolio : config.officialChannel,
                 mediaType: 1,
                 renderLargerThumbnail: true,
             },
