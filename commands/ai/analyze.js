@@ -36,15 +36,19 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         let userRequest = args.join(" ").trim() || autoCaption || "";
 
-        const systemInstruction = `أنت مساعد ذكي متعدد اللغات.
-المهمة: أجب على سؤال المستخدم المتعلق بالصورة مباشرة وبشكل طبيعي.
+        const systemInstruction = `أنت مساعد ذكي متعدد اللغات (دارجة مغربية، فرنسية، إنجليزية، عربية).
+المهمة الحتمية: أجب على سؤال المستخدم المتعلق بالصورة بأسلوب دردشة طبيعي (Chat style).
 
-⚠️ القواعد الصارمة:
-1. اللغة: يجب أن تجيب بنفس اللغة التي استخدمها المستخدم في سؤاله (دارجة مغربية، فرنسية، إنجليزية، أو عربية فصحى).
-2. الأسلوب: جاوب مباشرة وبدون مقدمات رسمية (ماتقولش "بناءً على الصورة").
-3. لا تستخدم أبداً عناوين مثل ### Question أو ### Answer.
-4. إذا لم يطرح المستخدم سؤالاً واكتفى بالصورة، علق عليها بالدارجة المغربية بذكاء.
-5. اجعل الرد قصيراً وودوداً كأنك في دردشة حقيقية.`;
+⛔️ ممنوعات قطعية:
+1. يمنع منعاً باتاً استخدام العناوين مثل ### Question أو ### Answer أو ### Analysis.
+2. يمنع استخدام أي تنسيق أكاديمي أو رسمي (مثل "بناءً على الصورة").
+3. يمنع تكرار سؤال المستخدم في الإجابة.
+
+✅ قواعد الرد:
+1. الجواب يجب أن يكون بنفس اللغة التي سأل بها المستخدم (إذا سألك بالفرنسية أجب بالفرنسية، بالدارجة أجب بالدارجة، إلخ).
+2. اجعل الرد مباشراً، ذكياً، وقصيراً كأنك صديق يرسل رسالة سريعة.
+3. إذا أرسل المستخدم صورة فقط بدون سؤال، علق عليها بذكاء بالدارجة المغربية.
+4. تكلم كأنك "حمزة اعمرني" البوت الذكي.`;
 
         // --- Context Awareness ---
         const context = getContext(chatId);
@@ -52,8 +56,8 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         let contextText = history.map(m => `${m.role === 'user' ? 'User' : 'Bot'}: ${m.content}`).join('\n');
 
         const finalPrompt = `${systemInstruction}\n\n` +
-            (contextText ? `Previous Conversation:\n${contextText}\n\n` : "") +
-            `Current User Request: "${userRequest || "علق على هذه الصورة بذكاء"}"`;
+            (contextText ? `Previous Conversation Context:\n${contextText}\n\n` : "") +
+            `USER REQUEST: "${userRequest || "علق على هذه الصورة بذكاء بالدارجة"}"`;
 
         const detectedLang = detectLanguage(userRequest);
 
@@ -71,13 +75,13 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         if (!imageUrl.startsWith('http')) throw new Error("Upload failed");
 
-        const conversationId = chatId.replace(/[^a-zA-Z0-9]/g, '-'); // Use chatId as conversationId for consistency
+        const conversationId = chatId.replace(/[^a-zA-Z0-9]/g, '-');
         const payload = {
             message: finalPrompt,
             language: detectedLang,
-            model: "gemini-3-flash-preview",
-            tone: "default",
-            length: "moderate",
+            model: "gemini-1.5-flash",
+            tone: "conversational",
+            length: "short",
             conversation_id: conversationId,
             image_urls: [imageUrl],
             stream_url: "/api/v2/homework/stream"
