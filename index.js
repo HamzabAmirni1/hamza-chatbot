@@ -256,11 +256,13 @@ async function startBot(folderName, phoneNumber) {
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const { version } = await fetchLatestBaileysVersion();
 
+  const usePairingCode = !!(phoneNumber || process.env.PAIRING_NUMBER || config.pairingNumber);
+
   const sock = makeWASocket({
     version,
+    qrTimeout: undefined,
+    browser: usePairingCode ? ["Ubuntu", "Chrome", "20.0.04"] : ["Hamza Bot", "Safari", "3.0"],
     logger: pino({ level: "silent" }),
-    printQRInTerminal: !(folderName === "session_1"),
-    browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
@@ -470,7 +472,7 @@ async function startBot(folderName, phoneNumber) {
             "alloschool": "morocco/alloschool", "alloschoolget": "morocco/alloschool", "allo": "morocco/alloschool", "دروس": "morocco/alloschool", "فروض": "morocco/alloschool",
             "upscale": "image/upscale", "hd-photo": "image/upscale", "رفع-جودة": "image/upscale", "upscaler": "image/upscale",
             "colorize": "image/colorize", "لون": "image/colorize", "تلوين": "image/colorize",
-            "imgedit": "image/imgeditai", "aiimgedit": "image/imgeditai", "عدل-ai": "image/imgeditai",
+            "imgedit": "image/nanobanana", "aiimgedit": "image/nanobanana", "عدل-ai": "image/nanobanana",
             "sketch2": "image/sketch2", "pencil2": "image/sketch2", "رصاص": "image/sketch2",
             "gimg": "image/gimg", "googleimg": "image/gimg", "imgbahth": "image/gimg", "بحث-صورة": "image/gimg",
             "wallpaper": "image/wallpaper", "wp": "image/wallpaper", "خلفية": "image/wallpaper", "4kwp": "image/wallpaper",
