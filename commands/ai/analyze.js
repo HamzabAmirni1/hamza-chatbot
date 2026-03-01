@@ -33,22 +33,28 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             imgBuffer = await downloadMediaMessage(mediaMsg, 'buffer', {}, { logger: { level: 'silent' } });
         }
 
-        let userPrompt = args.join(" ").trim() || autoCaption || "";
-        if (!userPrompt) {
-            // Check if it's an automatic detection (no command)
-            userPrompt = "حلل هذه الصورة بالتفصيل الممل واشرح كل ما تراه فيها (الأشخاص، الأشياء، المكان، الألوان، النصوص إن وجدت).";
-        }
+        let userRequest = args.join(" ").trim() || autoCaption || "";
+
+        const systemInstruction = `أنت مساعد ذكي متعدد اللغات.
+المهمة: أجب على سؤال المستخدم المتعلق بالصورة مباشرة وبشكل طبيعي.
+
+⚠️ القواعد الصارمة:
+1. اللغة: يجب أن تجيب بنفس اللغة التي استخدمها المستخدم في سؤاله (دارجة مغربية، فرنسية، إنجليزية، أو عربية فصحى).
+2. الأسلوب: جاوب مباشرة وبدون مقدمات رسمية (ماتقولش "بناءً على الصورة").
+3. لا تستخدم أبداً عناوين مثل ### Question أو ### Answer.
+4. إذا لم يطرح المستخدم سؤالاً واكتفى بالصورة، علق عليها بالدارجة المغربية بذكاء.
+5. اجعل الرد قصيراً وودوداً كأنك في دردشة حقيقية.`;
 
         // --- Context Awareness ---
         const context = getContext(chatId);
         const history = context.messages.slice(-5); // Get last 5 messages for context
         let contextText = history.map(m => `${m.role === 'user' ? 'User' : 'Bot'}: ${m.content}`).join('\n');
 
-        const finalPrompt = contextText
-            ? `Context of previous conversation:\n${contextText}\n\nUser is now sending an image with this question/request: ${userPrompt}\n\nPlease analyze the image and respond accordingly, keeping the previous context in mind if relevant.`
-            : userPrompt;
+        const finalPrompt = `${systemInstruction}\n\n` +
+            (contextText ? `Previous Conversation:\n${contextText}\n\n` : "") +
+            `Current User Request: "${userRequest || "علق على هذه الصورة بذكاء"}"`;
 
-        const detectedLang = detectLanguage(userPrompt);
+        const detectedLang = detectLanguage(userRequest);
 
         if (!passedBuffer) {
             await sock.sendMessage(chatId, { text: "⏳ *Scanning image...*" }, { quoted: msg });
