@@ -481,11 +481,14 @@ async function startBot(folderName, phoneNumber) {
             "style": "tools/style", "font": "tools/style", "decoration": "tools/style",
             "lyrics": "thmil/lyrics", "كلمات-أغنية": "thmil/lyrics",
             "toimg": "tools/toimg", "لصورة": "tools/toimg", "photosticker": "tools/toimg",
-            "nano": "image/nano", "نانو": "image/nano", "imgedit": "image/imgeditai",
-            "gen": "image/gen", "generate": "image/gen", "genimage": "image/gen", "photo": "image/gen", "image": "image/gen", "img": "image/gen", "تخيل": "image/gen", "ارسم": "image/gen", "صورة": "image/gen",
+            "nano": "image/nano", "نانو": "image/nano",
+            "gen": "image/gen", "generate": "image/gen", "imagine": "image/imagine", "photo": "image/gen", "image": "image/gen", "img": "image/gen", "تخيل": "image/gen", "ارسم": "image/gen", "صورة": "image/gen",
             "wallpaper": "image/wallpaper", "4kwallpaper": "image/wallpaper", "خلفية": "image/wallpaper",
             "googleimg": "image/googleimg", "gimage": "image/googleimg", "صور": "image/googleimg",
-            "deepimg": "image/deepimg", "deepimage": "image/deepimg"
+            "deepimg": "image/deepimg", "deepimage": "image/deepimg", "deepseek": "ai/deepseek",
+            "nanobanana": "image/nanobanana", "airbrush": "image/airbrush", "removebg": "image/pixa-removebg",
+            "analyze": "ai/analyze", "vision": "ai/analyze",
+            "sticker": "tools/sticker", "s": "tools/sticker", "stiker": "tools/sticker", "ملصق": "tools/sticker"
           };
 
           if (allCmds[command]) {
