@@ -120,12 +120,31 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         addToHistory(chatId, "user", userRequest, { buffer: imgBuffer, mime: 'image/jpeg' });
         addToHistory(chatId, "assistant", finalReply);
 
-        await sock.sendMessage(chatId, { text: finalReply }, { quoted: msg });
+        // Guard: Only send if the socket is still open (readyState 1 = OPEN)
+        if (sock.ws && sock.ws.readyState === 1) {
+            await sock.sendMessage(chatId, { text: finalReply }, { quoted: msg });
+        } else {
+            console.log('[analyze] Socket closed before reply could be sent — result discarded.');
+        }
 
     } catch (err) {
-        console.error(err);
-        await sock.sendMessage(chatId, { text: `❌ *Error:* ${err.message}` }, { quoted: msg });
+        // Silently ignore WhatsApp connection-closed errors (status 428)
+        // These happen when the socket drops while waiting for the long AI response.
+        const isConnClosed = err?.output?.statusCode === 428
+            || err?.message?.includes('Connection Closed')
+            || err?.message?.includes('connection closed');
+
+        if (!isConnClosed) {
+            console.error('[analyze] Error:', err.message || err);
+            try {
+                if (sock.ws && sock.ws.readyState === 1) {
+                    await sock.sendMessage(chatId, { text: `❌ *Error:* ${err.message}` }, { quoted: msg });
+                }
+            } catch (_) { /* ignore send errors too */ }
+        }
     } finally {
-        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        try {
+            if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch (_) { /* ignore cleanup errors */ }
     }
 };
