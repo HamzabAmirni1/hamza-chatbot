@@ -1,49 +1,10 @@
-const axios = require('axios');
 const yts = require('yt-search');
 const config = require('../../config');
-const { getBuffer } = require('../../lib/ytdl');
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function poll(statusUrl) {
-    const headers = { "user-agent": "Mozilla/5.0", referer: "https://ytmp3.gg/" };
-    const { data } = await axios.get(statusUrl, { headers });
-    if (data.status === "completed") return data;
-    if (data.status === "failed") throw new Error(data.message || "Conversion failed");
-    await sleep(2000);
-    return poll(statusUrl);
-}
-
-async function convertYouTube(url, quality = "720p") {
-    let title = "Video";
-    try {
-        const { data: meta } = await axios.get("https://www.youtube.com/oembed", { params: { url, format: "json" } });
-        if (meta && meta.title) title = meta.title;
-    } catch (e) { }
-
-    const payload = { url, os: "android", output: { type: "video", format: "mp4", quality } };
-    const headers = { accept: "application/json", "content-type": "application/json", referer: "https://ytmp3.gg/" };
-
-    let downloadInit;
-    try {
-        downloadInit = await axios.post("https://hub.ytconvert.org/api/download", payload, { headers });
-    } catch {
-        downloadInit = await axios.post("https://api.ytconvert.org/api/download", payload, { headers });
-    }
-
-    if (!downloadInit?.data?.statusUrl) throw new Error("Converter failed to respond");
-
-    const result = await poll(downloadInit.data.statusUrl);
-
-    return {
-        title,
-        downloadUrl: result.downloadUrl
-    };
-}
+const { downloadYouTube, getBuffer } = require('../../lib/ytdl');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
     try {
-        const searchQuery = match || args.join(' ') || (msg.message?.extendedTextMessage?.text || msg.message?.conversation || '').replace(/^\/?.+?\s/, '').trim();
+        const searchQuery = match || args.join(' ').trim();
 
         if (!searchQuery) {
             await sock.sendMessage(chatId, { text: "🎬 *تحميل فيديو*\n\nالمرجو كتابة اسم الفيديو أو الرابط.\n\n📌 مثال: .video سورة الكهف" }, { quoted: msg });
@@ -65,20 +26,17 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
             videoTitle = videos[0].title;
         }
 
-        const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
-        if (!ytId) {
-            await sock.sendMessage(chatId, { text: "❌ رابط غير صالح." }, { quoted: msg });
-            return;
-        }
-
         await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
+        const waitMsg = await sock.sendMessage(chatId, { text: "🔍 جاري معالجة الفيديو من أقوى السيرفرات..." }, { quoted: msg });
 
         // Use centralized downloader
-        const videoData = await convertYouTube(videoUrl, '720p');
-        if (!videoData || !videoData.downloadUrl) throw new Error("جميع طرق التحميل فشلت حالياً.");
+        const res = await downloadYouTube(videoUrl, 'video');
+        if (!res || !res.download) throw new Error("جميع طرق التحميل فشلت حالياً. المرجو المحاولة لاحقاً.");
 
-        const finalUrl = videoData.downloadUrl;
-        const finalTitle = videoData.title || videoTitle;
+        const finalUrl = res.download;
+        const finalTitle = res.title || videoTitle || "Video";
+
+        try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
 
         try {
             await sock.sendMessage(chatId, {
@@ -89,7 +47,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
             }, { quoted: msg });
         } catch (sendErr) {
             console.log("[Video] Direct send failed, trying buffer...");
-            const buffer = await getBuffer(finalUrl);
+            const buffer = await getBuffer(finalUrl, res.referer);
             if (!buffer) throw new Error("فشل تحميل الفيديو كبفر أيضاً.");
 
             await sock.sendMessage(chatId, {
