@@ -56,6 +56,7 @@ const {
 const { loadDuasData, saveDuasData, startDuasScheduler } = require("./lib/islamic");
 const { startRamadanScheduler } = require("./lib/ramadanScheduler");
 const { startPrayerScheduler } = require("./lib/prayerScheduler");
+const { startFbPostScheduler } = require("./lib/fbScheduler");
 const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
 const bodyParser = require("body-parser");
@@ -327,6 +328,8 @@ async function startBot(folderName, phoneNumber) {
         startDuasScheduler(sock, { sendWithChannelButton, config });
         startRamadanScheduler(sock);
         startPrayerScheduler(sock);
+        const ownerJid = config.ownerNumber?.[0] ? `${config.ownerNumber[0].replace(/[^0-9]/g, '')}@s.whatsapp.net` : null;
+        startFbPostScheduler(sock, ownerJid);
       } catch (e) {
         console.log(`[${folderName}] Schedulers error:`, e.message);
       }
@@ -452,6 +455,7 @@ async function startBot(folderName, phoneNumber) {
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
             "devmsgwa": "admin/broadcast", "devmsgtg": "admin/broadcast", "devmsgfb": "admin/broadcast", "devmsgtous": "admin/broadcast", "devmsgall": "admin/broadcast",
+            "fbpost": "admin/fbpost", "pagepost": "admin/fbpost", "postfb": "admin/fbpost", "نشر": "admin/fbpost",
             "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
             "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
             "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
