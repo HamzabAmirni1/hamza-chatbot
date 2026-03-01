@@ -120,11 +120,15 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         addToHistory(chatId, "user", userRequest, { buffer: imgBuffer, mime: 'image/jpeg' });
         addToHistory(chatId, "assistant", finalReply);
 
-        // Guard: Only send if the socket is still open (readyState 1 = OPEN)
-        if (sock.ws && sock.ws.readyState === 1) {
+        // Guard: wrap sendMessage in its own try/catch so a connection drop mid-send
+        // never escapes to the global uncaughtException handler and kills the bot.
+        try {
             await sock.sendMessage(chatId, { text: finalReply }, { quoted: msg });
-        } else {
-            console.log('[analyze] Socket closed before reply could be sent — result discarded.');
+        } catch (sendErr) {
+            // Silently ignore — connection may have dropped while waiting for AI response
+            if (!sendErr?.message?.includes('Connection Closed') && sendErr?.output?.statusCode !== 428) {
+                console.error('[analyze] sendMessage failed:', sendErr.message);
+            }
         }
 
     } catch (err) {

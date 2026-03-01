@@ -630,15 +630,24 @@ startTelegramBot();
 
 // --- Global Error Handlers (Prevents crashes from Baileys internal errors) ---
 process.on('unhandledRejection', (reason, promise) => {
-  console.error(chalk.red('[Process] Unhandled Rejection:'), reason);
+  // Silently ignore known non-fatal Baileys errors
+  const msg = reason?.message || String(reason);
+  if (msg.includes('Connection Closed') || msg.includes('Bad MAC') || msg.includes('Stream Errored')) return;
+  console.error(chalk.red('[Process] Unhandled Rejection:'), msg);
 });
 
 process.on('uncaughtException', (err) => {
-  console.error(chalk.red('[Process] Uncaught Exception:'), err.message);
-  // Important: Baileys sometimes throws non-recoverable errors. 
-  // If it's a critical error, we might still want to exit and let the auto-restart script handle it.
-  if (err.message.includes('Connection Closed') || err.message.includes('EBADF')) {
-    console.log(chalk.yellow('🔄 Critical error detected, performing graceful restart...'));
+  const msg = err.message || '';
+  // 'Connection Closed' (428) is NORMAL in Baileys — WhatsApp reconnects automatically.
+  // DO NOT exit the process for it — it caused "Instance stopped" every time analyze ran!
+  if (msg.includes('Connection Closed')) {
+    // Just log and let the auto-reconnect handle it
+    return;
+  }
+  console.error(chalk.red('[Process] Uncaught Exception:'), msg);
+  // Only exit for truly unrecoverable OS-level errors
+  if (msg.includes('EBADF') || msg.includes('ENOMEM')) {
+    console.log(chalk.yellow('🔄 Critical OS error detected, performing graceful restart...'));
     process.exit(1);
   }
 });
