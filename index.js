@@ -616,6 +616,21 @@ startBot("session_1", config.pairingNumber);
 // Start Telegram Bot
 startTelegramBot();
 
+// --- Global Error Handlers (Prevents crashes from Baileys internal errors) ---
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(chalk.red('[Process] Unhandled Rejection:'), reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error(chalk.red('[Process] Uncaught Exception:'), err.message);
+  // Important: Baileys sometimes throws non-recoverable errors. 
+  // If it's a critical error, we might still want to exit and let the auto-restart script handle it.
+  if (err.message.includes('Connection Closed') || err.message.includes('EBADF')) {
+    console.log(chalk.yellow('🔄 Critical error detected, performing graceful restart...'));
+    process.exit(1);
+  }
+});
+
 // Start Extra Bots
 if (config.extraNumbers && config.extraNumbers.length > 0) {
   config.extraNumbers.forEach((num, index) => {
