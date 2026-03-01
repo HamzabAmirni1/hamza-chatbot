@@ -460,7 +460,7 @@ async function startBot(folderName, phoneNumber) {
             "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
             "devmsgwa": "admin/broadcast", "devmsgtg": "admin/broadcast", "devmsgfb": "admin/broadcast", "devmsgtous": "admin/broadcast", "devmsgall": "admin/broadcast",
             "fbpost": "admin/fbpost", "pagepost": "admin/fbpost", "postfb": "admin/fbpost", "نشر": "admin/fbpost",
-            "hl": "ai/vision", "تحليل": "ai/vision", "حلل": "ai/vision",
+            "hl": "ai/analyze", "تحليل": "ai/analyze", "حلل": "ai/analyze",
             "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
             "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
             "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video",
@@ -553,11 +553,11 @@ async function startBot(folderName, phoneNumber) {
 
         if (type === "imageMessage" || type === "videoMessage") {
           try {
-            const vision = require('./commands/ai/vision');
+            const analyze = require('./commands/ai/analyze');
             const buffer = type === "imageMessage" ? await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) }) : null;
             const mime = type === "imageMessage" ? msg.message.imageMessage.mimetype : msg.message.videoMessage.mimetype;
             const caption = type === "imageMessage" ? msg.message.imageMessage.caption : msg.message.videoMessage.caption;
-            await vision(sock, sender, msg, [], { type, isVideo: type === "videoMessage", buffer, mime, caption }, "ar");
+            await analyze(sock, sender, msg, caption ? caption.split(" ") : [], { type, isVideo: type === "videoMessage", buffer, mime, caption }, "ar");
             continue;
           } catch (err) { }
         } else {

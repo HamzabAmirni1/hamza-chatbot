@@ -9,22 +9,50 @@ function detectLanguage(text = '') {
     return arabicRegex.test(text) ? 'ar' : 'en';
 }
 
+const { getContext, addToHistory } = require('../../lib/ai');
+
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    const { buffer: passedBuffer, isVideo, caption: autoCaption } = helpers || {};
+
+    // If it's a video, we might want to fall back or just handle it if it's an image
+    if (isVideo) return; // Currently analyze logic only supports images
+
     const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message?.imageMessage;
 
-    if (!quoted && !msg.message?.imageMessage) {
+    if (!passedBuffer && !quoted && !msg.message?.imageMessage) {
         return await sock.sendMessage(chatId, { text: "📌 *Smart Image Analyzer*\n\nEx: Reply to an image + .analyze what is this?" }, { quoted: msg });
     }
 
     try {
-        const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-        const mediaMsg = msg.message?.imageMessage ? msg : { message: quoted };
-        const imgBuffer = await downloadMediaMessage(mediaMsg, 'buffer', {}, { logger: { level: 'silent' } });
+        let imgBuffer;
+        if (passedBuffer) {
+            imgBuffer = passedBuffer;
+        } else {
+            const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+            const mediaMsg = msg.message?.imageMessage ? msg : { message: quoted };
+            imgBuffer = await downloadMediaMessage(mediaMsg, 'buffer', {}, { logger: { level: 'silent' } });
+        }
 
-        const userPrompt = args.join(" ").trim() || "What is this image?";
+        let userPrompt = args.join(" ").trim() || autoCaption || "";
+        if (!userPrompt) {
+            // Check if it's an automatic detection (no command)
+            userPrompt = "حلل هذه الصورة بالتفصيل الممل واشرح كل ما تراه فيها (الأشخاص، الأشياء، المكان، الألوان، النصوص إن وجدت).";
+        }
+
+        // --- Context Awareness ---
+        const context = getContext(chatId);
+        const history = context.messages.slice(-5); // Get last 5 messages for context
+        let contextText = history.map(m => `${m.role === 'user' ? 'User' : 'Bot'}: ${m.content}`).join('\n');
+
+        const finalPrompt = contextText
+            ? `Context of previous conversation:\n${contextText}\n\nUser is now sending an image with this question/request: ${userPrompt}\n\nPlease analyze the image and respond accordingly, keeping the previous context in mind if relevant.`
+            : userPrompt;
+
         const detectedLang = detectLanguage(userPrompt);
 
-        await sock.sendMessage(chatId, { text: "⏳ *Scanning image...*" }, { quoted: msg });
+        if (!passedBuffer) {
+            await sock.sendMessage(chatId, { text: "⏳ *Scanning image...*" }, { quoted: msg });
+        }
 
         // Upload to Catbox for public URL
         const form = new FormData();
@@ -36,9 +64,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         if (!imageUrl.startsWith('http')) throw new Error("Upload failed");
 
-        const conversationId = crypto.randomUUID();
+        const conversationId = chatId.replace(/[^a-zA-Z0-9]/g, '-'); // Use chatId as conversationId for consistency
         const payload = {
-            message: userPrompt,
+            message: finalPrompt,
             language: detectedLang,
             model: "gemini-3-flash-preview",
             tone: "default",
@@ -74,6 +102,11 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         });
 
         if (!fullText) throw new Error("No response received.");
+
+        // Save to history so the bot "remembers" the photo and the discussion
+        addToHistory(chatId, "user", userPrompt, { buffer: imgBuffer, mime: 'image/jpeg' });
+        addToHistory(chatId, "assistant", fullText);
+
         await sock.sendMessage(chatId, { text: `🤖 *Analysis:*\n\n${fullText}` }, { quoted: msg });
 
     } catch (err) {
