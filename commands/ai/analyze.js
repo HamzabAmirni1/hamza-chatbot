@@ -110,7 +110,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         if (!fullText) throw new Error("No response received.");
 
         // Save to history so the bot "remembers" the photo and the discussion
-        addToHistory(chatId, "user", userPrompt, { buffer: imgBuffer, mime: 'image/jpeg' });
+        addToHistory(chatId, "user", userRequest, { buffer: imgBuffer, mime: 'image/jpeg' });
         addToHistory(chatId, "assistant", fullText);
 
         await sock.sendMessage(chatId, { text: fullText }, { quoted: msg });
