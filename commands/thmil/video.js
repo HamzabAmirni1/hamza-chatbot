@@ -1,7 +1,45 @@
 const axios = require('axios');
 const yts = require('yt-search');
 const config = require('../../config');
-const { downloadYouTube, getBuffer } = require('../../lib/ytdl');
+const { getBuffer } = require('../../lib/ytdl');
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function poll(statusUrl) {
+    const headers = { "user-agent": "Mozilla/5.0", referer: "https://ytmp3.gg/" };
+    const { data } = await axios.get(statusUrl, { headers });
+    if (data.status === "completed") return data;
+    if (data.status === "failed") throw new Error(data.message || "Conversion failed");
+    await sleep(2000);
+    return poll(statusUrl);
+}
+
+async function convertYouTube(url, quality = "720p") {
+    let title = "Video";
+    try {
+        const { data: meta } = await axios.get("https://www.youtube.com/oembed", { params: { url, format: "json" } });
+        if (meta && meta.title) title = meta.title;
+    } catch (e) { }
+
+    const payload = { url, os: "android", output: { type: "video", format: "mp4", quality } };
+    const headers = { accept: "application/json", "content-type": "application/json", referer: "https://ytmp3.gg/" };
+
+    let downloadInit;
+    try {
+        downloadInit = await axios.post("https://hub.ytconvert.org/api/download", payload, { headers });
+    } catch {
+        downloadInit = await axios.post("https://api.ytconvert.org/api/download", payload, { headers });
+    }
+
+    if (!downloadInit?.data?.statusUrl) throw new Error("Converter failed to respond");
+
+    const result = await poll(downloadInit.data.statusUrl);
+
+    return {
+        title,
+        downloadUrl: result.downloadUrl
+    };
+}
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
     try {
@@ -14,7 +52,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
 
         let videoUrl = '';
         let videoTitle = '';
-        let videoThumbnail = '';
 
         if (searchQuery.startsWith('http')) {
             videoUrl = searchQuery;
@@ -26,7 +63,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
             }
             videoUrl = videos[0].url;
             videoTitle = videos[0].title;
-            videoThumbnail = videos[0].thumbnail;
         }
 
         const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
@@ -38,28 +74,29 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang, match) => {
         await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
         // Use centralized downloader
-        const videoData = await downloadYouTube(videoUrl, 'video');
-        if (!videoData || !videoData.download) throw new Error("جميع طرق التحميل فشلت حالياً.");
+        const videoData = await convertYouTube(videoUrl, '720p');
+        if (!videoData || !videoData.downloadUrl) throw new Error("جميع طرق التحميل فشلت حالياً.");
 
-        const finalUrl = videoData.download;
+        const finalUrl = videoData.downloadUrl;
+        const finalTitle = videoData.title || videoTitle;
 
         try {
             await sock.sendMessage(chatId, {
                 video: { url: finalUrl },
                 mimetype: 'video/mp4',
-                fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-                caption: `✅ *تم التحميل بنجاح*\n\n🎬 *${videoData.title || videoTitle}*\n⚔️ ${config.botName}`
+                fileName: `${finalTitle || 'video'}.mp4`,
+                caption: `✅ *تم التحميل بنجاح*\n\n🎬 *${finalTitle}*\n⚔️ ${config.botName}`
             }, { quoted: msg });
         } catch (sendErr) {
             console.log("[Video] Direct send failed, trying buffer...");
-            const buffer = await getBuffer(finalUrl, videoData.referer);
+            const buffer = await getBuffer(finalUrl);
             if (!buffer) throw new Error("فشل تحميل الفيديو كبفر أيضاً.");
 
             await sock.sendMessage(chatId, {
                 video: buffer,
                 mimetype: 'video/mp4',
-                fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-                caption: `✅ *تم التحميل بنجاح (بفر)*\n\n🎬 *${videoData.title || videoTitle}*\n⚔️ ${config.botName}`
+                fileName: `${finalTitle || 'video'}.mp4`,
+                caption: `✅ *تم التحميل بنجاح (بفر)*\n\n🎬 *${finalTitle}*\n⚔️ ${config.botName}`
             }, { quoted: msg });
         }
 

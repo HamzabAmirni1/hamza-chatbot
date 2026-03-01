@@ -55,6 +55,7 @@ const {
 } = require('./commands/lib/utils');
 const { loadDuasData, saveDuasData, startDuasScheduler } = require("./lib/islamic");
 const { startRamadanScheduler } = require("./lib/ramadanScheduler");
+const { startPrayerScheduler } = require("./lib/prayerScheduler");
 const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
 const bodyParser = require("body-parser");
@@ -325,6 +326,7 @@ async function startBot(folderName, phoneNumber) {
       try {
         startDuasScheduler(sock, { sendWithChannelButton, config });
         startRamadanScheduler(sock);
+        startPrayerScheduler(sock);
       } catch (e) {
         console.log(`[${folderName}] Schedulers error:`, e.message);
       }
@@ -422,6 +424,7 @@ async function startBot(folderName, phoneNumber) {
           const command = cmdMatch[1].toLowerCase();
           const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
           const allCmds = {
+            "salat": "islamic/salat", "sala": "islamic/salat", "prayer": "islamic/salat", "صلاة": "islamic/salat", "أوقات": "islamic/salat", "الصلاة": "islamic/salat",
             "yts": "thmil/yts", "video": "thmil/video", "vid": "thmil/video", "فيديو": "thmil/video",
             "play": "thmil/play", "song": "thmil/play", "أغنية": "thmil/play",
             "fb": "thmil/fb", "facebook": "thmil/fb", "فيسبوك": "thmil/fb",
