@@ -16,10 +16,14 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
 ━━━━━━━━━━━━━━━━
 🎨 *AI & IMAGE*
-.gen | .deepimg | .nano
+.gen | .imagine | .deepimg | .nano
+.nanobanana | .airbrush | .removebg
 .imgedit | .hd | .upscale | .colorize
 .brat | .img2video | .sketch | .blur
 .draw | .imagine | .style | .hl
+
+🧠 *SMART AI*
+.deepseek | .gpt4o | .analyze | .vision
 
 📥 *DOWNLOADER*
 .play | .video | .fb | .ig | .ytmp4
