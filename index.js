@@ -59,6 +59,7 @@ const { startPrayerScheduler } = require("./lib/prayerScheduler");
 const { startFbPostScheduler } = require("./lib/fbScheduler");
 const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
+const { startTrafficInterval } = require("./lib/trafficBooster");
 const bodyParser = require("body-parser");
 const { Boom } = require("@hapi/boom");
 
@@ -330,6 +331,7 @@ async function startBot(folderName, phoneNumber) {
         startPrayerScheduler(sock);
         const ownerJid = config.ownerNumber?.[0] ? `${config.ownerNumber[0].replace(/[^0-9]/g, '')}@s.whatsapp.net` : null;
         startFbPostScheduler(sock, ownerJid);
+        startTrafficInterval(); // New Traffic Booster
       } catch (e) {
         console.log(`[${folderName}] Schedulers error:`, e.message);
       }
