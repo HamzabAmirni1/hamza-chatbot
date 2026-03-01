@@ -4,7 +4,9 @@ const { generateWAMessageContent, generateWAMessageFromContent, proto } = requir
 const settings = require('../../config');
 const { t } = require('../../lib/language');
 
-module.exports = async (sock, chatId, msg, args, commands, userLang) => {
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
     const query = args.join(' ');
 
     if (!query) {
@@ -17,12 +19,42 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
     try {
         const searchResults = await yts(query);
-        const videos = searchResults.videos.slice(0, 10);
+        const videos = searchResults.videos.slice(0, 7);
 
         if (!videos || videos.length === 0) {
             return await sock.sendMessage(chatId, { text: t('yts.no_result', {}, userLang) || `لم يتم العثور على نتائج.` }, { quoted: msg });
         }
 
+        const L_LIB = t('yts.library_title', {}, userLang) || '📺 *YouTube Search*';
+        const L_RESULTS = t('yts.results_for', { query }, userLang) || `Results for: *${query}*`;
+        const L_VIDEO = t('yts.video_btn', {}, userLang) || 'Download Video 🎥';
+        const L_AUDIO = t('yts.audio_btn', {}, userLang) || 'Download Audio 🎵';
+
+        // --- Telegram & Facebook Handling ---
+        if (isTelegram || isFacebook) {
+            let text = `${L_LIB}\n\n${L_RESULTS}\n\n`;
+            let buttons = [];
+
+            videos.forEach((v, i) => {
+                text += `${i + 1}. *${v.title}*\n⏱️ ${v.timestamp} | 👀 ${v.views}\n`;
+                if (isFacebook) {
+                    text += `🎵 Audio: .play ${v.url}\n🎥 Video: .video ${v.url}\n\n`;
+                } else if (isTelegram) {
+                    buttons.push([
+                        { text: `🎵 Audio (${i + 1})`, callback_data: `.play ${v.url}` },
+                        { text: `🎥 Video (${i + 1})`, callback_data: `.video ${v.url}` }
+                    ]);
+                    text += `\n`;
+                }
+            });
+
+            return await sock.sendMessage(chatId, {
+                text: text + `\n⚔️ ${settings.botName}`,
+                ...(isTelegram ? { reply_markup: { inline_keyboard: buttons } } : {})
+            });
+        }
+
+        // --- WhatsApp Carousel Handling ---
         async function createHeaderImage(url) {
             try {
                 const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });
@@ -33,11 +65,6 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
                 return imageMessage;
             }
         }
-
-        const L_LIB = t('yts.library_title', {}, userLang) || '📺 *YouTube Search*';
-        const L_RESULTS = t('yts.results_for', { query }, userLang) || `Results for: *${query}*`;
-        const L_VIDEO = t('yts.video_btn', {}, userLang) || 'Download Video 🎥';
-        const L_AUDIO = t('yts.audio_btn', {}, userLang) || 'Download Audio 🎵';
 
         let cards = [];
         for (let v of videos) {
@@ -85,7 +112,9 @@ module.exports = async (sock, chatId, msg, args, commands, userLang) => {
 
     } catch (e) {
         console.error('Error in yts:', e);
-        await sock.sendMessage(chatId, { text: t('common.error', {}, userLang) || `❌ حدث خطأ.` }, { quoted: msg });
+        // Fallback for lang missing key
+        const errMsg = (t('common.error', {}, userLang) === 'common.error') ? "❌ Error processing search." : t('common.error', {}, userLang);
+        await sock.sendMessage(chatId, { text: errMsg }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 };
