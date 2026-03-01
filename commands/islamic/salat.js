@@ -20,10 +20,10 @@ const {
     setPrayerEnabled,
     setPrayerCity,
     fetchPrayerTimes,
-    subscribeWaUser,
-    unsubscribeWaUser,
-    isWaSubscribed,
-    readWaSubs,
+    subscribeUser,
+    unsubscribeUser,
+    isSubscribed,
+    getUserCity,
     PRAYER_NAMES,
     PRAYER_EMOJIS
 } = require('../../lib/prayerScheduler');
@@ -33,29 +33,32 @@ function isOwner(sender) {
     return config.ownerNumber.some(o => o.replace(/[^0-9]/g, '') === num);
 }
 
-module.exports = async (sock, chatId, msg, args) => {
+module.exports = async (sock, chatId, msg, args, helpers = {}) => {
     const sender = msg.key?.remoteJid || chatId;
     const sub = (args[0] || '').toLowerCase();
 
-    // ─── .salat on — subscribe this WA user ─────────────────────────────────
+    // Detect platform
+    const platform = helpers.isTelegram ? 'tg' : (helpers.isFacebook ? 'fb' : 'wa');
+    const userCity = getUserCity(sender, platform);
+
+    // ─── .salat on — subscribe this user ─────────────────────────────────────
     if (sub === 'on' || sub === 'تفعيل' || sub === 'اشتراك') {
-        const count = subscribeWaUser(sender);
-        const state = getPrayerState();
+        subscribeUser(sender, userCity, 'MA', platform);
         return sock.sendMessage(chatId, {
             text:
                 `✅ *تم تفعيل تذكير أوقات الصلاة!* 🕌\n\n` +
-                `📍 *المدينة:* ${state.city} (${state.country})\n` +
-                `👥 *إجمالي المشتركين واتساب:* ${count}\n\n` +
+                `📍 *مدينتك الحالية:* ${userCity}\n\n` +
                 `سيتم إرسال تذكير تلقائي عند كل وقت صلاة.\n\n` +
+                `🌍 لتغيير المدينة: *.salat [اسم المدينة]*\n` +
                 `📲 لإيقاف التذكير: *.salat off*\n` +
                 `📅 لعرض الأوقات: *.salat now*\n\n` +
                 `⚔️ _${config.botName}_`
         }, { quoted: msg });
     }
 
-    // ─── .salat off — unsubscribe this WA user ──────────────────────────────
+    // ─── .salat off — unsubscribe this user ──────────────────────────────────
     if (sub === 'off' || sub === 'تعطيل' || sub === 'إلغاء') {
-        unsubscribeWaUser(sender);
+        unsubscribeUser(sender, platform);
         return sock.sendMessage(chatId, {
             text:
                 `🔕 *تم إلغاء الاشتراك في تذكير الصلاة.*\n\n` +
@@ -64,19 +67,18 @@ module.exports = async (sock, chatId, msg, args) => {
         }, { quoted: msg });
     }
 
-    // ─── .salat now — show prayer times ─────────────────────────────────────
+    // ─── .salat now — show individual prayer times ──────────────────────────
     if (sub === 'now' || sub === 'اليوم' || sub === 'وقت' || sub === 'أوقات') {
-        const state = getPrayerState();
-        const timings = await fetchPrayerTimes(state.city, state.country, state.method);
+        const timings = await fetchPrayerTimes(userCity, 'MA');
         if (!timings) {
             return sock.sendMessage(chatId, {
-                text: `❌ فشل جلب أوقات الصلاة لـ *${state.city}*. حاول مجدداً.`
+                text: `❌ فشل جلب أوقات الصلاة لـ *${userCity}*. حاول مجدداً.`
             }, { quoted: msg });
         }
 
         const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-        const subscribed = isWaSubscribed(sender);
-        let table = `🕌 *أوقات الصلاة - ${state.city}* 🕌\n`;
+        const subscribed = isSubscribed(sender, platform);
+        let table = `🕌 *أوقات الصلاة - ${userCity}* 🕌\n`;
         table += `━━━━━━━━━━━━━━━━━━\n`;
         for (const p of prayers) {
             const emoji = PRAYER_EMOJIS[p] || '🕌';
@@ -86,35 +88,35 @@ module.exports = async (sock, chatId, msg, args) => {
         }
         table += `━━━━━━━━━━━━━━━━━━\n`;
         table += subscribed
-            ? `🟢 *أنت مشترك في التذكير التلقائي*\n📲 لإيقافه: *.salat off*\n`
+            ? `🟢 *أنت مشترك في التذكير التلقائي لـ ${userCity}*\n📲 لإيقافه: *.salat off*\n`
             : `🔴 *لم تشترك بعد في التذكير التلقائي*\n📲 للتفعيل: *.salat on*\n`;
-        table += `\n⚔️ _${config.botName}_`;
+        table += `\n🌍 لتغيير مدينتك: *.salat [اسم المدينة]*\n`;
+        table += `⚔️ _${config.botName}_`;
 
         return sock.sendMessage(chatId, { text: table }, { quoted: msg });
     }
 
-    // ─── .salat [city name] — Change city for everyone ──────────────────────────
+    // ─── .salat [city name] — Change city for THIS user (Any platform) ───────
     if (sub && !['on', 'off', 'now', 'enable', 'disable', 'status', 'city', 'مدينة'].includes(sub)) {
         const city = args.join(' ').trim();
-        const country = 'MA'; // Default to Morocco
+        if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '⏳', key: msg.key } });
 
-        await sock.sendMessage(chatId, { react: { text: '⏳', key: msg.key } });
-        const timings = await fetchPrayerTimes(city, country);
-
+        const timings = await fetchPrayerTimes(city, 'MA');
         if (!timings) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
-            return sock.sendMessage(chatId, { text: `❌ فشل العثور على مدينة باسم *${city}* في المغرب (MA). حاول كتابتها بالإنجليزية أو تأكد من الاسم.` }, { quoted: msg });
+            if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
+            return sock.sendMessage(chatId, { text: `❌ فشل العثور على مدينة باسم *${city}* في المغرب. تأكد من الاسم بالإنجليزية.` }, { quoted: msg });
         }
 
-        setPrayerCity(city, country);
-        await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
+        // Update user preference
+        subscribeUser(sender, city, 'MA', platform);
+        if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
 
         const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-        let table = `✅ *تم تغيير المدينة بنجاح!* 🌍\n📍 *المدينة:* ${city}\n\n🕌 *أوقات الصلاة اليوم:* \n━━━━━━━━━━━━━━━━━━\n`;
+        let table = `✅ *تم ضبط مدينتك بنجاح!* 🌍\n📍 *المدينة:* ${city}\n\n🕌 *أوقات الصلاة الحالية هناك:* \n━━━━━━━━━━━━━━━━━━\n`;
         for (const p of prayers) {
             table += `${PRAYER_EMOJIS[p]} *${PRAYER_NAMES[p]?.ar || p}*: ${timings[p]?.substring(0, 5) || '--:--'}\n`;
         }
-        table += `━━━━━━━━━━━━━━━━━━\n💡 سيتم إرسال التذكيرات الآن بناءً على توقيت *${city}*.\n\n⚔️ _${config.botName}_`;
+        table += `━━━━━━━━━━━━━━━━━━\n🔔 ستصلك التذكيرات الآن بناءً على توقيت *${city}*.\n\n⚔️ _${config.botName}_`;
         return sock.sendMessage(chatId, { text: table }, { quoted: msg });
     }
 
@@ -124,7 +126,7 @@ module.exports = async (sock, chatId, msg, args) => {
         // .salat enable / disable — turn entire system on/off
         if (sub === 'enable' || sub === 'شغل-الكل') {
             setPrayerEnabled(true);
-            return sock.sendMessage(chatId, { text: `✅ نظام التذكير مُفعَّل للجميع (TG + FB تلقائي، WA باختيار المستخدم).` }, { quoted: msg });
+            return sock.sendMessage(chatId, { text: `✅ نظام التذكير مُفعَّل للجميع.` }, { quoted: msg });
         }
         if (sub === 'disable' || sub === 'وقف-الكل') {
             setPrayerEnabled(false);
@@ -134,47 +136,28 @@ module.exports = async (sock, chatId, msg, args) => {
         // .salat status
         if (sub === 'status' || sub === 'حالة') {
             const state = getPrayerState();
-            const waSubs = readWaSubs();
-            const timings = await fetchPrayerTimes(state.city, state.country, state.method);
-
             let text = `🕌 *حالة نظام تذكير الصلاة* 🕌\n━━━━━━━━━━━━━━━━━━\n`;
             text += `🔘 *النظام:* ${state.enabled ? '🟢 مُفعَّل' : '🔴 موقوف'}\n`;
-            text += `📍 *المدينة:* ${state.city} (${state.country})\n`;
-            text += `📲 *واتساب مشتركون:* ${waSubs.length} مستخدم\n`;
-            text += `🤖 *تيليغرام:* تلقائي لجميع المستخدمين\n`;
-            text += `📘 *فيسبوك:* تلقائي لجميع المستخدمين\n\n`;
-
-            if (timings) {
-                const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-                text += `📅 *أوقات الصلاة اليوم:*\n`;
-                for (const p of prayers) {
-                    text += `  ${PRAYER_EMOJIS[p]} ${PRAYER_NAMES[p]?.ar || p}: ${timings[p]?.substring(0, 5) || '--:--'}\n`;
-                }
-            }
-            text += `\n━━━━━━━━━━━━━━━━━━\n`;
-            text += `⚙️ *أوامر المالك:*\n`;
-            text += `  • *.salat enable* — تشغيل الكل\n`;
-            text += `  • *.salat disable* — إيقاف الكل\n`;
-            text += `  • *.salat city [مدينة] [بلد]*\n`;
-            text += `  • *.salat status*\n\n`;
-            text += `⚔️ _${config.botName}_`;
-
+            text += `📍 *المدينة الافتراضية:* ${state.city}\n`;
+            text += `🌐 يدعم تذكير كل مستخدم حسب مدينته (WA, TG, FB).\n`;
+            text += `━━━━━━━━━━━━━━━━━━\n⚔️ _${config.botName}_`;
             return sock.sendMessage(chatId, { text }, { quoted: msg });
         }
+        // The owner command for changing global city is removed as per the new user-specific city logic.
+        // If it were still needed for other platforms, it would be handled here.
     }
 
-    // ─── Default: Help + current status ────────────────────────────────────
-    const state = getPrayerState();
-    const subscribed = isWaSubscribed(sender);
+    // ─── Default Help ─────────────────────────────────────────────────────
+    const subscribed = isSubscribed(sender, platform);
     const helpMsg =
-        `🕌 *تذكير أوقات الصلاة* 🕌\n━━━━━━━━━━━━━━━━━━\n\n` +
-        `📍 *المدينة:* ${state.city}\n` +
-        `📲 *حالتك:* ${subscribed ? '🟢 مشترك (ستصلك التذكيرات)' : '🔴 غير مشترك'}\n\n` +
+        `🕌 *تذكير أوقات الصلاة الشخصي* 🕌\n━━━━━━━━━━━━━━━━━━\n\n` +
+        `📍 *مدينتك الحالية:* ${userCity}\n` +
+        `📲 *حالتك:* ${subscribed ? '🟢 مشترك' : '🔴 غير مشترك'}\n\n` +
         `✅ *الأوامر:*\n` +
-        `  • *.salat on* — فعّل التذكير التلقائي\n` +
-        `  • *.salat off* — أوقف التذكير\n` +
-        `  • *.salat now* — أوقات الصلاة الآن\n\n` +
-        `ℹ️ *مستخدمو تيليغرام وفيسبوك يستلمون التذكير تلقائياً.*\n\n` +
+        `  • *.salat [اسم المدينة]* — لتغيير مدينتك وتفعيل التذكير لها\n` +
+        `  • *.salat on* — تفعيل التذكير لمدينتك الحالية\n` +
+        `  • *.salat off* — إيقاف التذكير\n` +
+        `  • *.salat now* — أوقات الصلاة في مدينتك\n\n` +
         `⚔️ _${config.botName}_`;
 
     return sock.sendMessage(chatId, { text: helpMsg }, { quoted: msg });
