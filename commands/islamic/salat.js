@@ -20,11 +20,10 @@ const {
     setPrayerEnabled,
     setPrayerCity,
     fetchPrayerTimes,
-    subscribeWaUser,
-    unsubscribeWaUser,
-    isWaSubscribed,
-    readWaSubs,
-    getWaUserCity,
+    subscribeUser,
+    unsubscribeUser,
+    isSubscribed,
+    getUserCity,
     PRAYER_NAMES,
     PRAYER_EMOJIS
 } = require('../../lib/prayerScheduler');
@@ -34,15 +33,17 @@ function isOwner(sender) {
     return config.ownerNumber.some(o => o.replace(/[^0-9]/g, '') === num);
 }
 
-module.exports = async (sock, chatId, msg, args) => {
+module.exports = async (sock, chatId, msg, args, helpers = {}) => {
     const sender = msg.key?.remoteJid || chatId;
     const sub = (args[0] || '').toLowerCase();
-    const userCity = getWaUserCity(sender);
 
-    // ─── .salat on — subscribe this WA user ─────────────────────────────────
+    // Detect platform
+    const platform = helpers.isTelegram ? 'tg' : (helpers.isFacebook ? 'fb' : 'wa');
+    const userCity = getUserCity(sender, platform);
+
+    // ─── .salat on — subscribe this user ─────────────────────────────────────
     if (sub === 'on' || sub === 'تفعيل' || sub === 'اشتراك') {
-        const count = subscribeWaUser(sender, userCity);
-        const state = getPrayerState();
+        subscribeUser(sender, userCity, 'MA', platform);
         return sock.sendMessage(chatId, {
             text:
                 `✅ *تم تفعيل تذكير أوقات الصلاة!* 🕌\n\n` +
@@ -55,9 +56,9 @@ module.exports = async (sock, chatId, msg, args) => {
         }, { quoted: msg });
     }
 
-    // ─── .salat off — unsubscribe this WA user ──────────────────────────────
+    // ─── .salat off — unsubscribe this user ──────────────────────────────────
     if (sub === 'off' || sub === 'تعطيل' || sub === 'إلغاء') {
-        unsubscribeWaUser(sender);
+        unsubscribeUser(sender, platform);
         return sock.sendMessage(chatId, {
             text:
                 `🔕 *تم إلغاء الاشتراك في تذكير الصلاة.*\n\n` +
@@ -76,7 +77,7 @@ module.exports = async (sock, chatId, msg, args) => {
         }
 
         const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-        const subscribed = isWaSubscribed(sender);
+        const subscribed = isSubscribed(sender, platform);
         let table = `🕌 *أوقات الصلاة - ${userCity}* 🕌\n`;
         table += `━━━━━━━━━━━━━━━━━━\n`;
         for (const p of prayers) {
@@ -95,27 +96,27 @@ module.exports = async (sock, chatId, msg, args) => {
         return sock.sendMessage(chatId, { text: table }, { quoted: msg });
     }
 
-    // ─── .salat [city name] — Change city for THIS user ──────────────────────────
+    // ─── .salat [city name] — Change city for THIS user (Any platform) ───────
     if (sub && !['on', 'off', 'now', 'enable', 'disable', 'status', 'city', 'مدينة'].includes(sub)) {
         const city = args.join(' ').trim();
-        await sock.sendMessage(chatId, { react: { text: '⏳', key: msg.key } });
+        if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '⏳', key: msg.key } });
 
         const timings = await fetchPrayerTimes(city, 'MA');
         if (!timings) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
+            if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
             return sock.sendMessage(chatId, { text: `❌ فشل العثور على مدينة باسم *${city}* في المغرب. تأكد من الاسم بالإنجليزية.` }, { quoted: msg });
         }
 
-        // Update user preference (and subscribe them if they weren't)
-        subscribeWaUser(sender, city, 'MA');
-        await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
+        // Update user preference
+        subscribeUser(sender, city, 'MA', platform);
+        if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
 
         const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
         let table = `✅ *تم ضبط مدينتك بنجاح!* 🌍\n📍 *المدينة:* ${city}\n\n🕌 *أوقات الصلاة الحالية هناك:* \n━━━━━━━━━━━━━━━━━━\n`;
         for (const p of prayers) {
             table += `${PRAYER_EMOJIS[p]} *${PRAYER_NAMES[p]?.ar || p}*: ${timings[p]?.substring(0, 5) || '--:--'}\n`;
         }
-        table += `━━━━━━━━━━━━━━━━━━\n� ستصلك التذكيرات الآن بناءً على توقيت *${city}*.\n\n⚔️ _${config.botName}_`;
+        table += `━━━━━━━━━━━━━━━━━━\n🔔 ستصلك التذكيرات الآن بناءً على توقيت *${city}*.\n\n⚔️ _${config.botName}_`;
         return sock.sendMessage(chatId, { text: table }, { quoted: msg });
     }
 
@@ -135,12 +136,10 @@ module.exports = async (sock, chatId, msg, args) => {
         // .salat status
         if (sub === 'status' || sub === 'حالة') {
             const state = getPrayerState();
-            const waSubsCount = readWaSubs().length;
             let text = `🕌 *حالة نظام تذكير الصلاة* 🕌\n━━━━━━━━━━━━━━━━━━\n`;
             text += `🔘 *النظام:* ${state.enabled ? '🟢 مُفعَّل' : '🔴 موقوف'}\n`;
             text += `📍 *المدينة الافتراضية:* ${state.city}\n`;
-            text += `📲 *واتساب مشتركون:* ${waSubsCount} مستخدم\n`;
-            text += `⚠️ كل مستخدم يصله التذكير حسب مدينته الخاصة.\n`;
+            text += `🌐 يدعم تذكير كل مستخدم حسب مدينته (WA, TG, FB).\n`;
             text += `━━━━━━━━━━━━━━━━━━\n⚔️ _${config.botName}_`;
             return sock.sendMessage(chatId, { text }, { quoted: msg });
         }
@@ -149,7 +148,7 @@ module.exports = async (sock, chatId, msg, args) => {
     }
 
     // ─── Default Help ─────────────────────────────────────────────────────
-    const subscribed = isWaSubscribed(sender);
+    const subscribed = isSubscribed(sender, platform);
     const helpMsg =
         `🕌 *تذكير أوقات الصلاة الشخصي* 🕌\n━━━━━━━━━━━━━━━━━━\n\n` +
         `📍 *مدينتك الحالية:* ${userCity}\n` +
