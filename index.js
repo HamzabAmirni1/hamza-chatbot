@@ -461,7 +461,7 @@ async function startBot(folderName, phoneNumber) {
             "nanoedit": "ai/nano_edit", "editimg": "ai/nano_edit", "nanobanana": "ai/nano_edit",
             "miramuse": "ai/miramuse", "ai-image": "ai/ai-image",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
-            "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
+            "traffic": "admin/traffic", "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
             "devmsgwa": "admin/broadcast", "devmsgtg": "admin/broadcast", "devmsgfb": "admin/broadcast", "devmsgtous": "admin/broadcast", "devmsgall": "admin/broadcast",
             "fbpost": "admin/fbpost", "pagepost": "admin/fbpost", "postfb": "admin/fbpost", "نشر": "admin/fbpost",
             "hl": "ai/analyze", "تحليل": "ai/analyze", "حلل": "ai/analyze",
