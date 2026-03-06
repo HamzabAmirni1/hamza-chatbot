@@ -247,10 +247,12 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         // Try HF first, then Pollinations as fallback
         try {
             imageBuffer = await generateWithHF(enPrompt, enNeg, modelInfo.id, flags.steps, flags.seed);
+            if (!imageBuffer || imageBuffer.length < 5000) throw new Error("Invalid image received from HF");
             usedEngine = 'HuggingFace';
         } catch (hfErr) {
             console.log(`[SD] HF failed (${hfErr.message}), trying Pollinations...`);
             imageBuffer = await generateWithPollinations(enPrompt, enNeg, flags.model);
+            if (!imageBuffer || imageBuffer.length < 5000) throw new Error("Invalid image received from Pollinations");
             usedEngine = 'Pollinations';
         }
 

@@ -155,7 +155,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         if (resultUrl) {
             const imgRes = await axios.get(resultUrl, { responseType: 'arraybuffer', timeout: 30000 });
-            resultBuffer = Buffer.from(imgRes.data, 'binary');
+            resultBuffer = Buffer.from(imgRes.data);
         }
 
         await sock.sendMessage(chatId, {

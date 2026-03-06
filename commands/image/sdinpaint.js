@@ -103,8 +103,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         const caption = `*✨ ───❪ SD Inpainting ❫─── ✨*\n\n✅ *تم التعديل بنجاح!*\n\n📝 *التعديل:* ${prompt}\n${regionEmoji[region] || '🎯'} *المنطقة:* ${region}\n\n💡 _مثل Inpainting في Stable Diffusion WebUI_\n*⚔️ ${config.botName}*`;
 
         const imgRes = await axios.get(resultUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const imgBufferRes = Buffer.from(imgRes.data);
         await sock.sendMessage(chatId, {
-            image: Buffer.from(imgRes.data, 'binary'), caption,
+            image: imgBufferRes, caption,
             contextInfo: { externalAdReply: { title: '🎭 SD Inpainting', body: `Region: ${region}`, thumbnailUrl: resultUrl, sourceUrl: config.instagram || 'https://instagram.com/hamza_amirni_01', mediaType: 1, renderLargerThumbnail: true } }
         }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });

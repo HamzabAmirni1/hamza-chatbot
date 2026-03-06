@@ -135,8 +135,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         const caption = `*✨ ───❪ GFPGAN Face Restore ❫─── ✨*\n\n✅ *تم إصلاح الوجه بنجاح!*\n\n🤖 *Engine:* ${usedEngine}\n📈 *Upscale:* 2x\n🔧 *Face Restoration:* CodeFormer/GFPGAN\n\n*⚔️ ${config.botName}*`;
 
         const imgRes = await axios.get(resultUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const imgBuffer = Buffer.from(imgRes.data);
         await sock.sendMessage(chatId, {
-            image: Buffer.from(imgRes.data, 'binary'), caption,
+            image: imgBuffer, caption,
             contextInfo: { externalAdReply: { title: '🪄 Face Restore AI', body: 'GFPGAN + CodeFormer', thumbnailUrl: resultUrl, sourceUrl: config.instagram || 'https://instagram.com/hamza_amirni_01', mediaType: 1, renderLargerThumbnail: true } }
         }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });

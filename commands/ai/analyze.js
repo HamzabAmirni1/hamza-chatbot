@@ -48,17 +48,13 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             await sock.sendMessage(chatId, { text: "⏳ *Analyzing image...*" }, { quoted: msg });
         }
 
-        // --- 1. Upload to Catbox ---
-        const formData = new FormData();
-        formData.append('reqtype', 'fileupload');
-        formData.append('fileToUpload', fs.createReadStream(filePath));
-
-        const uploadRes = await axios.post('https://catbox.moe/user/api.php', formData, {
-            headers: formData.getHeaders()
-        });
-
-        const imageUrl = uploadRes.data.trim();
-        if (!imageUrl.startsWith('http')) throw new Error("Upload to Catbox failed.");
+        // --- 1. Upload for AI ---
+        const { uploadToCatbox, uploadToTmpfiles } = require('../../lib/media');
+        let imageUrl = await uploadToCatbox(imgBuffer);
+        if (!imageUrl || !imageUrl.startsWith('http')) {
+            imageUrl = await uploadToTmpfiles(imgBuffer);
+        }
+        if (!imageUrl || !imageUrl.startsWith('http')) throw new Error("Image upload failed.");
 
         const detectedLang = detectLanguage(userRequest);
         const conversationId = crypto.randomUUID();
