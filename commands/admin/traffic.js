@@ -1,27 +1,46 @@
-const { getStats } = require('../../lib/trafficBooster');
+const { getStats, stopTraffic, startTraffic, isRunning } = require('../../lib/trafficBooster');
 const config = require('../../config');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
-    // Only bot owner can use this (or you can remove this check if you want anyone to use it)
-    const sender = msg.key.worker ? msg.key.remoteJid : chatId;
+    const sender = msg.key.remoteJid || chatId;
     const isOwner = config.ownerNumber.some(owner => sender.includes(owner.replace(/[^0-9]/g, '')));
 
-    // Optionally remove this check if you want to allow everyone
     if (!isOwner) {
-        return await sock.sendMessage(chatId, { text: "❌ هذا الأمر مخصص للمالك فقط." }, { quoted: msg });
+        return await sock.sendMessage(chatId, { text: '❌ هذا الأمر مخصص للمالك فقط.' }, { quoted: msg });
     }
 
+    const action = (args[0] || '').toLowerCase();
+
     try {
+        if (action === 'off') {
+            stopTraffic();
+            return await sock.sendMessage(chatId, {
+                text: '🔴 *Traffic Booster — إيقاف*\n\nتم إيقاف الزيارات التلقائية. استخدم *.traffic on* لإعادة التشغيل.'
+            }, { quoted: msg });
+        }
+
+        if (action === 'on') {
+            startTraffic();
+            return await sock.sendMessage(chatId, {
+                text: '🟢 *Traffic Booster — تشغيل*\n\nتم استئناف الزيارات التلقائية. ✅'
+            }, { quoted: msg });
+        }
+
+        // Default: show stats
         const stats = getStats();
+        const status = isRunning() ? '🟢 شغال' : '🔴 موقوف';
 
-        const message = `📊 *إحصائيات Traffic Booster v6.0* 📊\n\n` +
-            `🌍 *الزيارات الناجحة للموقع:* ${stats.visits.toLocaleString()}\n` +
-            `💰 *الإعلانات المكتملة (Monetag):* ${stats.impressions.toLocaleString()}\n\n` +
-            `🟢 البوت شغال ومستمر في جلب الزيارات شرعيا!`;
+        await sock.sendMessage(chatId, {
+            text: `📊 *Traffic Booster v8.0*\n\n` +
+                `الحالة: ${status}\n` +
+                `🌍 *الزيارات:* ${stats.visits.toLocaleString()}\n` +
+                `💰 *Ad Impressions:* ${stats.impressions.toLocaleString()}\n\n` +
+                `📌 الأوامر:\n` +
+                `• *.traffic on* — تشغيل\n` +
+                `• *.traffic off* — إيقاف`
+        }, { quoted: msg });
 
-        await sock.sendMessage(chatId, { text: message }, { quoted: msg });
     } catch (e) {
-        console.error("Traffic Command Error:", e);
-        await sock.sendMessage(chatId, { text: `❌ تعذر الحصول على الإحصائيات: ${e.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ خطأ: ${e.message}` }, { quoted: msg });
     }
 };

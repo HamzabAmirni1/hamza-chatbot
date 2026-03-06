@@ -19,8 +19,6 @@
         "moment-timezone": "^0.5.43",
         "node-telegram-bot-api": "^0.67.0",
         "pino": "^7.0.0",
-        "puppeteer-extra": "^3.3.6",
-        "puppeteer-extra-plugin-stealth": "^2.11.2",
         "ruhend-scraper": "^9.0.8",
         "yt-search": "^2.11.0"
     },
