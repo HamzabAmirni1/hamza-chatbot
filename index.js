@@ -457,8 +457,6 @@ async function startBot(folderName, phoneNumber) {
             "quranread": "islamic/quranread", "quranmp3": "islamic/quranmp3", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah", "qurancard": "islamic/qurancard", "quranpdf": "islamic/quranpdf",
             "hamza": "info/socials", "developer": "info/socials", "social": "info/socials", "socials": "info/socials",
             "links": "info/socials", "about": "info/socials", "info": "info/socials",
-            "nano": "ai/nano", "nanopro": "ai/nano", "banana": "ai/nano", "نانو": "ai/nano", "gemini-image": "ai/nano",
-            "nanoedit": "ai/nano_edit", "editimg": "ai/nano_edit", "nanobanana": "ai/nano_edit",
             "miramuse": "ai/miramuse", "ai-image": "ai/ai-image",
             "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
             "traffic": "admin/traffic", "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
@@ -518,7 +516,7 @@ async function startBot(folderName, phoneNumber) {
             "انستقرام|instagram|ig": "thmil/ig",
             "تيكتوك|tiktok": "thmil/tiktok",
             "tomp3|mp3-تحويل": "tools/tomp3",
-            "نانو|تعديل|nano|edit": "image/nano",
+            "sd|stablediffusion|txt2img": "image/sd",
             "gen|generate|genimage|photo|image|img|تخيل|ارسم|صورة": "image/gen",
             "قائمة|menu|help": "info/menu"
           };

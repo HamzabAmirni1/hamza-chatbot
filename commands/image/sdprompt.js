@@ -60,10 +60,14 @@ async function clipInterrogate(imageBuffer) {
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const isTelegram = helpers?.isTelegram;
+    const isFacebook = helpers?.isFacebook;
     const rawInput = args.join(' ').trim();
 
     let imageBuffer = null;
-    if (!isTelegram) {
+    if (isTelegram || isFacebook) {
+        imageBuffer = await sock.downloadMedia(msg);
+        if (!imageBuffer && msg.reply_to_message) imageBuffer = await sock.downloadMedia(msg.reply_to_message);
+    } else {
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (quoted?.imageMessage) {
             try {
@@ -78,8 +82,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
                 imageBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
             } catch (e) { }
         }
-    } else {
-        imageBuffer = await sock.downloadMedia(msg);
     }
 
     if (!rawInput && !imageBuffer) {

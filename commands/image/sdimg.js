@@ -58,8 +58,8 @@ async function img2img_HFSpace(imageBuffer, prompt, negativePrompt, strength) {
     };
 
     const createRes = await axios.post(
-        'https://aienhancer.ai/api/v1/r/image-enhance/create',
-        { model: 2, function: 'image-edit', image: `data:image/jpeg;base64,${img}`, settings: settingsData },
+        'https://aienhancer.ai/api/v1/k/image-enhance/create',
+        { model: 2, function: 'ai-image-editor', image: [`data:image/jpeg;base64,${img}`], settings: settingsData },
         { headers }
     );
     const taskId = createRes?.data?.data?.id;
@@ -77,8 +77,9 @@ async function img2img_HFSpace(imageBuffer, prompt, negativePrompt, strength) {
 }
 
 async function img2img_Pollinations(imageBuffer, prompt, style) {
-    const { uploadToCatbox } = require('../../lib/media');
-    const imageUrl = await uploadToCatbox(imageBuffer);
+    const { uploadToCatbox, uploadToTmpfiles } = require('../../lib/media');
+    let imageUrl = await uploadToCatbox(imageBuffer);
+    if (!imageUrl) imageUrl = await uploadToTmpfiles(imageBuffer);
     if (!imageUrl) throw new Error('Failed to upload image');
 
     const enhancedPrompt = style ? `${STYLE_PRESETS[style] || ''}, ${prompt}` : prompt;
@@ -108,9 +109,10 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     if (strengthMatch) { strength = Math.min(1, Math.max(0.1, parseFloat(strengthMatch[1]))); prompt = prompt.replace(strengthMatch[0], '').trim(); }
 
     const isTelegram = helpers?.isTelegram;
+    const isFacebook = helpers?.isFacebook;
     let imageBuffer = null;
 
-    if (isTelegram) {
+    if (isTelegram || isFacebook) {
         imageBuffer = await sock.downloadMedia(msg);
         if (!imageBuffer && msg.reply_to_message) imageBuffer = await sock.downloadMedia(msg.reply_to_message);
     } else {

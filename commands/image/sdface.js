@@ -73,7 +73,7 @@ async function restoreFaceAlt(imageBuffer) {
     const img = imageBuffer.toString('base64');
     const headers = { 'User-Agent': 'Mozilla/5.0 (Linux; Android 10)', 'Content-Type': 'application/json', Origin: 'https://aienhancer.ai', Referer: 'https://aienhancer.ai/ai-image-editor' };
 
-    const createRes = await axios.post('https://aienhancer.ai/api/v1/r/image-enhance/create', { model: 2, function: 'image-edit', image: `data:image/jpeg;base64,${img}`, settings: settingsData }, { headers });
+    const createRes = await axios.post('https://aienhancer.ai/api/v1/k/image-enhance/create', { model: 2, function: 'ai-image-editor', image: [`data:image/jpeg;base64,${img}`], settings: settingsData }, { headers });
     const id = createRes?.data?.data?.id;
     if (!id) throw new Error('No task ID');
 
@@ -89,9 +89,10 @@ async function restoreFaceAlt(imageBuffer) {
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const isTelegram = helpers?.isTelegram;
+    const isFacebook = helpers?.isFacebook;
     let imageBuffer = null;
 
-    if (isTelegram) {
+    if (isTelegram || isFacebook) {
         imageBuffer = await sock.downloadMedia(msg);
         if (!imageBuffer && msg.reply_to_message) imageBuffer = await sock.downloadMedia(msg.reply_to_message);
     } else {

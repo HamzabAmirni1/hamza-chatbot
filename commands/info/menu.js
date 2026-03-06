@@ -17,10 +17,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ━━━━━━━━━━━━━━━━
 🎨 *AI IMAGE*
 .gen | .imagine | .deepimg | .draw
-.nanobanana | .airbrush | .removebg
-.imgedit | .hd | .upscale | .colorize
-.brat | .img2video | .sketch | .blur
-.style | .hl | .wallpaper
+.airbrush | .removebg | .hd | .upscale
+.colorize | .brat | .img2video | .sketch
+.blur | .style | .hl | .wallpaper
 
 🖼️ *STABLE DIFFUSION (SD)*
 .sd | .sdimg | .sdface | .sdprompt
