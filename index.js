@@ -60,6 +60,7 @@ const { startFbPostScheduler } = require("./lib/fbScheduler");
 const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
 const { startTrafficInterval } = require("./lib/trafficBooster");
+const { ALL_COMMANDS, NLC_KEYWORDS } = require('./lib/commandMap');
 const bodyParser = require("body-parser");
 const { Boom } = require("@hapi/boom");
 
@@ -434,59 +435,7 @@ async function startBot(folderName, phoneNumber) {
         if (cmdMatch) {
           const command = cmdMatch[1].toLowerCase();
           const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
-          const allCmds = {
-            "salat": "islamic/salat", "sala": "islamic/salat", "prayer": "islamic/salat", "صلاة": "islamic/salat", "أوقات": "islamic/salat", "الصلاة": "islamic/salat",
-            "yts": "thmil/yts", "video": "thmil/video", "vid": "thmil/video", "فيديو": "thmil/video",
-            "play": "thmil/play", "song": "thmil/play", "أغنية": "thmil/play",
-            "fb": "thmil/fb", "facebook": "thmil/fb", "فيسبوك": "thmil/fb",
-            "ig": "thmil/ig", "instagram": "thmil/ig", "إنستغرام": "thmil/ig",
-            "tiktok": "thmil/tiktok", "تيكتوك": "thmil/tiktok",
-            "ytmp4": "thmil/ytmp4", "ytmp4v2": "thmil/ytmp4v2", "ytdl": "thmil/ytdl",
-            "pinterest": "thmil/pinterest", "pin": "thmil/pinterest",
-            "ad3iya": "islamic/ad3iya", "dua": "islamic/ad3iya", "دعاء": "islamic/ad3iya", "اذكار": "islamic/ad3iya", "ad3iya30": "islamic/ad3iya30",
-            "ramadan": "islamic/ramadan", "رمضان": "islamic/ramadan", "دعاء-رمضان": "islamic/ramadan", "نصيحة-رمضان": "islamic/ramadan",
-            "khatm": "islamic/khatm", "ختمة": "islamic/khatm",
-            "ayah": "islamic/ayah", "آية": "islamic/ayah", "اية": "islamic/ayah", "قرآن": "islamic/quran",
-            "quran": "islamic/quran", "سورة": "islamic/quran", "continue": "islamic/continue", "tafsir": "islamic/tafsir", "تفسير": "islamic/tafsir",
-            "weather": "tools/weather", "طقس": "tools/weather", "جو": "tools/weather", "حالة-الطقس": "tools/weather", "wether": "tools/weather",
-            "ping": "tools/ping", "بينج": "tools/ping", "tempnum": "tools/tempnum", "getsms": "tools/tempnum",
-            "credits": "tools/credits", "quota": "tools/credits", "status": "tools/ping",
-            "menu": "info/menu", "help": "info/menu", "قائمة": "info/menu",
-            "tg": "info/socials", "telegram": "info/socials", "yt": "info/socials", "youtube": "info/socials",
-            "channel": "info/socials", "web": "info/socials", "portfolio": "info/socials", "owner": "info/owner",
-            "quranread": "islamic/quranread", "quranmp3": "islamic/quranmp3", "qdl": "islamic/qdl", "quransura": "islamic/quransura", "quransurah": "islamic/quransurah", "qurancard": "islamic/qurancard", "quranpdf": "islamic/quranpdf",
-            "hamza": "info/socials", "developer": "info/socials", "social": "info/socials", "socials": "info/socials",
-            "links": "info/socials", "about": "info/socials", "info": "info/socials",
-            "miramuse": "ai/miramuse", "ai-image": "ai/ai-image",
-            "gpt4o": "ai/chat", "gpt4om": "ai/chat", "gpt4": "ai/chat", "gpt3": "ai/chat", "o1": "ai/chat",
-            "traffic": "admin/traffic", "seturl": "admin/seturl", "anticall": "admin/anticall", "devmsg": "admin/broadcast", "broadcast": "admin/broadcast",
-            "devmsgwa": "admin/broadcast", "devmsgtg": "admin/broadcast", "devmsgfb": "admin/broadcast", "devmsgtous": "admin/broadcast", "devmsgall": "admin/broadcast",
-            "fbpost": "admin/fbpost", "pagepost": "admin/fbpost", "postfb": "admin/fbpost", "نشر": "admin/fbpost",
-            "hl": "ai/analyze", "تحليل": "ai/analyze", "حلل": "ai/analyze",
-            "imgeditor": "image/imgeditor", "ie": "image/imgeditor", "عدل-صورة": "image/imgeditor",
-            "sketch": "image/sketch", "رسم-رصاص": "image/sketch", "pencil": "image/sketch",
-            "img2video": "ai/img2video", "فيديو-صورة": "ai/img2video", "videoai": "ai/img2video",
-            "grokvideo": "ai/grokvideo", "grok": "ai/grokvideo", "video-ai": "ai/grokvideo", "فيديو-ذكاء": "ai/grokvideo",
-            "aivideo": "ai/aivideo", "veo": "ai/aivideo", "text2video": "ai/aivideo", "فيديو-نص": "ai/aivideo",
-            "blur": "tools/blur", "ضباب": "tools/blur", "طمس": "tools/blur",
-            "brat": "image/brat", "برات": "image/brat",
-            "tomp3": "tools/tomp3", "toaudio": "tools/tomp3",
-            "alloschool": "morocco/alloschool", "alloschoolget": "morocco/alloschool", "allo": "morocco/alloschool", "دروس": "morocco/alloschool", "فروض": "morocco/alloschool",
-            "upscale": "image/upscale", "hd-photo": "image/upscale", "رفع-جودة": "image/upscale", "upscaler": "image/upscale",
-            // ─── Stable Diffusion (AUTOMATIC1111 inspired) ───
-            "sd": "image/sd", "stablediffusion": "image/sd", "sdgen": "image/sd", "txt2img": "image/sd", "sd15": "image/sd", "sdxl": "image/sd",
-            "sdimg": "image/sdimg", "img2img": "image/sdimg", "sdconvert": "image/sdimg", "sdstyle": "image/sdimg",
-            "sdface": "image/sdface", "facefix": "image/sdface", "gfpgan": "image/sdface", "codeformer": "image/sdface", "restoreface": "image/sdface",
-            "sdprompt": "image/sdprompt", "promptgen": "image/sdprompt", "clip": "image/sdprompt", "interrogate": "image/sdprompt",
-            "sdinpaint": "image/sdinpaint", "inpaint": "image/sdinpaint", "inpainting": "image/sdinpaint",
-            "gen": "image/gen", "generate": "image/gen", "imagine": "image/imagine", "photo": "image/gen", "image": "image/gen", "img": "image/gen", "تخيل": "image/gen", "ارسم": "image/gen", "صورة": "image/gen",
-            "wallpaper": "image/wallpaper", "4kwallpaper": "image/wallpaper", "خلفية": "image/wallpaper",
-            "googleimg": "image/googleimg", "gimage": "image/googleimg", "صور": "image/googleimg",
-            "deepimg": "image/deepimg", "deepimage": "image/deepimg", "deepseek": "ai/deepseek",
-            "nanobanana": "image/nanobanana", "airbrush": "image/airbrush", "removebg": "image/pixa-removebg",
-            "analyze": "ai/analyze", "vision": "ai/analyze",
-            "sticker": "tools/sticker", "s": "tools/sticker", "stiker": "tools/sticker", "ملصق": "tools/sticker"
-          };
+          const allCmds = ALL_COMMANDS;
 
           if (allCmds[command]) {
             try {
@@ -501,25 +450,7 @@ async function startBot(folderName, phoneNumber) {
         // Natural Language Commands (Detect keywords without dot)
         if (body && !body.startsWith(".")) {
           const lowerBody = body.toLowerCase();
-          const nlcKeywords = {
-            "قرآن|quran|سورة|sura|القرآن": "islamic/quran",
-            "آية|اية|ayah": "islamic/ayah",
-            "تفسير|tafsir": "islamic/tafsir",
-            "دعاء|dua|اذكار|ad3iya": "islamic/ad3iya",
-            "رمضان|ramadan": "islamic/ramadan",
-            "صلاة|salat|prayer|أوقات": "islamic/salat",
-            "طقس|weather|wether|الطقس": "tools/weather",
-            "بينج|ping|status": "tools/ping",
-            "فيديو-صورة|img2video": "ai/img2video",
-            "يوتيوب|تحميل|ytdl|youtube": "thmil/ytdl",
-            "فيسبوك|facebook|fb": "thmil/fb",
-            "انستقرام|instagram|ig": "thmil/ig",
-            "تيكتوك|tiktok": "thmil/tiktok",
-            "tomp3|mp3-تحويل": "tools/tomp3",
-            "sd|stablediffusion|txt2img": "image/sd",
-            "gen|generate|genimage|photo|image|img|تخيل|ارسم|صورة": "image/gen",
-            "قائمة|menu|help": "info/menu"
-          };
+          const nlcKeywords = NLC_KEYWORDS;
 
           let nlcFound = false;
           for (const [key, path] of Object.entries(nlcKeywords)) {
