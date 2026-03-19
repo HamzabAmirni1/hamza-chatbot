@@ -32,7 +32,7 @@
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div class="glass p-6 rounded-3xl">
-                <p class="text-slate-400 text-sm mb-1">الرسائل المعالجة</p>
+                <p class="text-slate-400 text-sm mb-1">الرسايل اللي دازت (Processed)</p>
                 <h2 id="total-messages" class="text-3xl font-bold">--</h2>
             </div>
             <div class="glass p-6 rounded-3xl border-sky-500/30">
@@ -40,11 +40,11 @@
                 <h2 id="ram-usage" class="text-3xl font-bold text-sky-400">--</h2>
             </div>
             <div class="glass p-6 rounded-3xl">
-                <p class="text-slate-400 text-sm mb-1">حوارات AI</p>
-                <h2 id="uptime" class="text-3xl font-bold">--</h2>
+                <p class="text-slate-400 text-sm mb-1">عدد الناس (Users)</p>
+                <h2 id="total-users" class="text-3xl font-bold text-green-400">--</h2>
             </div>
             <div class="glass p-6 rounded-3xl bg-yellow-500/5">
-                <p class="text-yellow-500 text-sm mb-1 font-bold">إجمالي المرور (Traffic)</p>
+                <p class="text-yellow-500 text-sm mb-1 font-bold">زيارات الموقع (Traffic)</p>
                 <h2 id="traffic-visits" class="text-2xl font-black">--</h2>
                 <p class="text-[10px] text-slate-500 uppercase">Visits Generated</p>
             </div>
@@ -174,8 +174,11 @@
         function updateStatsUI(data) {
             document.getElementById('total-messages').innerText = data.messages_handled || 0;
             document.getElementById('ram-usage').innerText = data.ram_usage || '0MB';
-            document.getElementById('uptime').innerText = data.total_users || 0;
+            document.getElementById('total-users').innerText = data.total_users || 0;
             document.getElementById('traffic-visits').innerText = data.visits || 0;
+            
+            const totalIndicator = document.getElementById('bot-count-total');
+            if (totalIndicator) totalIndicator.innerText = `${data.active_bots || 0} Bots Running`;
 
             // Update Top Commands
             const topList = document.getElementById('top-commands-list');

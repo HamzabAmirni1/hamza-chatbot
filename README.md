@@ -83,6 +83,10 @@ Built-in support for auto-restart and DNS optimization for bypass blocks.
 - **Instagram:** [@hamza_amirni_01](https://instagram.com/hamza_amirni_01)
 - **Official Channel:** [WhatsApp Channel](https://whatsapp.com/channel/0029ValXRoHCnA7yKopcrn1p)
 
+
+mosdwda3 dyal had lmchro3 script lbot https://github.com/HamzabAmirni1/hamza-chatbot
+
+mosdwda3 site dyale bot https://github.com/HamzabAmirni1/wibe-site-bot-hamzaamirni
 ---
 
 *Made with ❤️ in Morocco for the global community.*
