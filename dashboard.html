@@ -166,9 +166,27 @@
                 .subscribe();
         }
 
+        let globalStatsData = {};
+
         async function fetchStats() {
+            try {
+                // Try API first for real-time bot specific stats
+                const resp = await fetch(`${KOYEB_API_URL}/stats`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    globalStatsData = data;
+                    updateStatsUI(data);
+                    // Refresh WA sessions to show counts
+                    fetchWASessions();
+                    return;
+                }
+            } catch (e) {}
+
             const { data } = await supabase.from('bot_stats').select('*').single();
-            if (data) updateStatsUI(data);
+            if (data) {
+                globalStatsData = data;
+                updateStatsUI(data);
+            }
         }
 
         function updateStatsUI(data) {
@@ -210,21 +228,24 @@
         async function fetchWASessions() {
             const { data } = await supabase.from('whatsapp_auth').select('*');
             const list = document.getElementById('wa-sessions-list');
-            const totalIndicator = document.getElementById('bot-count-total');
             
-            totalIndicator.innerText = `${data ? data.length : 0} Bots Connected`;
             list.innerHTML = data && data.length ? '' : '<p class="text-slate-500 text-sm">لا يوجد بوتات متصلة حالياً.</p>';
             data.forEach(wa => {
                 const statusColor = wa.status === 'open' || wa.status === 'connected' ? 'bg-green-500' : 'bg-red-500';
+                const userCount = (globalStatsData.bot_user_counts && globalStatsData.bot_user_counts[wa.phone_number]) || 0;
+                
                 list.innerHTML += `
                     <div class="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-sky-400">WA</div>
                             <div>
                                 <p class="font-semibold">${wa.phone_number}</p>
-                                <div class="flex items-center gap-1">
-                                    <div class="w-2 h-2 rounded-full ${statusColor}"></div>
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">${wa.status || 'OFFLINE'}</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-2 h-2 rounded-full ${statusColor}"></div>
+                                        <span class="text-[10px] text-slate-500 uppercase font-bold">${wa.status || 'OFFLINE'}</span>
+                                    </div>
+                                    <span class="text-[10px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full font-bold">${userCount} Users</span>
                                 </div>
                             </div>
                         </div>

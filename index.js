@@ -71,6 +71,7 @@ const { db } = require("./lib/supabase");
 const processedMessages = new Set();
 const commandUsage = {};
 const activeUsers = new Set();
+const botUsersMap = {}; // { 'phoneNumber': Set(['userJid']) }
 
 const sessionBaseDir = path.join(__dirname, "sessions");
 if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
@@ -162,16 +163,28 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => res.status(200).json({ status: "healthy", uptime: getUptime() }));
-app.get("/ping", (req, res) => res.status(200).send("pong"));
 
-// 📊 Get Bot Stats from Supabase
+// Enable CORS for Dashboard
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
+// 📊 Get Bot Stats with Per-Bot counts
 app.get("/stats", async (req, res) => {
   const stats = await db.getStats();
   const traffic = getTrafficStats();
+  const botCounts = {};
+  Object.entries(botUsersMap).forEach(([phone, set]) => {
+    botCounts[phone] = set.size;
+  });
+  
   res.status(200).json({ 
     ...stats, 
     visits: traffic.visits || 0,
-    impressions: traffic.impressions || 0
+    impressions: traffic.impressions || 0,
+    bot_user_counts: botCounts // { 'phoneNumber': count }
   });
 });
 
@@ -473,6 +486,12 @@ async function startBot(folderName, phoneNumber) {
 
         const sender = msg.key.remoteJid;
         logUser(sender);
+        
+        // Track unique users per bot
+        if (phoneNumber) {
+          if (!botUsersMap[phoneNumber]) botUsersMap[phoneNumber] = new Set();
+          botUsersMap[phoneNumber].add(sender);
+        }
 
         if (body && !msg.key.fromMe) {
           const skipAI = await handleAutoDL(sock, sender, msg, body, processedMessages, { sendFBVideo, sendYTVideo, getYupraVideoByUrl, getOkatsuVideoByUrl });
