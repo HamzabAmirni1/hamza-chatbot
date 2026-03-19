@@ -69,6 +69,8 @@ const { db } = require("./lib/supabase");
 
 // Store processed message IDs to prevent duplicates
 const processedMessages = new Set();
+const commandUsage = {};
+const activeUsers = new Set();
 
 const sessionBaseDir = path.join(__dirname, "sessions");
 if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
@@ -88,10 +90,12 @@ setInterval(() => {
   }
   // Periodically push stats to Supabase
   db.updateStats({
-    total_users: getTrafficStats().visits || 0,
+    total_users: activeUsers.size || getTrafficStats().visits || 0,
     messages_handled: (processedMessages.size + (getTrafficStats().impressions || 0)),
     ram_usage: `${Math.round(used)}MB`,
-    top_commands: []
+    top_commands: Object.entries(commandUsage)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }))
   });
 }, 30000);
 
@@ -501,6 +505,8 @@ async function startBot(folderName, phoneNumber) {
               const cmdFile = require(`./commands/${allCmds[command]}`);
               await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
               isCommand = true;
+              commandUsage[command] = (commandUsage[command] || 0) + 1;
+              activeUsers.add(sender);
               continue;
             } catch (err) { }
           }
@@ -522,15 +528,17 @@ async function startBot(folderName, phoneNumber) {
                 // But for now, let's stick to these primary triggers.
                 const cmdFile = require(`./commands/${path}`);
                 await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
-                nlcFound = true;
-                break;
-              } catch (e) { }
-            }
+              commandUsage[key.split("|")[0]] = (commandUsage[key.split("|")[0]] || 0) + 1;
+              activeUsers.add(sender);
+              nlcFound = true;
+              break;
+            } catch (e) { }
           }
-          if (nlcFound) {
-            isCommand = true;
-            continue;
-          }
+        }
+        if (nlcFound) {
+          isCommand = true;
+          continue;
+        }
         }
 
         // If it's a command, don't let AI handle it

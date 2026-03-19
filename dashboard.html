@@ -94,7 +94,32 @@
                 </button>
             </section>
         </div>
+
+        <!-- Command Statistics -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <section class="glass p-8 rounded-[2rem]">
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="p-2 bg-yellow-500/20 rounded-lg text-yellow-400">🔥</span>
+                    الأوامر الأكثر استخداماً
+                </h3>
+                <div id="top-commands-list" class="space-y-3">
+                    <!-- List of top commands -->
+                    <p class="text-slate-500 text-sm italic">سيتم تحديث البيانات عند استخدام البوت...</p>
+                </div>
+            </section>
+
+            <section class="glass p-8 rounded-[2rem]">
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="p-2 bg-red-500/20 rounded-lg text-red-400">💤</span>
+                    أوامر لم تستخدم بعد
+                </h3>
+                <div id="unused-commands-list" class="flex flex-wrap gap-2 text-xs text-slate-400">
+                    <!-- List of unused commands -->
+                </div>
+            </section>
+        </div>
     </div>
+
 
     <script>
         // --- Configuration ---
@@ -145,6 +170,17 @@
             document.getElementById('total-messages').innerText = data.messages_handled || 0;
             document.getElementById('ram-usage').innerText = data.ram_usage || '0MB';
             document.getElementById('uptime').innerText = data.total_users || 0;
+
+            // Update Top Commands
+            const topList = document.getElementById('top-commands-list');
+            if (data.top_commands && data.top_commands.length > 0) {
+                topList.innerHTML = data.top_commands.slice(0, 5).map(cmd => `
+                    <div class="flex items-center justify-between p-3 bg-slate-900/30 rounded-xl border border-slate-800/50">
+                        <span class="font-mono text-sky-400">.${cmd.name}</span>
+                        <span class="bg-sky-500/10 text-sky-500 px-3 py-1 rounded-full text-xs font-bold">${cmd.count} استعمال</span>
+                    </div>
+                `).join('');
+            }
         }
 
         async function fetchWASessions() {
