@@ -21,13 +21,11 @@ const path = require("path");
 const dns = require("dns");
 const config = require("./config");
 
-// --- DNS FIX ---
+// --- DNS FIX (Optional) ---
 try {
-  dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1']);
-  console.log(chalk.green('✅ DNS Servers set to Cloudflare/Google (1.1.1.1)'));
-} catch (e) {
-  console.error(chalk.red('❌ Failed to set DNS servers:'), e.message);
-}
+  console.log(chalk.cyan("🔍 Initializing Core Dependencies..."));
+  // dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1']);
+} catch (e) { }
 
 const { handleAutoDL } = require('./lib/autodl');
 const {
@@ -76,11 +74,8 @@ const botUsersMap = {}; // { 'phoneNumber': Set(['userJid']) }
 const sessionBaseDir = path.join(__dirname, "sessions");
 if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
 
-// Boot Sequence Delay
-console.log(chalk.cyan("⏱️  Waiting 5 seconds... Instance created. Preparing to start..."));
-setTimeout(() => {
-  console.log(chalk.green("🚀 Starting Hamza Chatbot with Enhanced Stability..."));
-}, 5000);
+// Boot Sequence - Immediate
+console.log(chalk.green("🚀 Starting Hamza Chatbot..."));
 
 // Memory monitoring - Restart if RAM gets too high (Target: 512MB Server)
 setInterval(() => {
