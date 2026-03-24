@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hamza Bot Dashboard | لوحة تحكم حمزة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', 'Tajawal', sans-serif; background: #0f172a; color: white; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .neon-text { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-10">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent neon-text">Hamza Chatbot Pro</h1>
+                <p class="text-slate-400">نظام إدارة البوتات المتكامل</p>
+            </div>
+            <div id="connection-indicator" class="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span id="bot-count-total" class="text-green-500 text-xs font-bold uppercase tracking-tighter">0 Bots Connected</span>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-slate-400 text-sm mb-1">الرسايل اللي دازت (Processed)</p>
+                <h2 id="total-messages" class="text-3xl font-bold">--</h2>
+            </div>
+            <div class="glass p-6 rounded-3xl border-sky-500/30">
+                <p class="text-slate-400 text-sm mb-1">استهلاك الـ RAM</p>
+                <h2 id="ram-usage" class="text-3xl font-bold text-sky-400">--</h2>
+            </div>
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-slate-400 text-sm mb-1">عدد الناس (Users)</p>
+                <h2 id="total-users" class="text-3xl font-bold text-green-400">--</h2>
+            </div>
+            <div class="glass p-6 rounded-3xl bg-yellow-500/5">
+                <p class="text-yellow-500 text-sm mb-1 font-bold">زيارات الموقع (Traffic)</p>
+                <h2 id="traffic-visits" class="text-2xl font-black">--</h2>
+                <p class="text-[10px] text-slate-500 uppercase">Visits Generated</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Connect WhatsApp Section -->
+            <section class="glass p-8 rounded-[2rem]">
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="p-2 bg-green-500/20 rounded-lg text-green-400">📱</span>
+                    ربط واتساب جديد
+                </h3>
+                
+                <div class="mb-8">
+                    <label class="block text-sm text-slate-400 mb-2">رقم التليفون (مثال: 2126xxxxxxxx)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="phone-input" placeholder="2126..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-sky-500 transition-all">
+                        <button onclick="connectWA()" id="connect-btn" class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-sky-600/20 flex-shrink-0">Connect</button>
+                    </div>
+                </div>
+
+                <div id="pairing-section" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div class="p-6 bg-slate-900/50 rounded-2xl border border-dashed border-sky-500/30 text-center">
+                        <p class="text-slate-400 text-sm mb-4">Pairing Code (كود الربط)</p>
+                        <div id="pairing-code" class="text-4xl font-mono tracking-[0.5em] font-black text-sky-400">---- ----</div>
+                        <p class="text-xs text-slate-500 mt-4">افتح WhatsApp > الأجهزة المرتبطة > ربط عبر رقم الهاتف</p>
+                    </div>
+                </div>
+
+                <!-- Bot Statuses -->
+                <div class="mt-10">
+                    <h4 class="text-sm font-semibold text-slate-400 mb-4">البوتات المتصلة حالياً</h4>
+                    <div id="wa-sessions-list" class="space-y-4">
+                        <!-- Dynamic list -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Telegram & FB Settings -->
+            <section class="glass p-8 rounded-[2rem]">
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="p-2 bg-sky-500/20 rounded-lg text-sky-400">🤖</span>
+                    إعدادات المنصات الأخرى
+                </h3>
+
+                <div id="bot-configs-list" class="space-y-6">
+                    <!-- Dynamic configs -->
+                </div>
+
+                <button onclick="addNewConfig()" class="mt-8 w-full py-4 border-2 border-dashed border-slate-700 rounded-2xl text-slate-400 hover:bg-slate-800 transition-all font-semibold">
+                    + إضافة بوت جديد (Telegram/FB)
+                </button>
+            </section>
+        </div>
+
+        <!-- Command Statistics -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <section class="glass p-8 rounded-[2rem]">
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="p-2 bg-yellow-500/20 rounded-lg text-yellow-400">🔥</span>
+                    الأوامر الأكثر استخداماً
+                </h3>
+                <div id="top-commands-list" class="space-y-3">
+                    <!-- List of top commands -->
+                    <p class="text-slate-500 text-sm italic">سيتم تحديث البيانات عند استخدام البوت...</p>
+                </div>
+            </section>
+
+            <section class="glass p-8 rounded-[2rem]">
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="p-2 bg-red-500/20 rounded-lg text-red-400">💤</span>
+                    أوامر لم تستخدم بعد
+                </h3>
+                <div id="unused-commands-list" class="flex flex-wrap gap-2 text-xs text-slate-400">
+                    <!-- List of unused commands -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Configuration ---
+        const SUPABASE_URL = 'https://xmmthiitoezusoejydta.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_obLwMpkUXz2zDnGKKK9bWA_HV9SE9k_';
+        const KOYEB_API_URL = 'https://rolling-cherianne-ham9666-c0fa34e1.koyeb.app';
+
+        let supabase;
+        try {
+            // Fix for @supabase/supabase-js CDN version
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        } catch (e) {
+            console.error(e);
+            alert('يرجى التأكد من إعداد SUPABASE_URL و SUPABASE_KEY بشكل صحيح.');
+        }
+
+        async function init() {
+            if (!supabase) return;
+            fetchStats();
+            fetchWASessions();
+            fetchConfigs();
+
+            // Real-time Subscriptions
+            supabase
+                .channel('whatsapp_realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_auth' }, payload => {
+                    fetchWASessions();
+                    if (payload.new && payload.new.pairing_code) {
+                        showPairingCode(payload.new.pairing_code);
+                    }
+                })
+                .subscribe();
+
+            supabase
+                .channel('stats_realtime')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bot_stats' }, payload => {
+                    updateStatsUI(payload.new);
+                })
+                .subscribe();
+        }
+
+        let globalStatsData = {};
+
+        async function fetchStats() {
+            try {
+                // Try API first for real-time bot specific stats
+                const resp = await fetch(`${KOYEB_API_URL}/stats`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    globalStatsData = data;
+                    updateStatsUI(data);
+                    // Refresh WA sessions to show counts
+                    fetchWASessions();
+                    return;
+                }
+            } catch (e) {}
+
+            const { data } = await supabase.from('bot_stats').select('*').single();
+            if (data) {
+                globalStatsData = data;
+                updateStatsUI(data);
+            }
+        }
+
+        function updateStatsUI(data) {
+            document.getElementById('total-messages').innerText = data.messages_handled || 0;
+            document.getElementById('ram-usage').innerText = data.ram_usage || '0MB';
+            document.getElementById('total-users').innerText = data.total_users || 0;
+            document.getElementById('traffic-visits').innerText = data.visits || 0;
+            
+            const totalIndicator = document.getElementById('bot-count-total');
+            if (totalIndicator) totalIndicator.innerText = `${data.active_bots || 0} Bots Running`;
+
+            // Update Top Commands
+            const topList = document.getElementById('top-commands-list');
+            const unusedList = document.getElementById('unused-commands-list');
+            
+            // Primary unique commands for tracking
+            const allPrimaryCmds = ['salat', 'dua', 'quran', 'ytdl', 'fb', 'ig', 'tiktok', 'gpt4', 'deepseek', 'gen', 'sd', 'upscale', 'sticker', 'weather', 'ping', 'news', 'menu'];
+            
+            if (data.top_commands && data.top_commands.length > 0) {
+                topList.innerHTML = data.top_commands.slice(0, 5).map(cmd => `
+                    <div class="flex items-center justify-between p-3 bg-slate-900/30 rounded-xl border border-slate-800/50">
+                        <span class="font-mono text-sky-400">.${cmd.name}</span>
+                        <span class="bg-sky-500/10 text-sky-500 px-3 py-1 rounded-full text-xs font-bold">${cmd.count} استعمال</span>
+                    </div>
+                `).join('');
+
+                const usedNames = data.top_commands.map(c => c.name);
+                const unused = allPrimaryCmds.filter(cmd => !usedNames.includes(cmd));
+                unusedList.innerHTML = unused.map(cmd => `
+                    <span class="px-3 py-1 bg-slate-800 rounded-full">.${cmd}</span>
+                `).join('');
+            } else {
+                unusedList.innerHTML = allPrimaryCmds.map(cmd => `
+                    <span class="px-3 py-1 bg-slate-800 rounded-full">.${cmd}</span>
+                `).join('');
+            }
+        }
+
+        async function fetchWASessions() {
+            const { data } = await supabase.from('whatsapp_auth').select('*');
+            const list = document.getElementById('wa-sessions-list');
+            
+            list.innerHTML = data && data.length ? '' : '<p class="text-slate-500 text-sm">لا يوجد بوتات متصلة حالياً.</p>';
+            data.forEach(wa => {
+                const statusColor = wa.status === 'open' || wa.status === 'connected' ? 'bg-green-500' : 'bg-red-500';
+                const userCount = (globalStatsData.bot_user_counts && globalStatsData.bot_user_counts[wa.phone_number]) || 0;
+                
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-sky-400">WA</div>
+                            <div>
+                                <p class="font-semibold">${wa.phone_number}</p>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-2 h-2 rounded-full ${statusColor}"></div>
+                                        <span class="text-[10px] text-slate-500 uppercase font-bold">${wa.status || 'OFFLINE'}</span>
+                                    </div>
+                                    <span class="text-[10px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full font-bold">${userCount} Users</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="deleteWA('${wa.phone_number}')" class="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-red-500/10 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        async function fetchConfigs() {
+            const { data } = await supabase.from('bot_configs').select('*');
+            const list = document.getElementById('bot-configs-list');
+            list.innerHTML = '';
+            data.forEach(conf => {
+                list.innerHTML += `
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-400 uppercase font-bold tracking-widest text-[10px]">${conf.bot_type}</span>
+                            <span class="text-slate-500">${new Date(conf.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="password" data-id="${conf.id}" value="${conf.bot_token}" class="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-sky-500">
+                            <button onclick="saveToken('${conf.id}')" class="px-4 py-2 bg-slate-800 text-xs rounded-xl hover:bg-slate-700 transition-all font-bold uppercase">Save</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function showPairingCode(code) {
+            document.getElementById('pairing-section').classList.remove('hidden');
+            document.getElementById('pairing-code').innerText = code;
+        }
+
+        async function connectWA() {
+            const phone = document.getElementById('phone-input').value;
+            if (!phone) return alert('أدخل رقم الهاتف أولاً');
+            
+            const btn = document.getElementById('connect-btn');
+            btn.innerHTML = 'Connecting...';
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch(`${KOYEB_API_URL}/connect-wa`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+                const result = await resp.json();
+                console.log(result);
+            } catch (e) {
+                alert('فشل الاتصال بـ API البوت. تأكد من أن السيرفر شغال.');
+            } finally {
+                btn.innerHTML = 'Connect';
+                btn.disabled = false;
+            }
+        }
+
+        async function saveToken(id) {
+            const bot_token = document.querySelector(`input[data-id="${id}"]`).value;
+            if (!bot_token) return alert('أدخل التوكن أولاً');
+            try {
+                const resp = await fetch(`${KOYEB_API_URL}/update-config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, bot_token })
+                });
+                if (resp.ok) alert('✅ تم تحديث التوكن بنجاح!');
+                else alert('❌ فشل التحديث.');
+            } catch (e) { alert('❌ خطأ في الاتصال بالـ API.'); }
+        }
+
+        async function deleteWA(phone) {
+            if (!confirm(`هل أنت متأكد من حذف جلسة ${phone}؟`)) return;
+            try {
+                const resp = await fetch(`${KOYEB_API_URL}/delete-wa`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+                if (resp.ok) {
+                    alert('✅ تم حذف الجلسة بنجاح.');
+                    fetchWASessions();
+                } else alert('❌ فشل الحذف.');
+            } catch (e) { alert('❌ خطأ في الاتصال بالـ API.'); }
+        }
+
+        setInterval(fetchStats, 10000); // Auto-refresh stats
+        init();
+    </script>
+</body>
+</html>
