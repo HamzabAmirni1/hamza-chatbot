@@ -20,6 +20,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 .airbrush | .removebg | .hd | .upscale
 .colorize | .brat | .img2video | .sketch
 .blur | .style | .hl | .wallpaper
+.hdv3 | .aiedit
 
 🖼️ *STABLE DIFFUSION (SD)*
 .sd | .sdimg | .sdface | .sdprompt
@@ -32,7 +33,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 📥 *DOWNLOADER*
 .play | .video | .fb | .ig | .ytmp4
 .tiktok | .pinterest | .lyrics | .capcut
-.yts | .tomp3 | .ytdl | .ytmp4v2
+.yts | .tomp3 | .ytdl | .ytv | .yta
 
 🕋 *ISLAMIC & RAMADAN*
 .quran | .quranmp3 | .qdl | .qurancard
