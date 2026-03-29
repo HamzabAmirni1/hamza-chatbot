@@ -59,7 +59,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         await sock.sendMessage(chatId, { react: { text: "🚀", key: msg.key } });
         return await sock.sendMessage(chatId, { 
-            text: `✅ *تم تشغيل بوت تزويد المشاهدات والزيارات للإنستغرام!*\n\n🔗 الحساب: ${currentProfile}\n⚡ السرعة: ~360 زيارة/ساعة.\n\nاستخدم \`.instaboost stop\` للإيقاف، أو \`.instaboost status\` لمعرفة كم وصل.` 
+            text: `✅ *تم تشغيل رفع الانطباعات والزيارات (Impressions) للإنستغرام!*\n\n🔗 الرابط/الحساب المستهدف: ${currentProfile}\n⚡ السرعة: ~360 طلب/ساعة.\n\nاستخدم \`.instaboost stop\` للإيقاف، أو \`.instaboost status\` لمعرفة كم وصل.` 
         }, { quoted: msg });
     } 
     
@@ -90,7 +90,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     else {
         // Default response / Help menu
         return await sock.sendMessage(chatId, { 
-            text: `🔰 *أوامر رشق الإنستغرام:*\n\n1️⃣ \`.instaboost start\` - لتشغيل تزويد التفاعل/الزيارات لحسابك.\n2️⃣ \`.instaboost status\` - لمعرفة عدد الزيارات التي تم إيصالها.\n3️⃣ \`.instaboost stop\` - لإيقاف العملية.\n\nالرابط المبرمج حالياً: ${currentProfile}` 
+            text: `🔰 *أوامر رشق الإنستغرام:*\n\n1️⃣ \`.instaboost start\` - لتشغيل رشق الزيارات لحسابك.\n2️⃣ \`.instaboost start [رابط_ريلز]\` - لزيادة المشاهدات والانطباعات (Impressions) على الريلز أو البوست.\n3️⃣ \`.instaboost status\` - لمعرفة عدد الزيارات/المشاهدات التي تم إيصالها.\n4️⃣ \`.instaboost stop\` - لإيقاف العملية.\n\n⚠️ *ملاحظة هامة:* هذا البوت يقوم برفع "زيارات الملف الشخصي" (Profile Visits) وتفاعل الروابط مجاناً. لكن لزيادة المتابعين الحقيقيين (Followers) أو اللايكات، يتطلب الأمر ربط البوت بـ API الخاص بـ SMM Panel (موقع رشق). إذا كان لديك حساب في موقع رشق، أخبرني لأقوم بربطه لك!` 
         }, { quoted: msg });
     }
 };
