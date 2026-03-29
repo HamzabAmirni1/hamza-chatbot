@@ -56,10 +56,13 @@ async function pollResult(taskId, interval = 3000, timeout = 90000) {
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     let q = msg;
     let isImage = false;
+    let imgBuffer = null;
 
     if (helpers?.isTelegram) {
         isImage = !!(msg.photo || msg.reply_to_message?.photo);
         if (!msg.photo && msg.reply_to_message?.photo) q = msg.reply_to_message;
+    } else if (helpers?.isFacebook) {
+        if (helpers?.buffer) isImage = true;
     } else {
         const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         const directImg = msg.message?.imageMessage;
@@ -74,8 +77,21 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     }
 
     if (!isImage) {
+        try {
+            const { getContext } = require('../../lib/ai');
+            const context = await getContext(chatId);
+            if (context && context.lastImage && (Date.now() - context.lastImage.timestamp < 10 * 60 * 1000)) {
+                isImage = true;
+                imgBuffer = context.lastImage.buffer;
+            }
+        } catch (e) {
+            // Context not available
+        }
+    }
+
+    if (!isImage) {
         return await sock.sendMessage(chatId, {
-            text: `*🎨 AI Image Editor*\nEdit any image using AI with a text prompt.\n\n*How to use:*\nReply to an image with: \`.aiedit turn the background into a forest\``
+            text: `⚠️ المرجو إرسال أو الإشارة (Reply) لصورة، واكتب ما تريد تعديله.\n\nمثال: \`عدل الخلفية إلى غابة\``
         }, { quoted: msg });
     }
 
@@ -85,10 +101,12 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     }
 
     if (!helpers?.isTelegram) await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
-    await sock.sendMessage(chatId, { text: `⏳ Processing your image...\n📝 Prompt: _${prompt}_` }, { quoted: msg });
+    await sock.sendMessage(chatId, { text: `⏳ جاري معالجة الصورة...\n📝 طلبك: _${prompt}_` }, { quoted: msg });
 
     try {
-        const imgBuffer = sock.downloadMediaMessage ? await sock.downloadMediaMessage(q) : await downloadMediaMessage(q, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+        if (!imgBuffer) {
+            imgBuffer = sock.downloadMediaMessage ? await sock.downloadMediaMessage(q) : await downloadMediaMessage(q, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+        }
         const base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
 
         const taskId = await createTask(base64Image, prompt);
@@ -96,11 +114,11 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         await sock.sendMessage(chatId, {
             image: { url: resultUrl },
-            caption: `✅ *Done!*\n📝 Prompt: _${prompt}_`
+            caption: `✅ *تم التعديل بنجاح!*\n📝 طلبك: _${prompt}_`
         }, { quoted: msg });
         if (!helpers?.isTelegram) await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
     } catch (err) {
-        await sock.sendMessage(chatId, { text: `❌ Failed to edit image.\n\nError: ${err.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ فشل تعديل الصورة.\n\nالخطأ: ${err.message}` }, { quoted: msg });
     }
 };

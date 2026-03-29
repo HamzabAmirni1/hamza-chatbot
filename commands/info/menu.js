@@ -17,15 +17,13 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ━━━━━━━━━━━━━━━━
 🎨 *AI IMAGE*
 .gen | .imagine | .deepimg | .draw
-.airbrush | .removebg | .hd | .upscale
+.removebg | .hd | .upscale | .hdv3
 .colorize | .brat | .img2video | .sketch
 .blur | .style | .hl | .wallpaper
-.hdv3 | .aiedit
+.aiedit
 
 🖼️ *STABLE DIFFUSION (SD)*
-.sd | .sdimg | .sdface | .sdprompt
-.sdinpaint | .txt2img | .img2img
-.gfpgan | .inpaint | .clip
+.sd | .sdprompt | .txt2img
 
 🧠 *SMART AI*
 .deepseek | .gpt4o | .analyze | .vision
