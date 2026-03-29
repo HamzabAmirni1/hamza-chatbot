@@ -427,6 +427,8 @@ async function startBot(folderName, phoneNumber) {
         startTrafficInterval(); // New Traffic Booster
         const { startNewsScheduler } = require("./lib/newsAutoPoster");
         startNewsScheduler(); // Enabled fresh news poster
+        const { startGithubScheduler } = require("./lib/githubAutoPoster");
+        startGithubScheduler(); // Enabled GitHub trending poster
       } catch (e) {
         console.log(`[${folderName}] Schedulers error:`, e.message);
       }
