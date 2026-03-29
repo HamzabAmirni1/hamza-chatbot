@@ -44,7 +44,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
 🛠️ *TOOLS & INFOS*
 .sticker | .ping | .weather | .status
-.tempnum | .alloschool | .owner
+.tempnum | .alloschool | .owner | .instaboost
 ━━━━━━━━━━━━━━━━
 `;
 
