@@ -86,6 +86,41 @@ async function apkCommand(sock, chatId, msg, args, commands, userLang) {
             return await sock.sendMessage(chatId, { text: `❌ لم يتم العثور على أية نتائج لـ "${query}"` }, { quoted: msg });
         }
 
+        const L_LIB = t('apk.library_title', {}, userLang) || '🚀 *مكتبة التطبيقات*';
+        const L_RESULTS = t('apk.results_for', { query }, userLang) || `نتائج البحث عن: *${query}*`;
+        const L_DOWNLOAD = t('apk.download_btn', {}, userLang) || 'تحميل الآن 📥';
+
+        if (isTelegram) {
+            let text = `${L_LIB}\n\n${L_RESULTS}\n\n`;
+            let inline_keyboard = [];
+            
+            for (let [index, app] of results.slice(0, 5).entries()) {
+                const pkg = app.package || app.id || 'N/A';
+                const size = app.sizeMB || (app.size ? (app.size / (1024 * 1024)).toFixed(2) : 'N/A');
+                text += `*${index + 1}. ${app.name}*\n📦 ${pkg} | ⚖️ ${size} MB\n\n`;
+                // Telegram callback_data is limited to 64 bytes.
+                let callback_data = `.apk ${pkg}`;
+                if (callback_data.length > 64) callback_data = callback_data.substring(0, 64);
+                inline_keyboard.push([{ text: `📥 ${app.name}`, callback_data }]);
+            }
+            
+            await sock.sendMessage(chatId, { text, reply_markup: { inline_keyboard } }, { quoted: msg });
+            return await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        }
+
+        const isFacebook = commands?.isFacebook;
+        if (isFacebook) {
+            let text = `${L_LIB}\n\n${L_RESULTS}\n\n`;
+            for (let [index, app] of results.slice(0, 10).entries()) {
+                const pkg = app.package || app.id || 'N/A';
+                const size = app.sizeMB || (app.size ? (app.size / (1024 * 1024)).toFixed(2) : 'N/A');
+                text += `*${index + 1}. ${app.name}*\n📦 ${pkg} | ⚖️ ${size} MB\n📥 للتحميل أرسل:\n.apk ${pkg}\n\n`;
+            }
+            await sock.sendMessage(chatId, { text }, { quoted: msg });
+            return await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        }
+
+        // WhatsApp Carousel Format
         async function createHeaderImage(url) {
             try {
                 const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });
@@ -96,10 +131,6 @@ async function apkCommand(sock, chatId, msg, args, commands, userLang) {
                 return imageMessage;
             }
         }
-
-        const L_LIB = t('apk.library_title', {}, userLang) || '🚀 *مكتبة التطبيقات*';
-        const L_RESULTS = t('apk.results_for', { query }, userLang) || `نتائج البحث عن: *${query}*`;
-        const L_DOWNLOAD = t('apk.download_btn', {}, userLang) || 'تحميل الآن 📥';
 
         let cards = [];
         for (let app of results.slice(0, 10)) {
