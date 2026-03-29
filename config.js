@@ -36,6 +36,16 @@ const settings = {
     telegramToken: process.env.TELEGRAM_TOKEN || '8589218915:AAFoh4mnEsnuQOjZjgDrcSTQus7ClnL2VTA',
     fbPageAccessToken: process.env.PAGE_ACCESS_TOKEN || 'EAARU3lwIKlcBQz4GqbCw2Vc6ZAAPKytsEfhN6nCZBbXHdIRQZCchkjUq9BB5k622kDDRQaZCgBRB4pTCRN30hG25QPTZCYvyoYRsZB7MlBpHyHjb9ZAbbnZCkNAEmMFXZB35zCG2xCUjpNVQhWFP00KmTwNP1MryAeRgZBkRbMOZCSaGv6o0zP5XRWEq15cB6gYk6PbwT2BiQZDZD',
     fbPageId: process.env.FB_PAGE_ID || 'me',         // رقم ID صفحة الفيسبوك (ليس اسم المستخدم)
+    
+    // دعم صفحات متعددة
+    fbPages: [
+        { id: process.env.FB_PAGE_ID || 'me', token: process.env.PAGE_ACCESS_TOKEN || 'EAARU3lwIKlcBQz4GqbCw2Vc6ZAAPKytsEfhN6nCZBbXHdIRQZCchkjUq9BB5k622kDDRQaZCgBRB4pTCRN30hG25QPTZCYvyoYRsZB7MlBpHyHjb9ZAbbnZCkNAEmMFXZB35zCG2xCUjpNVQhWFP00KmTwNP1MryAeRgZBkRbMOZCSaGv6o0zP5XRWEq15cB6gYk6PbwT2BiQZDZD' },
+        ...(process.env.FB_PAGE_ID2 && process.env.PAGE_ACCESS_TOKEN2 ? [{ id: process.env.FB_PAGE_ID2, token: process.env.PAGE_ACCESS_TOKEN2 }] : []),
+        ...(process.env.FB_PAGE_ID3 && process.env.PAGE_ACCESS_TOKEN3 ? [{ id: process.env.FB_PAGE_ID3, token: process.env.PAGE_ACCESS_TOKEN3 }] : []),
+        ...(process.env.FB_PAGE_ID4 && process.env.PAGE_ACCESS_TOKEN4 ? [{ id: process.env.FB_PAGE_ID4, token: process.env.PAGE_ACCESS_TOKEN4 }] : []),
+        ...(process.env.FB_PAGE_ID5 && process.env.PAGE_ACCESS_TOKEN5 ? [{ id: process.env.FB_PAGE_ID5, token: process.env.PAGE_ACCESS_TOKEN5 }] : [])
+    ],
+
     fbVerifyToken: process.env.VERIFY_TOKEN || 'HAMZA_BOT_VERIFY_TOKEN',
     supabaseUrl: process.env.SUPABASE_URL || 'https://xmmthiitoezusoejydta.supabase.co',
     supabaseKey: process.env.SUPABASE_KEY || 'sb_publishable_obLwMpkUXz2zDnGKKK9bWA_HV9SE9k_',
