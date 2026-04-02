@@ -553,7 +553,34 @@ async function startBot(folderName, phoneNumber) {
         }
 
         // Natural Language Commands (Detect keywords without dot)
-        if (body && !body.startsWith(".")) {
+        // --- MULTIMODAL AI HANDLING ---
+        const ai = require('./lib/ai');
+        const isMedia = msg.message?.imageMessage || msg.message?.audioMessage || msg.message?.documentMessage;
+        const isMentioned = body.includes(`@${sock.user.id.split(':')[0]}`) || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        
+        if (isMedia) {
+          const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
+            msg.message.imageMessage || msg.message.audioMessage || msg.message.documentMessage,
+            msg.message.imageMessage ? 'image' : (msg.message.audioMessage ? 'audio' : 'document')
+          );
+          let buffer = Buffer.from([]);
+          for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+          
+          await sock.sendPresenceUpdate('composing', sender);
+          let response = "";
+          
+          if (msg.message.imageMessage) {
+              response = await ai.getGeminiResponse(sender, body || "Explain this image", buffer, "image/jpeg");
+          } else if (msg.message.audioMessage) {
+              response = await ai.transcribeAudio(buffer, "audio/ogg");
+          } else if (msg.message.documentMessage) {
+              response = await ai.analyzeDocument(buffer, msg.message.documentMessage.mimetype, body || "Analyze this");
+          }
+
+          if (response) {
+              await sock.sendMessage(sender, { text: `🤖 *AI Analysis:*\n\n${response}` }, { quoted: msg });
+          }
+        } else if (body && !isCommand && !body.startsWith(".")) {
           const lowerBody = body.toLowerCase();
           const nlcKeywords = NLC_KEYWORDS;
 
