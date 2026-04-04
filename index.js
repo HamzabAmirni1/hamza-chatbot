@@ -436,11 +436,21 @@ async function startBot(folderName, phoneNumber) {
     }
   });
 
+  let lastCredsSync = 0;
   sock.ev.on("creds.update", async () => {
     await saveCreds();
     if (num) {
-      const creds = fs.readJsonSync(path.join(sessionDir, "creds.json"));
-      await db.updateWhatsAppSession(num, creds);
+      // Throttle Supabase sync to once every 5 minutes (300000 ms)
+      const now = Date.now();
+      if (now - lastCredsSync > 300000) {
+        lastCredsSync = now;
+        try {
+          const creds = fs.readJsonSync(path.join(sessionDir, "creds.json"));
+          await db.updateWhatsAppSession(num, creds);
+        } catch (e) {
+             // Ignore read errors
+        }
+      }
     }
   });
 
