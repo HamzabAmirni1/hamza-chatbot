@@ -9,7 +9,7 @@ function detectLanguage(text = '') {
     return arabicRegex.test(text) ? 'ar' : 'en';
 }
 
-const { getContext, addToHistory } = require('../../lib/ai');
+const { getContext, addToHistory, analyzeImage } = require('../../lib/ai');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const { buffer: passedBuffer, isVideo, caption: autoCaption } = helpers || {};
@@ -71,36 +71,45 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             stream_url: "/api/v2/homework/stream"
         };
 
-        const response = await axios.post('https://notegpt.io/api/v2/homework/stream', payload, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Origin': 'https://notegpt.io',
-                'Referer': 'https://notegpt.io/ai-answer-generator',
-                'User-Agent': 'Mozilla/5.0'
-            },
-            responseType: 'stream'
-        });
-
         let fullText = '';
-        await new Promise((resolve, reject) => {
-            response.data.on('data', (chunk) => {
-                const lines = chunk.toString().split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const jsonStr = line.slice(6);
-                            if (!jsonStr) continue;
-                            const data = JSON.parse(jsonStr);
-                            if (data.text) fullText += data.text;
-                            if (data.done) resolve();
-                        } catch (e) { }
-                    }
-                }
+        try {
+            const response = await axios.post('https://notegpt.io/api/v2/homework/stream', payload, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Origin': 'https://notegpt.io',
+                    'Referer': 'https://notegpt.io/ai-answer-generator',
+                    'User-Agent': 'Mozilla/5.0'
+                },
+                responseType: 'stream'
             });
-            response.data.on('end', () => resolve());
-            response.data.on('error', (e) => reject(e));
-            setTimeout(() => resolve(), 30000); // 30s max
-        });
+
+            await new Promise((resolve, reject) => {
+                response.data.on('data', (chunk) => {
+                    const lines = chunk.toString().split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const jsonStr = line.slice(6);
+                                if (!jsonStr) continue;
+                                const data = JSON.parse(jsonStr);
+                                if (data.text) fullText += data.text;
+                                if (data.done) resolve();
+                            } catch (e) { }
+                        }
+                    }
+                });
+                response.data.on('end', () => resolve());
+                response.data.on('error', (e) => reject(e));
+                setTimeout(() => resolve(), 30000); // 30s max
+            });
+        } catch (apiErr) {
+            console.error('[analyze] NoteGPT error:', apiErr.message);
+        }
+
+        if (!fullText || fullText.trim() === '') {
+            console.log('[analyze] NoteGPT failed, falling back to analyzeImage...');
+            fullText = await analyzeImage(imgBuffer, msg.message?.imageMessage?.mimetype || msg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || 'image/jpeg', userRequest);
+        }
 
         if (!fullText) throw new Error("No response received from AI.");
 
