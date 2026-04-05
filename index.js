@@ -77,23 +77,26 @@ if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: tr
 // Boot Sequence - Immediate
 console.log(chalk.green("🚀 Starting Hamza Chatbot..."));
 
-// Memory monitoring - Restart if RAM gets too high (Target: 512MB Server)
+// Memory monitoring & Stats Sync (Throttled for Supabase)
 setInterval(() => {
   const used = process.memoryUsage().rss / 1024 / 1024;
   if (used > 450) { // Adjusted for 500MB server
     console.log(chalk.red("⚠️ RAM too high (>450MB), restarting bot..."));
     process.exit(1);
   }
-  // Periodically push stats to Supabase
+  
+  // Throttle push to Supabase to every 2 minutes (120,000 ms)
+  // This drastically reduces Disk IO budget depletion
   db.updateStats({
     total_users: activeUsers.size || getTrafficStats().visits || 0,
     messages_handled: (processedMessages.size + (getTrafficStats().impressions || 0)),
     ram_usage: `${Math.round(used)}MB`,
     top_commands: Object.entries(commandUsage)
       .sort((a, b) => b[1] - a[1])
+      .slice(0, 10) // Limit top commands
       .map(([name, count]) => ({ name, count }))
-  });
-}, 30000);
+  }).catch(() => {});
+}, 120000); // 2 minutes interval
 
 // Filter console logs to suppress Baileys noise
 const originalConsoleError = console.error;
