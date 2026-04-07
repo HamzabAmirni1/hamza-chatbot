@@ -17,7 +17,11 @@ const headers = {
 
 async function getCookies() {
     try {
-        const response = await axios.get(base);
+        const response = await axios.get(base, { validateStatus: () => true, timeout: 10000 });
+        if (response.status === 429) {
+            console.warn("[Pinterest] Rate limited (429). Fetching without cookies...");
+            return null;
+        }
         const setHeaders = response.headers['set-cookie'];
         if (setHeaders) {
             const cookies = setHeaders.map(cookieString => cookieString.split(';')[0].trim()).join('; ');
@@ -25,7 +29,7 @@ async function getCookies() {
         }
         return null;
     } catch (error) {
-        console.error("خطأ أثناء جلب الكوكيز:", error);
+        console.error("خطأ أثناء جلب الكوكيز:", error.message);
         return null;
     }
 }
