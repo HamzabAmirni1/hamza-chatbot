@@ -42,79 +42,18 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         let userRequest = args.join(" ").trim() || autoCaption || "";
 
-        const systemInstruction = `أنت مساعد ذكي متعدد اللغات (دارجة، فرنسية، إنجليزية). أجب مباشرة على سؤال المستخدم حول الصورة بأسلوب دردشة طبيعي وودي. ممنوع العناوين مثل ### Question أو Answer.`;
-
         if (!passedBuffer) {
-            await sock.sendMessage(chatId, { text: "⏳ *Analyzing image...*" }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "⏳ *جاري تحليل الصورة...*" }, { quoted: msg });
         }
 
-        // --- 1. Upload for AI ---
-        const { uploadToCatbox, uploadToTmpfiles } = require('../../lib/media');
-        let imageUrl = await uploadToCatbox(imgBuffer);
-        if (!imageUrl || !imageUrl.startsWith('http')) {
-            imageUrl = await uploadToTmpfiles(imgBuffer);
-        }
-        if (!imageUrl || !imageUrl.startsWith('http')) throw new Error("Image upload failed.");
+        const mime = msg.message?.imageMessage?.mimetype || msg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || 'image/jpeg';
+        
+        let finalReply = await analyzeImage(imgBuffer, mime, userRequest);
 
-        const detectedLang = detectLanguage(userRequest);
-        const conversationId = crypto.randomUUID();
-
-        // --- 2. Call NoteGPT (Homework API) ---
-        const payload = {
-            message: `${systemInstruction}\n\nUser Question: ${userRequest || "علق على الصورة بذكاء بالدارجة"}`,
-            language: detectedLang,
-            model: "gemini-3-flash-preview", // Exactly like requested
-            tone: "default",
-            length: "moderate",
-            conversation_id: conversationId,
-            image_urls: [imageUrl],
-            stream_url: "/api/v2/homework/stream"
-        };
-
-        let fullText = '';
-        try {
-            const response = await axios.post('https://notegpt.io/api/v2/homework/stream', payload, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Origin': 'https://notegpt.io',
-                    'Referer': 'https://notegpt.io/ai-answer-generator',
-                    'User-Agent': 'Mozilla/5.0'
-                },
-                responseType: 'stream'
-            });
-
-            await new Promise((resolve, reject) => {
-                response.data.on('data', (chunk) => {
-                    const lines = chunk.toString().split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const jsonStr = line.slice(6);
-                                if (!jsonStr) continue;
-                                const data = JSON.parse(jsonStr);
-                                if (data.text) fullText += data.text;
-                                if (data.done) resolve();
-                            } catch (e) { }
-                        }
-                    }
-                });
-                response.data.on('end', () => resolve());
-                response.data.on('error', (e) => reject(e));
-                setTimeout(() => resolve(), 30000); // 30s max
-            });
-        } catch (apiErr) {
-            console.error('[analyze] NoteGPT error:', apiErr.message);
-        }
-
-        if (!fullText || fullText.trim() === '') {
-            console.log('[analyze] NoteGPT failed, falling back to analyzeImage...');
-            fullText = await analyzeImage(imgBuffer, msg.message?.imageMessage?.mimetype || msg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || 'image/jpeg', userRequest);
-        }
-
-        if (!fullText) throw new Error("No response received from AI.");
+        if (!finalReply) throw new Error("No response received from AI.");
 
         // Cleanup: remove headers if they appear
-        const finalReply = fullText
+        finalReply = finalReply
             .replace(/### Question \d+/gi, '')
             .replace(/### Answer/gi, '')
             .replace(/### Solution Steps/gi, '')
