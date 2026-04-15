@@ -583,13 +583,17 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        const cmdMatch = body && body.match(/^[\.]?([a-zA-Z0-9\u0600-\u06FF]+)(\s+.*|$)/i);
+        const isPrefixed = body && body.startsWith(".");
+        const cleanBody = isPrefixed ? body.slice(1).trim() : body.trim();
+        const cmdMatch = cleanBody.match(/^([a-zA-Z0-9\u0600-\u06FF]+)(\s+.*|$)/i);
+
         if (cmdMatch) {
           const command = cmdMatch[1].toLowerCase();
           const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
           const allCmds = ALL_COMMANDS;
 
-          if (allCmds[command]) {
+          // Only trigger ALL_COMMANDS if the prefix is present
+          if (isPrefixed && allCmds[command]) {
             try {
               const cmdFile = require(`./commands/${allCmds[command]}`);
               await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
