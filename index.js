@@ -726,18 +726,44 @@ async function startBot(folderName, phoneNumber) {
 
         if (reply) {
           await addToHistory(sender, "user", body);
-          await addToHistory(sender, "assistant", reply);
-          
-          // --- HUMAN-LIKE INTERACTION (Inspired by WPPConnect) ---
-          const isAudio = reply.length < 50 && (reply.includes("تفضل") || reply.includes("أوديو"));
-          await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender);
-          
-          const words = reply.split(" ").length;
-          const typingDelay = Math.min(Math.max(words * 200, 1500), 5000); // 1.5s to 5s delay
-          await new Promise(res => setTimeout(res, typingDelay));
+          let botReplyText = reply;
+          let extractedCommand = null;
 
-          await sock.sendMessage(sender, { text: reply }, { quoted: msg });
-          await sock.sendPresenceUpdate("paused", sender);
+          const cmdMatchAI = reply.match(/\[COMMAND:\s*(\.[a-zA-Z0-9\u0600-\u06FF\-]+.*?)]/i);
+          if (cmdMatchAI) {
+            extractedCommand = cmdMatchAI[1].trim();
+            botReplyText = reply.replace(cmdMatchAI[0], '').trim();
+          }
+
+          if (botReplyText) {
+             await addToHistory(sender, "assistant", botReplyText);
+             const isAudio = botReplyText.length < 50 && (botReplyText.includes("تفضل") || botReplyText.includes("أوديو"));
+             await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender);
+             const words = botReplyText.split(" ").length;
+             const typingDelay = Math.min(Math.max(words * 200, 1500), 5000); 
+             await new Promise(res => setTimeout(res, typingDelay));
+             await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+             await sock.sendPresenceUpdate("paused", sender);
+          } else {
+             await addToHistory(sender, "assistant", "[تم تنفيذ الأداة بنجاح]");
+          }
+
+          if (extractedCommand) {
+             const cmdMatch = extractedCommand.match(/^[\.]?([a-zA-Z0-9\u0600-\u06FF\-]+)(\s+.*|$)/i);
+             if (cmdMatch) {
+                const command = cmdMatch[1].toLowerCase();
+                const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
+                const allCmds = ALL_COMMANDS;
+                if (allCmds[command]) {
+                    try {
+                        const cmdFile = require(`./commands/${allCmds[command]}`);
+                        await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
+                        commandUsage[command] = (commandUsage[command] || 0) + 1;
+                        activeUsers.add(sender);
+                    } catch (err) { console.error("AI Command Execution Error:", err); }
+                }
+             }
+          }
         }
       }
     } catch (e) { }
