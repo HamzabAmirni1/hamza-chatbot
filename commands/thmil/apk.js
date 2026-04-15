@@ -42,9 +42,9 @@ async function apkCommand(sock, chatId, msg, args, commands, userLang) {
             console.log(`[APK] ✅ Resolved: ${app.name} (${app.sizeMB} MB)`);
 
             const sizeMB = parseFloat(app.sizeMB || 0);
-            if (sizeMB > 350) {
+            if (sizeMB > 90) {
                 console.log(`[APK] ⚠️ File too large: ${sizeMB} MB`);
-                return await sock.sendMessage(chatId, { text: `⚠️ التطبيق كبير جداً (${sizeMB} MB). الحد الأقصى هو 350MB.` }, { quoted: msg });
+                return await sock.sendMessage(chatId, { text: `⚠️ التطبيق كبير جداً (${sizeMB} MB). الحد الأقصى هو 90MB.` }, { quoted: msg });
             }
 
             const L_SENDING = t('common.wait', {}, userLang) || '⏳ جاري إرسال التطبيق...';
@@ -59,13 +59,33 @@ async function apkCommand(sock, chatId, msg, args, commands, userLang) {
                 botName: settings.botName
             }, userLang);
             const finalCaption = caption !== 'apk.caption' ? caption : `📦 *${app.name}*\n\n📱 *الحزمة:* ${app.package || query}\n📅 *التحديث:* ${app.updated || 'النسخة الأخيرة'}\n⚖️ *الحجم:* ${app.sizeMB || 'N/A'} MB\n\n✅ *By: ${settings.botName}*`;
+            
+            const fs = require('fs-extra');
+            const path = require('path');
+            const axios = require('axios');
+            const tmpPath = path.join(__dirname, '../../tmp', `apk_${Date.now()}.apk`);
+            fs.ensureDirSync(path.join(__dirname, '../../tmp'));
+            
+            const writer = fs.createWriteStream(tmpPath);
+            const response = await axios({
+                url: app.downloadUrl,
+                method: 'GET',
+                responseType: 'stream',
+                timeout: 120000
+            });
+            response.data.pipe(writer);
+            await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
 
             await sock.sendMessage(chatId, {
-                document: { url: app.downloadUrl },
+                document: { url: tmpPath },
                 fileName: `${app.name || 'App'}.apk`,
                 mimetype: 'application/vnd.android.package-archive',
                 caption: finalCaption
             }, { quoted: msg });
+            if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
 
             console.log(`[APK] ✨ Successfully sent: ${app.name}`);
             if (!isTelegram) incrementDownload(senderId);

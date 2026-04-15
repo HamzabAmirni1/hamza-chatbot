@@ -80,8 +80,8 @@ console.log(chalk.green("🚀 Starting Hamza Chatbot..."));
 // Memory monitoring & Stats Sync (Throttled for Supabase)
 setInterval(() => {
   const used = process.memoryUsage().rss / 1024 / 1024;
-  if (used > 450) { // Adjusted for 500MB server
-    console.log(chalk.red("⚠️ RAM too high (>450MB), restarting bot..."));
+  if (used > 350) { // Adjusted for 500MB server
+    console.log(chalk.red("⚠️ RAM too high (>350MB), restarting bot cleanly..."));
     process.exit(1);
   }
   
@@ -287,26 +287,62 @@ app.listen(port, "0.0.0.0", () => {
 });
 
 async function sendYTVideo(sock, chatId, videoUrl, title, quoted) {
+  let tmpPath;
   try {
+    tmpPath = path.join(__dirname, 'tmp', `yt_${Date.now()}.mp4`);
+    fs.ensureDirSync(path.join(__dirname, 'tmp'));
+    const writer = fs.createWriteStream(tmpPath);
+    const response = await axios({
+      url: videoUrl,
+      method: 'GET',
+      responseType: 'stream',
+      timeout: 120000
+    });
+    response.data.pipe(writer);
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
     await sock.sendMessage(chatId, {
-      video: { url: videoUrl },
+      video: { url: tmpPath },
       caption: `🎬 *${title}*\n\n✅ *Hamza Amirni YouTube Downloader*\n⚔️ ${config.botName}`,
       mimetype: 'video/mp4'
     }, { quoted });
   } catch (e) {
     console.error("sendYTVideo Error:", e.message);
+  } finally {
+    if (tmpPath && fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
   }
 }
 
 async function sendFBVideo(sock, chatId, videoUrl, apiName, quoted) {
+  let tmpPath;
   try {
+    tmpPath = path.join(__dirname, 'tmp', `fb_${Date.now()}.mp4`);
+    fs.ensureDirSync(path.join(__dirname, 'tmp'));
+    const writer = fs.createWriteStream(tmpPath);
+    const response = await axios({
+      url: videoUrl,
+      method: 'GET',
+      responseType: 'stream',
+      timeout: 120000
+    });
+    response.data.pipe(writer);
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
     await sock.sendMessage(chatId, {
-      video: { url: videoUrl },
+      video: { url: tmpPath },
       caption: `🎬 *Facebook Video*\n\nSource: ${apiName}\n✅ *Hamza Amirni FB Downloader*\n⚔️ ${config.botName}`,
       mimetype: 'video/mp4'
     }, { quoted });
   } catch (e) {
     console.error("sendFBVideo Error:", e.message);
+  } finally {
+    if (tmpPath && fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
   }
 }
 

@@ -9,7 +9,7 @@ while true; do
     echo "▶️ Bot starting at $(date)"
     
     # Run the bot
-    node index.js
+    node --max-old-space-size=256 index.js
     
     # If bot crashes, wait 5 seconds then restart
     EXIT_CODE=$?
