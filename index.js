@@ -39,8 +39,8 @@ const {
   getOpenRouterResponse,
   getHFVision,
   getObitoAnalyze,
-  getBlackboxResponse,
   getStableAIResponse,
+  detectLanguage
 } = require('./lib/ai');
 const {
   readAntiCallState,
@@ -710,8 +710,7 @@ async function startBot(folderName, phoneNumber) {
             if (regex.test(lowerBody)) {
               try {
                 let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
-                const cmdFile = require(`./commands/${nlcPath}`);
-                await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
+                await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, detectLanguage(body));
                 commandUsage[key.split("|")[0]] = (commandUsage[key.split("|")[0]] || 0) + 1;
                 activeUsers.add(sender);
                 nlcFound = true;
@@ -740,7 +739,7 @@ async function startBot(folderName, phoneNumber) {
           if (isRecentImg && body.length > 2 && !body.startsWith(".")) {
             try {
               const analyze = require('./commands/ai/analyze');
-              await analyze(sock, sender, msg, body.split(" "), { buffer: context.lastImage.buffer, mime: context.lastImage.mime, caption: body }, "ar");
+              await analyze(sock, sender, msg, body.split(" "), { buffer: context.lastImage.buffer, mime: context.lastImage.mime, caption: body }, detectLanguage(body));
               continue; // analyze handles the reply
             } catch (e) {
               console.error("NL Vision Error:", e.message);
