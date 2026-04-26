@@ -674,7 +674,7 @@ async function startBot(folderName, phoneNumber) {
             let response = "";
 
             if (msg.message.imageMessage) {
-              const userQ = body || "اشرح لي هذه الصورة بالتفصيل.";
+              const userQ = body || "Please analyze this image. If it contains text or a task, solve it in its original language.";
               response = await ai.analyzeImage(buffer, msg.message.imageMessage.mimetype || "image/jpeg", userQ);
               // Save context so follow-up questions work
               try { await addToHistory(sender, "user", userQ, { buffer, mime: 'image/jpeg' }); } catch (_) {}
