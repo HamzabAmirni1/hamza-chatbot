@@ -69,6 +69,7 @@ const { db } = require("./lib/supabase");
 // Store processed message IDs to prevent duplicates
 const processedMessages = new Set();
 const commandUsage = {};
+const commandErrors = {};
 const activeUsers = new Set();
 const botUsersMap = {}; // { 'phoneNumber': Set(['userJid']) }
 
@@ -637,12 +638,19 @@ async function startBot(folderName, phoneNumber) {
           if (isPrefixed && allCmds[command]) {
             try {
               const cmdFile = require(`./commands/${allCmds[command]}`);
-              await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
+              await cmdFile(sock, sender, msg, args, { 
+                getAutoGPTResponse, addToHistory, delayPromise, getUptime, 
+                command, proto, generateWAMessageContent, generateWAMessageFromContent,
+                commandUsage, commandErrors 
+              }, "ar");
               isCommand = true;
               commandUsage[command] = (commandUsage[command] || 0) + 1;
               activeUsers.add(sender);
               continue;
-            } catch (err) { }
+            } catch (err) { 
+              console.error(chalk.red(`[Command Error] .${command}:`), err.message);
+              commandErrors[command] = (commandErrors[command] || 0) + 1;
+            }
           }
         }
 
@@ -711,12 +719,20 @@ async function startBot(folderName, phoneNumber) {
               try {
                 const cmdFile = require(`./commands/${nlcPath}`);
                 let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
-                await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, detectLanguage(body));
-                commandUsage[key.split("|")[0]] = (commandUsage[key.split("|")[0]] || 0) + 1;
+                const cmdName = key.split("|")[0];
+                await cmdFile(sock, sender, msg, rest, { 
+                  getAutoGPTResponse, addToHistory, delayPromise, getUptime, 
+                  command: cmdName, proto, generateWAMessageContent, generateWAMessageFromContent,
+                  commandUsage, commandErrors
+                }, detectLanguage(body));
+                commandUsage[cmdName] = (commandUsage[cmdName] || 0) + 1;
                 activeUsers.add(sender);
                 nlcFound = true;
                 break;
-              } catch (e) { }
+              } catch (e) { 
+                console.error(chalk.red(`[NLC Error] ${key}:`), e.message);
+                commandErrors[key.split("|")[0]] = (commandErrors[key.split("|")[0]] || 0) + 1;
+              }
             }
           }
           if (nlcFound) { isCommand = true; continue; }
