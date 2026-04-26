@@ -383,24 +383,45 @@ async function startBot(folderName, phoneNumber) {
   const usePairingCode = !!num;
 
   const sock = makeWASocket({
-    version,
+    version: [2, 3000, 1033105955], // Stable hardcoded version from silana-lite
     qrTimeout: undefined,
-    browser: usePairingCode ? ["Ubuntu", "Chrome", "20.0.04"] : ["Hamza Bot", "Safari", "3.0"],
+    browser: usePairingCode ? ['Linux', 'Chrome', ''] : ["Hamza Bot", "Safari", "3.0"],
     logger: pino({ level: "silent" }),
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
     },
+    patchMessageBeforeSending: (message) => {
+        const requiresPatch = !!(message.interactiveResponse || message.buttonsMessage || message.templateMessage || message.listMessage);
+        if (requiresPatch) {
+            message = {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: {
+                            deviceListMetadataVersion: 2,
+                            deviceListMetadata: {}
+                        },
+                        ...message
+                    }
+                }
+            };
+        }
+        return message;
+    },
     getMessage: async (key) => ({ conversation: config.botName }),
-    defaultQueryTimeoutMs: 120000,
-    connectTimeoutMs: 120000,
+    defaultQueryTimeoutMs: 0,
+    connectTimeoutMs: 60000,
     keepAliveIntervalMs: 10000,
+    emitOwnEvents: true,
+    fireInitQueries: true,
+    generateHighQualityLinkPreview: true,
     shouldSyncHistory: false,
     syncFullHistory: false,
     markOnlineOnConnect: true,
   });
 
   if (!sock.authState.creds.registered && num) {
+    // Reduced delay to 2.5s. Baileys often closes the connection if it waits too long
     setTimeout(async () => {
       try {
         let code = await sock.requestPairingCode(num);
@@ -412,7 +433,7 @@ async function startBot(folderName, phoneNumber) {
       } catch (e) {
         console.log(chalk.red(`[${folderName}] Failed to get pairing code: ${e.message}`));
       }
-    }, 5000 + (Math.random() * 5000));
+    }, 2500);
   }
 
   sock.ev.on("connection.update", async (update) => {

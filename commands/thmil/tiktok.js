@@ -1,43 +1,41 @@
 const axios = require('axios');
-const { t } = require('../../lib/language');
 const settings = require('../../config');
 
 module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     try {
         const url = args[0];
-        if (!url) return sock.sendMessage(chatId, { text: "المرجو وضع رابط تيك توك." }, { quoted: msg });
+        if (!url || !/(tiktok.com)/.test(url)) return sock.sendMessage(chatId, { text: "المرجو وضع رابط تيكتوك صحيح." }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: '⌛', key: msg.key } });
 
-        const apis = [
-            `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(url)}`,
-            `https://api.vreden.web.id/api/tiktok?url=${encodeURIComponent(url)}`,
-            `https://api.yupra.my.id/api/downloader/tiktok?url=${encodeURIComponent(url)}`
-        ];
+        const encodedParams = new URLSearchParams();
+        encodedParams.set("url", url);
+        encodedParams.set("hd", "1");
 
-        let downloadUrl = null;
-        for (const api of apis) {
-            try {
-                const res = await axios.get(api);
-                const data = res.data;
-                if (data.status && (data.data?.video || data.result?.video || data.data?.no_watermark || data.result?.no_watermark)) {
-                    downloadUrl = data.data?.video || data.result?.video || data.data?.no_watermark || data.result?.no_watermark;
-                    break;
-                }
-            } catch (e) { }
-        }
+        const response = await axios({
+            method: "POST",
+            url: "https://tikwm.com/api/",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                Cookie: "current_language=en",
+                "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
+            },
+            data: encodedParams,
+        });
 
-        if (!downloadUrl) throw new Error("Failed to download TikTok video.");
+        let res = response.data.data;
+        
+        if (!res || !res.play) throw new Error("لم يتم العثور على الفيديو أو الرابط غير صالح.");
 
         await sock.sendMessage(chatId, {
-            video: { url: downloadUrl },
-            caption: `✅ *TikTok Download*\n\n⚔️ ${settings.botName}`
+            video: { url: res.play },
+            caption: `✅ *TikTok Download*\n\n${res.title ? `📌 ${res.title}\n` : ''}⚔️ ${settings.botName}`
         }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
 
     } catch (e) {
-        await sock.sendMessage(chatId, { text: `❌ ${e.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ فشل التحميل: ${e.message}` }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
     }
 };
