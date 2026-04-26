@@ -30,15 +30,20 @@ _Note: Emails expire when the bot restarts or after inactivity._`;
         }
 
         try {
-            const { data } = await axios.get("https://www.1secmail.com/api/v1/?action=genRandomMailbox&count=1");
+            const { data } = await axios.get("https://www.1secmail.com/api/v1/?action=genRandomMailbox&count=1", {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
             if (data && data[0]) {
                 const email = data[0];
                 userEmails.set(sender, email);
                 return await sock.sendMessage(chatId, { text: `✅ *Temp Mail Created!*\n\n📧 Email: \`${email}\`\n\nUse *.tempmail list* to check for messages.` }, { quoted: msg });
             }
-            throw new Error("Failed to generate email.");
+            throw new Error("Empty response from 1secmail");
         } catch (e) {
-            return await sock.sendMessage(chatId, { text: "❌ Failed to generate temporary email. Try again later." }, { quoted: msg });
+            console.error(chalk.red(`[TempMail Error]: ${e.message}`));
+            return await sock.sendMessage(chatId, { text: "❌ Failed to generate temporary email. 1secmail API might be down. Try again in a few minutes." }, { quoted: msg });
         }
     }
 
@@ -63,7 +68,11 @@ _Note: Emails expire when the bot restarts or after inactivity._`;
 
         try {
             const [login, domain] = email.split("@");
-            const { data } = await axios.get(`https://www.1secmail.com/api/v1/?action=getMessages&login=${login}&domain=${domain}`);
+            const { data } = await axios.get(`https://www.1secmail.com/api/v1/?action=getMessages&login=${login}&domain=${domain}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
             
             if (!data || data.length === 0) {
                 return await sock.sendMessage(chatId, { text: "📭 No messages found yet. Try again in a few seconds." }, { quoted: msg });
@@ -76,6 +85,7 @@ _Note: Emails expire when the bot restarts or after inactivity._`;
             text += `\nUse *.tempmail read <ID>* to read a message.`;
             return await sock.sendMessage(chatId, { text }, { quoted: msg });
         } catch (e) {
+            console.error(chalk.red(`[TempMail List Error]: ${e.message}`));
             return await sock.sendMessage(chatId, { text: "❌ Failed to fetch messages." }, { quoted: msg });
         }
     }
@@ -90,7 +100,11 @@ _Note: Emails expire when the bot restarts or after inactivity._`;
 
         try {
             const [login, domain] = email.split("@");
-            const { data } = await axios.get(`https://www.1secmail.com/api/v1/?action=readMessage&login=${login}&domain=${domain}&id=${msgId}`);
+            const { data } = await axios.get(`https://www.1secmail.com/api/v1/?action=readMessage&login=${login}&domain=${domain}&id=${msgId}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
             
             if (!data || !data.body) return await sock.sendMessage(chatId, { text: "❌ Message not found or expired." }, { quoted: msg });
 
@@ -100,6 +114,7 @@ _Note: Emails expire when the bot restarts or after inactivity._`;
             const text = `📧 *Message Details*\n\n🆔 ID: ${data.id}\n👤 From: ${data.from}\n📅 Date: ${data.date}\n📝 Subject: ${data.subject}\n\n💬 *Message:*\n${cleanBody}`;
             return await sock.sendMessage(chatId, { text }, { quoted: msg });
         } catch (e) {
+            console.error(chalk.red(`[TempMail Read Error]: ${e.message}`));
             return await sock.sendMessage(chatId, { text: "❌ Failed to read message." }, { quoted: msg });
         }
     }
