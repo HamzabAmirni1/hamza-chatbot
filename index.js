@@ -630,75 +630,87 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        // Natural Language Commands (Detect keywords without dot)
-        // --- MULTIMODAL AI HANDLING ---
+        // --- PRIORITY 1: IMAGE / AUDIO / DOCUMENT (always takes full control) ---
         const ai = require('./lib/ai');
-        const isMedia = msg.message?.imageMessage || msg.message?.audioMessage || msg.message?.documentMessage;
-        const isMentioned = body.includes(`@${sock.user.id.split(':')[0]}`) || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        
-        if (isMedia) {
-          const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
-            msg.message.imageMessage || msg.message.audioMessage || msg.message.documentMessage,
-            msg.message.imageMessage ? 'image' : (msg.message.audioMessage ? 'audio' : 'document')
-          );
-          let buffer = Buffer.from([]);
-          for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-          
-          await sock.sendPresenceUpdate('composing', sender);
-          let response = "";
-          
-          if (msg.message.imageMessage) {
-              response = await ai.analyzeImage(buffer, "image/jpeg", body || "اشرح لي هذه الصورة بالتفصيل.");
-          } else if (msg.message.audioMessage) {
-              response = await ai.transcribeAudio(buffer, "audio/ogg");
-          } else if (msg.message.documentMessage) {
-              response = await ai.analyzeDocument(buffer, msg.message.documentMessage.mimetype, body || "Analyze this");
-          }
+        const isRawImage = type === "imageMessage";
+        const isRawVideo = type === "videoMessage";
+        const isMediaMsg = msg.message?.imageMessage || msg.message?.audioMessage || msg.message?.documentMessage;
 
-          if (response) {
-              await sock.sendMessage(sender, { text: `🤖 *AI Analysis:*\n\n${response}` }, { quoted: msg });
+        if (isMediaMsg) {
+          // Image/audio/document received → analyze ONLY, skip all NLC/command keyword matching
+          try {
+            const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
+              msg.message.imageMessage || msg.message.audioMessage || msg.message.documentMessage,
+              msg.message.imageMessage ? 'image' : (msg.message.audioMessage ? 'audio' : 'document')
+            );
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+            await sock.sendPresenceUpdate('composing', sender);
+            let response = "";
+
+            if (msg.message.imageMessage) {
+              const userQ = body || "اشرح لي هذه الصورة بالتفصيل.";
+              response = await ai.analyzeImage(buffer, msg.message.imageMessage.mimetype || "image/jpeg", userQ);
+              // Save context so follow-up questions work
+              try { await addToHistory(sender, "user", userQ, { buffer, mime: 'image/jpeg' }); } catch (_) {}
+            } else if (msg.message.audioMessage) {
+              response = await ai.transcribeAudio(buffer, "audio/ogg");
+            } else if (msg.message.documentMessage) {
+              response = await ai.analyzeDocument(buffer, msg.message.documentMessage.mimetype, body || "Analyze this");
+            }
+
+            if (response) {
+              try { await addToHistory(sender, "assistant", response); } catch (_) {}
+              await sock.sendMessage(sender, { text: `🤖 *حمزة اعمرني AI:*\n\n${response}` }, { quoted: msg });
+            }
+          } catch (mediaErr) {
+            const isConnClosed = mediaErr?.output?.statusCode === 428 || mediaErr?.message?.includes('Connection Closed');
+            if (!isConnClosed) console.error('[Media Handler Error]:', mediaErr.message);
           }
-        } else if (body && !isCommand && !body.startsWith(".")) {
+          continue; // ← HARD STOP: never fall through to NLC or text AI
+        }
+
+        if (isRawImage || isRawVideo) {
+          // Fallback: imageMessage that didn't pass the isMediaMsg check (edge case)
+          try {
+            const analyze = require('./commands/ai/analyze');
+            const buffer = isRawImage ? await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) }) : null;
+            const mime = isRawImage ? msg.message.imageMessage.mimetype : msg.message.videoMessage.mimetype;
+            const caption = isRawImage ? msg.message.imageMessage.caption : msg.message.videoMessage.caption;
+            await analyze(sock, sender, msg, caption ? caption.split(" ") : [], { type, isVideo: isRawVideo, buffer, mime, caption }, "ar");
+          } catch (err) {}
+          continue;
+        }
+
+        // --- PRIORITY 2: NLC KEYWORDS (text only, no image attached) ---
+        if (body && !isCommand && !body.startsWith(".")) {
           const lowerBody = body.toLowerCase();
           const nlcKeywords = NLC_KEYWORDS;
 
           let nlcFound = false;
-          for (const [key, path] of Object.entries(nlcKeywords)) {
-            // Use word boundary for English and simple check for Arabic (starting with keyword)
+          for (const [key, nlcPath] of Object.entries(nlcKeywords)) {
             const regex = new RegExp(`(^|\\s)(${key})(\\s|$)`, "i");
             if (regex.test(lowerBody)) {
               try {
                 let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
-                // For Quran, if they mentions a surah name but not the word "quran", we should still try.
-                // But for now, let's stick to these primary triggers.
-                const cmdFile = require(`./commands/${path}`);
+                const cmdFile = require(`./commands/${nlcPath}`);
                 await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
-              commandUsage[key.split("|")[0]] = (commandUsage[key.split("|")[0]] || 0) + 1;
-              activeUsers.add(sender);
-              nlcFound = true;
-              break;
-            } catch (e) { }
+                commandUsage[key.split("|")[0]] = (commandUsage[key.split("|")[0]] || 0) + 1;
+                activeUsers.add(sender);
+                nlcFound = true;
+                break;
+              } catch (e) { }
+            }
           }
-        }
-        if (nlcFound) {
-          isCommand = true;
-          continue;
-        }
+          if (nlcFound) { isCommand = true; continue; }
         }
 
-        // If it's a command, don't let AI handle it
+        // If it's a dot-command already handled, stop here
         if (isCommand || (body && body.startsWith("."))) continue;
 
-        if (type === "imageMessage" || type === "videoMessage") {
-          try {
-            const analyze = require('./commands/ai/analyze');
-            const buffer = type === "imageMessage" ? await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) }) : null;
-            const mime = type === "imageMessage" ? msg.message.imageMessage.mimetype : msg.message.videoMessage.mimetype;
-            const caption = type === "imageMessage" ? msg.message.imageMessage.caption : msg.message.videoMessage.caption;
-            await analyze(sock, sender, msg, caption ? caption.split(" ") : [], { type, isVideo: type === "videoMessage", buffer, mime, caption }, "ar");
-            continue;
-          } catch (err) { }
-        } else {
+        // --- PRIORITY 3: TEXT AI (pure text messages only) ---
+        {
           let quotedText = "";
           if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
             const quotedMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage;
