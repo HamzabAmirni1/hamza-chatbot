@@ -709,6 +709,7 @@ async function startBot(folderName, phoneNumber) {
             const regex = new RegExp(`(^|\\s)(${key})(\\s|$)`, "i");
             if (regex.test(lowerBody)) {
               try {
+                const cmdFile = require(`./commands/${nlcPath}`);
                 let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
                 await cmdFile(sock, sender, msg, rest, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command: key.split("|")[0], proto, generateWAMessageContent, generateWAMessageFromContent }, detectLanguage(body));
                 commandUsage[key.split("|")[0]] = (commandUsage[key.split("|")[0]] || 0) + 1;
