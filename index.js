@@ -383,9 +383,9 @@ async function startBot(folderName, phoneNumber) {
   const usePairingCode = !!num;
 
   const sock = makeWASocket({
-    version: [2, 3000, 1033105955], // Stable hardcoded version from silana-lite
+    version,
     qrTimeout: undefined,
-    browser: usePairingCode ? ['Linux', 'Chrome', ''] : ["Hamza Bot", "Safari", "3.0"],
+    browser: usePairingCode ? ['Ubuntu', 'Chrome', '20.0.04'] : ["Hamza Bot", "Safari", "3.0"],
     logger: pino({ level: "silent" }),
     auth: {
       creds: state.creds,
@@ -498,7 +498,11 @@ async function startBot(folderName, phoneNumber) {
 
   let lastCredsSync = 0;
   sock.ev.on("creds.update", async () => {
-    await saveCreds();
+    try {
+      await saveCreds();
+    } catch (err) {
+      // Ignore ENOENT if folder was deleted
+    }
     if (num) {
       // Throttle Supabase sync to once every 5 minutes (300000 ms)
       const now = Date.now();
