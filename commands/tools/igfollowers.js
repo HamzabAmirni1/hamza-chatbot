@@ -21,21 +21,27 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     await sock.sendMessage(chatId, { text: `🚀 جاري محاولة إرسال متابعين إلى \`@${cleanUser}\`...\nيرجى الانتظار، العملية قد تستغرق دقيقة.` }, { quoted: msg });
 
     const apis = [
-        `https://api.vreden.my.id/api/social/ig/followers?username=${cleanUser}`,
+        `https://api.vreden.my.id/api/social/ig/followers?username=${cleanUser}&apikey=vreden`,
         `https://api.siputzx.my.id/api/social/ig/followers?username=${cleanUser}`,
-        `https://api.ryzendesu.vip/api/ig/followers?username=${cleanUser}`,
+        `https://api.ryzendesu.vip/api/social/ig/followers?username=${cleanUser}`,
         `https://api.shizuhub.xyz/api/tools/ig-followers?username=${cleanUser}`,
-        `https://skizo.tech/api/instagram/followers?username=${cleanUser}`,
-        `https://api.betabotz.org/api/tools/ig-followers?username=${cleanUser}`
+        `https://skizo.tech/api/instagram/followers?username=${cleanUser}&apikey=skizo`,
+        `https://api.betabotz.org/api/tools/ig-followers?username=${cleanUser}&apikey=beta`
     ];
 
     let success = false;
     let responseMsg = "";
 
-    for (const api of apis) {
         try {
             console.log(chalk.cyan(`[IG-Boost] Trying API: ${api}`));
-            const { data } = await axios.get(api, { timeout: 20000 });
+            const { data } = await axios.get(api, { 
+                timeout: 20000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Origin': 'https://vreden.my.id',
+                    'Referer': 'https://vreden.my.id/'
+                }
+            });
             if (data.status === true || data.success === true || data.status === 200 || (typeof data.result === 'string' && data.result.toLowerCase().includes("success"))) {
                 success = true;
                 responseMsg = data.result || data.message || data.data?.message || "تم إرسال المتابعين بنجاح (كمية تجريبية).";
