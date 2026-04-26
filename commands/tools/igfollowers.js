@@ -21,9 +21,12 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     await sock.sendMessage(chatId, { text: `🚀 جاري محاولة إرسال متابعين إلى \`@${cleanUser}\`...\nيرجى الانتظار، العملية قد تستغرق دقيقة.` }, { quoted: msg });
 
     const apis = [
-        `https://api.vreden.my.id/api/ig/followers?username=${cleanUser}`,
+        `https://api.vreden.my.id/api/social/ig/followers?username=${cleanUser}`,
         `https://api.siputzx.my.id/api/social/ig/followers?username=${cleanUser}`,
-        `https://api.ryzendesu.vip/api/ig/followers?username=${cleanUser}`
+        `https://api.ryzendesu.vip/api/ig/followers?username=${cleanUser}`,
+        `https://api.shizuhub.xyz/api/tools/ig-followers?username=${cleanUser}`,
+        `https://skizo.tech/api/instagram/followers?username=${cleanUser}`,
+        `https://api.betabotz.org/api/tools/ig-followers?username=${cleanUser}`
     ];
 
     let success = false;
@@ -33,9 +36,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         try {
             console.log(chalk.cyan(`[IG-Boost] Trying API: ${api}`));
             const { data } = await axios.get(api, { timeout: 20000 });
-            if (data.status === true || data.success === true || data.result?.includes("Success")) {
+            if (data.status === true || data.success === true || data.status === 200 || (typeof data.result === 'string' && data.result.toLowerCase().includes("success"))) {
                 success = true;
-                responseMsg = data.result || data.message || "تم إرسال المتابعين بنجاح (كمية تجريبية).";
+                responseMsg = data.result || data.message || data.data?.message || "تم إرسال المتابعين بنجاح (كمية تجريبية).";
                 break;
             }
         } catch (e) {
