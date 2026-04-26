@@ -59,6 +59,7 @@ const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
 const { startTrafficInterval, getStats: getTrafficStats } = require("./lib/trafficBooster");
 const { ALL_COMMANDS, NLC_KEYWORDS } = require('./lib/commandMap');
+const { checkSubscriptionGate, getSubscriptionMessage, getWelcomeMessage } = require('./lib/subscription');
 
 const bodyParser = require("body-parser");
 const { Boom } = require("@hapi/boom");
@@ -560,8 +561,23 @@ async function startBot(folderName, phoneNumber) {
 
         const sender = msg.key.remoteJid;
         logUser(sender);
-        
-        // Track unique users per bot
+
+        // ===== SUBSCRIPTION GATE =====
+        // Skip gate for owner numbers
+        const senderNum = sender.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
+        const isOwner = config.ownerNumber.some(n => n.replace(/[^0-9]/g, '') === senderNum);
+        if (!isOwner) {
+          const gateResult = checkSubscriptionGate(sender, 'wa');
+          if (gateResult === 'blocked') {
+            await sock.sendMessage(sender, { text: getSubscriptionMessage('wa') }, { quoted: msg });
+            continue;
+          } else if (gateResult === 'pending') {
+            await sock.sendMessage(sender, { text: getWelcomeMessage() }, { quoted: msg });
+            // fall through — process their first real message normally
+          }
+          // gateResult === 'allow' → continue normally
+        }
+        // ===== END SUBSCRIPTION GATE =====
         if (phoneNumber) {
           if (!botUsersMap[phoneNumber]) botUsersMap[phoneNumber] = new Set();
           botUsersMap[phoneNumber].add(sender);
