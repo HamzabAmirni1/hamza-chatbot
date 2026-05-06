@@ -9,114 +9,73 @@ const axios = require('axios');
 const FormData = require('form-data');
 const config = require('../../config');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { analyzeImage } = require('../../lib/ai');
 
 async function downloadImage(msg) {
-    // Check quoted first, then direct image
     const msgContent = msg.message;
     const quotedMsg = msgContent?.extendedTextMessage?.contextInfo?.quotedMessage;
 
     let imageMsg = null;
+    if (quotedMsg?.imageMessage) imageMsg = quotedMsg.imageMessage;
+    else if (msgContent?.imageMessage) imageMsg = msgContent.imageMessage;
 
-    if (quotedMsg?.imageMessage) {
-        imageMsg = quotedMsg.imageMessage;
-        const stream = await downloadContentFromMessage(imageMsg, 'image');
-        let buffer = Buffer.from([]);
-        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-        return { buffer, mimetype: imageMsg.mimetype || 'image/jpeg' };
-    } else if (msgContent?.imageMessage) {
-        imageMsg = msgContent.imageMessage;
+    if (imageMsg) {
         const stream = await downloadContentFromMessage(imageMsg, 'image');
         let buffer = Buffer.from([]);
         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
         return { buffer, mimetype: imageMsg.mimetype || 'image/jpeg' };
     }
-
     return null;
 }
 
-async function extractTextFromImage(buffer, mimetype, lang = 'ara') {
-    // OCR.space free API (no key required for basic use, or use free key)
-    // Free API key - rate limited but works for basic use
-    const OCR_KEY = 'helloworld'; // Free public demo key
-
+async function fallbackOCR(buffer, mimetype, lang = 'ara') {
+    const OCR_KEY = 'helloworld'; 
     const form = new FormData();
     form.append('base64Image', `data:${mimetype};base64,${buffer.toString('base64')}`);
     form.append('language', lang);
-    form.append('isOverlayRequired', 'false');
-    form.append('detectOrientation', 'true');
-    form.append('scale', 'true');
-    form.append('OCREngine', '2'); // More accurate engine
+    form.append('OCREngine', '2');
     form.append('apikey', OCR_KEY);
 
     const res = await axios.post('https://api.ocr.space/parse/image', form, {
         headers: form.getHeaders(),
-        timeout: 30000,
+        timeout: 20000,
     });
-
-    const data = res.data;
-    if (data.IsErroredOnProcessing) {
-        throw new Error(data.ErrorMessage?.[0] || 'OCR processing failed');
-    }
-
-    const parsedResults = data.ParsedResults;
-    if (!parsedResults || parsedResults.length === 0) {
-        throw new Error('لم يتم العثور على نص في الصورة');
-    }
-
-    const text = parsedResults.map(r => r.ParsedText).join('\n').trim();
-    if (!text) throw new Error('الصورة لا تحتوي على نص قابل للقراءة');
-
-    return text;
+    return res.data.ParsedResults?.[0]?.ParsedText || null;
 }
 
 module.exports = async (sock, sender, msg, args) => {
-    // Detect language preference from args
-    const langArg = args[0] || 'ara';
-    const langMap = {
-        'ar': 'ara', 'ara': 'ara', 'عربي': 'ara',
-        'en': 'eng', 'eng': 'eng', 'english': 'eng',
-        'fr': 'fre', 'fre': 'fre', 'french': 'fre',
-        'es': 'spa', 'spa': 'spa',
-        'de': 'deu', 'deu': 'deu',
-        'auto': 'auto'
-    };
-    const ocrLang = langMap[langArg.toLowerCase()] || 'ara';
+    const hasImage = msg.message?.imageMessage || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
-    // Check if there's an image
-    const hasDirectImage = !!msg.message?.imageMessage;
-    const hasQuotedImage = !!msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
-
-    if (!hasDirectImage && !hasQuotedImage) {
+    if (!hasImage) {
         return await sock.sendMessage(sender, {
-            text: `🔍 *استخراج النص من الصور | OCR*\n\n` +
+            text: `🔍 *أفضل أداة استخراج النص من الصور (OCR AI)*\n\n` +
                   `📌 *الاستخدام:*\n` +
                   `• أرسل صورة مع الأمر *.ocr*\n` +
                   `• أو رد على صورة بالأمر *.ocr*\n\n` +
-                  `📌 *تحديد اللغة (اختياري):*\n` +
-                  `• .ocr ar → عربي (افتراضي)\n` +
-                  `• .ocr en → إنجليزي\n` +
-                  `• .ocr fr → فرنسي\n` +
-                  `• .ocr auto → تلقائي\n\n` +
+                  `💡 *ملاحظة:* البوت يستعمل الآن الذكاء الاصطناعي (Gemini 1.5) للحصول على أدق النتائج حتى في الخطوط الصعبة.\n\n` +
                   `⚔️ ${config.botName}`
         }, { quoted: msg });
     }
 
     try {
-        await sock.sendMessage(sender, {
-            text: '🔍 *جاري استخراج النص من الصورة...*'
-        }, { quoted: msg });
+        await sock.sendMessage(sender, { text: '🔍 *جاري استخراج النص باستخدام الذكاء الاصطناعي...*' }, { quoted: msg });
 
         const image = await downloadImage(msg);
         if (!image) throw new Error('تعذر تحميل الصورة');
 
-        const extractedText = await extractTextFromImage(image.buffer, image.mimetype, ocrLang);
+        // Primary: AI OCR (Superior for Arabic/Handwriting)
+        let extractedText = await analyzeImage(image.buffer, image.mimetype, "Extract all text from this image exactly. Do not add any explanation or conversational text. Just the raw text.");
 
-        const langNames = { 'ara': 'عربي 🇲🇦', 'eng': 'إنجليزي 🇬🇧', 'fre': 'فرنسي 🇫🇷', 'spa': 'إسباني 🇪🇸', 'deu': 'ألماني 🇩🇪', 'auto': 'تلقائي 🌐' };
+        // Fallback: OCR.space
+        if (!extractedText || extractedText.includes("Error") || extractedText.includes("عذرا")) {
+            console.log("[OCR] AI failed, falling back to OCR.space...");
+            extractedText = await fallbackOCR(image.buffer, image.mimetype);
+        }
+
+        if (!extractedText) throw new Error('لم يتم العثور على نص قابل للقراءة');
 
         await sock.sendMessage(sender, {
-            text: `✅ *النص المستخرج:*\n` +
-                  `🌍 اللغة: ${langNames[ocrLang] || ocrLang}\n` +
-                  `📊 عدد الأحرف: ${extractedText.length}\n\n` +
+            text: `✅ *النص المستخرج:*\n\n` +
                   `━━━━━━━━━━━━━━━━\n` +
                   `${extractedText}\n` +
                   `━━━━━━━━━━━━━━━━\n` +
@@ -126,7 +85,8 @@ module.exports = async (sock, sender, msg, args) => {
     } catch (err) {
         console.error('[OCR Error]:', err.message);
         await sock.sendMessage(sender, {
-            text: `❌ *فشل استخراج النص*\n${err.message}\n\n💡 تأكد من أن الصورة واضحة وتحتوي على نص.\n⚔️ ${config.botName}`
+            text: `❌ *فشل استخراج النص*\n${err.message}\n\n⚔️ ${config.botName}`
         }, { quoted: msg });
     }
 };
+
