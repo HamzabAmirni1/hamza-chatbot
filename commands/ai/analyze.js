@@ -52,13 +52,8 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
         if (!finalReply) throw new Error("No response received from AI.");
 
-        // Cleanup: remove headers if they appear
-        finalReply = finalReply
-            .replace(/### Question \d+/gi, '')
-            .replace(/### Answer/gi, '')
-            .replace(/### Solution Steps/gi, '')
-            .replace(/### Analysis/gi, '')
-            .trim();
+        // Cleanup is now handled centrally in lib/ai.js
+        finalReply = finalReply.trim();
 
         // Save context
         addToHistory(chatId, "user", userRequest, { buffer: imgBuffer, mime: 'image/jpeg' });
