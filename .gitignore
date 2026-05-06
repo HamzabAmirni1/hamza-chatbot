@@ -1,0 +1,7 @@
+node_modules
+session
+.env
+data/*.json
+!data/users.json
+server_url.json
+baileys_auth_info

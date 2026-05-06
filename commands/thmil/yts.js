@@ -1,0 +1,120 @@
+const axios = require('axios');
+const yts = require('yt-search');
+const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+const settings = require('../../config');
+const { t } = require('../../lib/language');
+
+module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
+    const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
+    const query = args.join(' ');
+
+    if (!query) {
+        return await sock.sendMessage(chatId, {
+            text: t('yts.usage', { prefix: settings.prefix, botName: settings.botName }, userLang) || `المرجو كتابة اسم الفيديو.\n\nمثال: .yts tflow`
+        }, { quoted: msg });
+    }
+
+    await sock.sendMessage(chatId, { react: { text: "🔍", key: msg.key } });
+
+    try {
+        const searchResults = await yts(query);
+        const videos = searchResults.videos.slice(0, 7);
+
+        if (!videos || videos.length === 0) {
+            return await sock.sendMessage(chatId, { text: t('yts.no_result', {}, userLang) || `لم يتم العثور على نتائج.` }, { quoted: msg });
+        }
+
+        const L_LIB = t('yts.library_title', {}, userLang) || '📺 *YouTube Search*';
+        const L_RESULTS = t('yts.results_for', { query }, userLang) || `Results for: *${query}*`;
+        const L_VIDEO = t('yts.video_btn', {}, userLang) || 'Download Video 🎥';
+        const L_AUDIO = t('yts.audio_btn', {}, userLang) || 'Download Audio 🎵';
+
+        // --- Telegram & Facebook Handling ---
+        if (isTelegram || isFacebook) {
+            let text = `${L_LIB}\n\n${L_RESULTS}\n\n`;
+            let buttons = [];
+
+            videos.forEach((v, i) => {
+                text += `${i + 1}. *${v.title}*\n⏱️ ${v.timestamp} | 👀 ${v.views}\n`;
+                if (isFacebook) {
+                    text += `🎵 Audio: .play ${v.url}\n🎥 Video: .video ${v.url}\n\n`;
+                } else if (isTelegram) {
+                    buttons.push([
+                        { text: `🎵 Audio (${i + 1})`, callback_data: `.play ${v.url}` },
+                        { text: `🎥 Video (${i + 1})`, callback_data: `.video ${v.url}` }
+                    ]);
+                    text += `\n`;
+                }
+            });
+
+            return await sock.sendMessage(chatId, {
+                text: text + `\n⚔️ ${settings.botName}`,
+                ...(isTelegram ? { reply_markup: { inline_keyboard: buttons } } : {})
+            });
+        }
+
+        // --- WhatsApp Carousel Handling ---
+        async function createHeaderImage(url) {
+            try {
+                const { imageMessage } = await generateWAMessageContent({ image: { url } }, { upload: sock.waUploadToServer });
+                return imageMessage;
+            } catch (e) {
+                const fallback = 'https://ui-avatars.com/api/?name=YouTube&background=FF0000&color=FFFFFF&size=512';
+                const { imageMessage } = await generateWAMessageContent({ image: { url: fallback } }, { upload: sock.waUploadToServer });
+                return imageMessage;
+            }
+        }
+
+        let cards = [];
+        for (let v of videos) {
+            const imageMessage = await createHeaderImage(v.thumbnail);
+
+            cards.push({
+                body: proto.Message.InteractiveMessage.Body.fromObject({
+                    text: `🎬 *${v.title}*\n⏱️ *Duration:* ${v.timestamp}\n👀 *Views:* ${v.views}\n📅 *Uploaded:* ${v.ago}`
+                }),
+                header: proto.Message.InteractiveMessage.Header.fromObject({
+                    title: v.author.name,
+                    hasMediaAttachment: true,
+                    imageMessage
+                }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                    buttons: [
+                        {
+                            "name": "quick_reply",
+                            "buttonParamsJson": JSON.stringify({ display_text: L_VIDEO, id: `.video ${v.url}` })
+                        },
+                        {
+                            "name": "quick_reply",
+                            "buttonParamsJson": JSON.stringify({ display_text: L_AUDIO, id: `.play ${v.url}` })
+                        }
+                    ]
+                })
+            });
+        }
+
+        const botMsg = generateWAMessageFromContent(chatId, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                    interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+                        body: proto.Message.InteractiveMessage.Body.create({ text: `${L_LIB}\n\n${L_RESULTS}` }),
+                        footer: proto.Message.InteractiveMessage.Footer.create({ text: `🤖 ${settings.botName}` }),
+                        carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({ cards })
+                    })
+                }
+            }
+        }, { quoted: msg });
+
+        await sock.relayMessage(chatId, botMsg.message, { messageId: botMsg.key.id });
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+
+    } catch (e) {
+        console.error('Error in yts:', e);
+        // Fallback for lang missing key
+        const errMsg = (t('common.error', {}, userLang) === 'common.error') ? "❌ Error processing search." : t('common.error', {}, userLang);
+        await sock.sendMessage(chatId, { text: errMsg }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+};
