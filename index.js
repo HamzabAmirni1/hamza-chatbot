@@ -711,9 +711,16 @@ async function startBot(folderName, phoneNumber) {
         if (body && !isCommand && !body.startsWith(".")) {
           const lowerBody = body.toLowerCase();
           const nlcKeywords = NLC_KEYWORDS;
+          const context = await getContext(sender);
+          const hasRecentImg = context.lastImage && Date.now() - context.lastImage.timestamp < 5 * 60 * 1000;
 
           let nlcFound = false;
           for (const [key, nlcPath] of Object.entries(nlcKeywords)) {
+            // Skip NLC image generation if user is likely asking about the recent photo they just sent
+            if (hasRecentImg && key.includes("صورة") && (lowerBody.includes("في") || lowerBody.includes("شنو") || lowerBody.includes("اش") || lowerBody.includes("معنى"))) {
+                continue;
+            }
+
             const regex = new RegExp(`(^|\\s)(${key})(\\s|$)`, "i");
             if (regex.test(lowerBody)) {
               try {
