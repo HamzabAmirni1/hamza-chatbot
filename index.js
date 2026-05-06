@@ -717,7 +717,7 @@ async function startBot(folderName, phoneNumber) {
           let nlcFound = false;
           for (const [key, nlcPath] of Object.entries(nlcKeywords)) {
             // Skip NLC image generation if user is likely asking about the recent photo they just sent
-            if (hasRecentImg && key.includes("صورة") && (lowerBody.includes("في") || lowerBody.includes("شنو") || lowerBody.includes("اش") || lowerBody.includes("معنى"))) {
+            if (hasRecentImg && key.includes("صورة") && (lowerBody.includes("في") || lowerBody.includes("شنو") || lowerBody.includes("اش") || lowerBody.includes("معنى") || lowerBody.includes("وصف") || lowerBody.includes("معايا"))) {
                 continue;
             }
 
