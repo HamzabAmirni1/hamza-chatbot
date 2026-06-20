@@ -1687,11 +1687,25 @@
         <option value="facebook">🔵 Facebook فقط</option>
       </select>
     </div>
-    <div class="grid grid-4" style="margin-bottom:24px;">
+    <div class="grid grid-4" style="margin-bottom:20px;">
       <div class="stat-card blue"><div class="stat-icon blue"><i class="fas fa-terminal"></i></div><div class="stat-info"><div class="stat-value" id="cs-total">—</div><div class="stat-label">إجمالي الأوامر</div></div></div>
       <div class="stat-card green"><div class="stat-icon green"><i class="fas fa-check"></i></div><div class="stat-info"><div class="stat-value" id="cs-used">—</div><div class="stat-label">مستخدمة</div></div></div>
       <div class="stat-card red"><div class="stat-icon red"><i class="fas fa-times"></i></div><div class="stat-info"><div class="stat-value" id="cs-unused">—</div><div class="stat-label">غير مستخدمة</div></div></div>
       <div class="stat-card purple"><div class="stat-icon purple"><i class="fas fa-fire"></i></div><div class="stat-info"><div class="stat-value" id="cs-top" style="font-size:16px;">—</div><div class="stat-label">الأكثر استخداماً</div></div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:24px;">
+      <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(37,211,102,0.2);">
+        <i class="fab fa-whatsapp" style="font-size:22px;color:#25d366;"></i>
+        <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="cs-wa-total">—</div><div style="font-size:11px;color:var(--text-muted);">أوامر واتساب</div></div>
+      </div>
+      <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(56,189,248,0.2);">
+        <i class="fab fa-telegram-plane" style="font-size:22px;color:#38bdf8;"></i>
+        <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="cs-tg-total">—</div><div style="font-size:11px;color:var(--text-muted);">أوامر تليجرام</div></div>
+      </div>
+      <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(246,173,85,0.2);">
+        <i class="fab fa-facebook-messenger" style="font-size:22px;color:#0084FF;"></i>
+        <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="cs-fb-total">—</div><div style="font-size:11px;color:var(--text-muted);">أوامر فيسبوك</div></div>
+      </div>
     </div>
     <div class="grid grid-2">
       <div class="card">
@@ -2903,6 +2917,17 @@
       document.getElementById('cs-used').textContent = data.usedCount || 0;
       document.getElementById('cs-unused').textContent = data.unusedCount || 0;
       document.getElementById('cs-top').textContent = data.topCommands?.[0]?.cmd ? '.' + data.topCommands[0].cmd : '—';
+      
+      // Platform totals
+      if (data.platformStats) {
+        const waTotal = Object.values(data.platformStats.whatsapp || {}).reduce((a, b) => a + b, 0);
+        const tgTotal = Object.values(data.platformStats.telegram || {}).reduce((a, b) => a + b, 0);
+        const fbTotal = Object.values(data.platformStats.facebook || {}).reduce((a, b) => a + b, 0);
+        document.getElementById('cs-wa-total').textContent = waTotal;
+        document.getElementById('cs-tg-total').textContent = tgTotal;
+        document.getElementById('cs-fb-total').textContent = fbTotal;
+      }
+
       // Top commands bars
       const topEl = document.getElementById('top-commands-list');
       if (!data.topCommands || data.topCommands.length === 0) {
@@ -2913,7 +2938,11 @@
         topEl.innerHTML = data.topCommands.map((item, i) => {
           const pct = Math.round((item.count / maxCount) * 100);
           const color = colors[i % colors.length];
-          return `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:13px;font-weight:600;"><i class="fas fa-terminal" style="color:${color};margin-left:6px;"></i>.${item.cmd}</span><span style="font-size:13px;font-weight:700;color:${color};">${item.count}x</span></div><div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${color};border-radius:6px;transition:width 0.5s;"></div></div></div>`;
+          const waCount = data.platformStats?.whatsapp?.[item.cmd] || 0;
+          const tgCount = data.platformStats?.telegram?.[item.cmd] || 0;
+          const fbCount = data.platformStats?.facebook?.[item.cmd] || 0;
+          const breakdown = `<span style="font-size:11px;color:var(--text-muted);font-weight:normal;margin-right:8px;">(📱 ${waCount} | ✈️ ${tgCount} | 🔵 ${fbCount})</span>`;
+          return `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:13px;font-weight:600;"><i class="fas fa-terminal" style="color:${color};margin-left:6px;"></i>.${item.cmd}${breakdown}</span><span style="font-size:13px;font-weight:700;color:${color};">${item.count}x</span></div><div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${color};border-radius:6px;transition:width 0.5s;"></div></div></div>`;
         }).join('');
       }
       // Unused commands
