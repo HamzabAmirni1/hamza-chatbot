@@ -1032,6 +1032,9 @@
   </nav>
 
   <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
+    <button id="btn-refresh-data" class="btn btn-primary" onclick="refreshCurrentPageData()" style="width:100%;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;background:linear-gradient(135deg, var(--accent), var(--blue));border:none;box-shadow:0 4px 12px rgba(16,185,129,0.2);">
+      <i class="fas fa-sync-alt"></i> تحديث البيانات
+    </button>
     <button class="btn btn-danger" onclick="handleLogout()" style="width:100%;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;">
       <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
     </button>
@@ -2245,6 +2248,7 @@
   let settingsData = {};
   let countdownInterval;
   let currentPairingNumber = '';
+  let isRestoringScroll = true;
 
   // =================== INIT ===================
   window.onload = async () => {
@@ -2263,9 +2267,29 @@
     await loadDashboard();
     await loadSettings();
     
+    // Restore active page
+    const activePage = localStorage.getItem('active_page') || 'dashboard';
+    await showPage(activePage, true);
+    
+    // Hide overlay
+    document.getElementById('loading-overlay').classList.add('hide');
+    
+    // Restore scroll position
+    const scrollTop = localStorage.getItem('scroll_top');
+    if (scrollTop) {
+      window.scrollTo(0, parseInt(scrollTop));
+    }
+    
+    // Allow scroll saving
     setTimeout(() => {
-      document.getElementById('loading-overlay').classList.add('hide');
-    }, 800);
+      isRestoringScroll = false;
+    }, 200);
+
+    window.addEventListener('scroll', () => {
+      if (!isRestoringScroll) {
+        localStorage.setItem('scroll_top', window.scrollY);
+      }
+    });
   };
 
   function updateClock() {
@@ -2275,23 +2299,75 @@
   }
 
   // =================== NAVIGATION ===================
-  function showPage(page) {
+  async function showPage(page, isInitialLoad = false) {
+    isRestoringScroll = true;
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('page-' + page).classList.add('active');
-    document.getElementById('nav-' + page).classList.add('active');
+    
+    const pageEl = document.getElementById('page-' + page);
+    if (pageEl) pageEl.classList.add('active');
+    
+    const navEl = document.getElementById('nav-' + page);
+    if (navEl) navEl.classList.add('active');
 
     if (page !== 'manage' || manageTab !== 'monitor') {
       stopLogsPolling();
     }
 
-    if (page === 'sessions') loadSessions();
-    if (page === 'settings') loadSettings();
-    if (page === 'users') loadUsers();
-    if (page === 'cmdstats') loadCmdStats();
-    if (page === 'activity') loadActivity();
-    if (page === 'broadcast') loadUsers();
-    if (page === 'manage') loadManagePage();
+    // Save to localStorage
+    localStorage.setItem('active_page', page);
+
+    // Call page-specific data loaders and wait for them to finish rendering
+    if (page === 'sessions') await loadSessions();
+    else if (page === 'settings') await loadSettings();
+    else if (page === 'users') await loadUsers();
+    else if (page === 'cmdstats') await loadCmdStats();
+    else if (page === 'activity') await loadActivity();
+    else if (page === 'broadcast') await loadUsers();
+    else if (page === 'manage') await loadManagePage();
+
+    if (!isInitialLoad) {
+      window.scrollTo(0, 0);
+      localStorage.setItem('scroll_top', 0);
+      setTimeout(() => {
+        isRestoringScroll = false;
+      }, 100);
+    }
+  }
+
+  async function refreshCurrentPageData() {
+    const btn = document.getElementById('btn-refresh-data');
+    const oldIconHtml = '<i class="fas fa-sync-alt"></i>';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> جاري التحديث...';
+    }
+    
+    try {
+      // Reload global dashboard info
+      await loadDashboard();
+      
+      // Reload current page data
+      const activePage = localStorage.getItem('active_page') || 'dashboard';
+      if (activePage === 'sessions') await loadSessions();
+      else if (activePage === 'settings') await loadSettings();
+      else if (activePage === 'users') await loadUsers();
+      else if (activePage === 'cmdstats') await loadCmdStats();
+      else if (activePage === 'activity') await loadActivity();
+      else if (activePage === 'broadcast') await loadUsers();
+      else if (activePage === 'manage') await loadManagePage();
+      
+      showToast('✅ تم تحديث البيانات بنجاح', 'success');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      showToast('❌ حدث خطأ أثناء تحديث البيانات', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldIconHtml + ' تحديث البيانات';
+      }
+    }
   }
 
   // =================== DASHBOARD ===================
@@ -2995,7 +3071,8 @@
 
       // Store globally and render top commands
       window.lastCmdStatsData = data;
-      renderTopCommands('all');
+      const savedPlat = localStorage.getItem('top_commands_platform') || 'all';
+      renderTopCommands(savedPlat);
 
       // Unused commands
       const unusedEl = document.getElementById('unused-commands-list');
@@ -3015,6 +3092,8 @@
   function renderTopCommands(platform) {
     const data = window.lastCmdStatsData;
     if (!data) return;
+
+    localStorage.setItem('top_commands_platform', platform);
 
     // Update active state of sub-tabs
     const tabs = ['all', 'whatsapp', 'telegram', 'facebook'];
@@ -3156,13 +3235,14 @@
 
   // =================== MANAGE PAGE ===================
   let manageData = null;
-  let manageTab = 'commands';
+  let manageTab = localStorage.getItem('manage_tab') || 'commands';
 
   let logsInterval = null;
   let allLogs = [];
 
   function switchManageTab(tab) {
     manageTab = tab;
+    localStorage.setItem('manage_tab', tab);
     document.querySelectorAll('.manage-tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('mtab-' + tab).classList.add('active');
     document.querySelectorAll('.manage-panel').forEach(p => p.style.display = 'none');
@@ -3286,6 +3366,9 @@
     renderNLCPanel(data.cmd);
     renderUsersManagePanel(data.users, data.banned);
     renderBannedPanel(data.banned);
+    
+    // Restore active sub-tab
+    switchManageTab(manageTab);
   }
 
   const catInfo = {
