@@ -93,6 +93,9 @@ const settings = {
 
     hfToken: '',
     enableNewsAutoPoster: 'false',
+    enableTrafficBooster: 'true',
+    trafficIntervalMinutes: '5',
+    trafficUrls: ['https://hamzaamirni.netlify.app'],
 };
 
 module.exports = settings;
