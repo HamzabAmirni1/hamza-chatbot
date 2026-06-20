@@ -1678,6 +1678,15 @@
       <h1><i class="fas fa-chart-bar" style="color:var(--purple)"></i> إحصائيات الأوامر</h1>
       <p>الأوامر الأكثر استخداماً والأوامر غير المستخدمة</p>
     </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <label style="font-size:13px;color:var(--text-muted);font-weight:600;">🔽 تصفية حسب المنصة:</label>
+      <select id="cs-platform-filter" class="form-input" style="max-width:220px;padding:8px 12px;font-size:13px;" onchange="loadCmdStats()">
+        <option value="all">🌐 الكل (WhatsApp + Telegram + Facebook)</option>
+        <option value="whatsapp">📱 WhatsApp فقط</option>
+        <option value="telegram">✈️ Telegram فقط</option>
+        <option value="facebook">🔵 Facebook فقط</option>
+      </select>
+    </div>
     <div class="grid grid-4" style="margin-bottom:24px;">
       <div class="stat-card blue"><div class="stat-icon blue"><i class="fas fa-terminal"></i></div><div class="stat-info"><div class="stat-value" id="cs-total">—</div><div class="stat-label">إجمالي الأوامر</div></div></div>
       <div class="stat-card green"><div class="stat-icon green"><i class="fas fa-check"></i></div><div class="stat-info"><div class="stat-value" id="cs-used">—</div><div class="stat-label">مستخدمة</div></div></div>
@@ -1819,6 +1828,14 @@
         <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(252,129,129,0.3);">
           <div style="font-size:26px;font-weight:800;color:var(--red);" id="um-banned">—</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">🚫 المحظورون</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--blue);" id="mc-visits">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">🌐 زيارات الموقع</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(246,173,85,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--yellow);" id="mc-impressions">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📢 ظهور الإعلانات</div>
         </div>
       </div>
 
@@ -2879,7 +2896,8 @@
   // =================== CMD STATS ===================
   async function loadCmdStats() {
     try {
-      const res = await fetch('/api/cmd-stats');
+      const platform = document.getElementById('cs-platform-filter')?.value || 'all';
+      const res = await fetch(`/api/cmd-stats?platform=${platform}`);
       const data = await res.json();
       document.getElementById('cs-total').textContent = data.total || 0;
       document.getElementById('cs-used').textContent = data.usedCount || 0;
@@ -3099,7 +3117,15 @@
   }
 
   async function loadManagePage() {
-    if (manageData) return renderManagePage(manageData);
+    let statusRes = null;
+    try {
+      statusRes = await apiFetch('/api/status');
+    } catch(e) {}
+
+    if (manageData) {
+      if (statusRes) manageData.status = statusRes;
+      return renderManagePage(manageData);
+    }
     document.getElementById('manage-loader').style.display = 'flex';
     document.getElementById('manage-content').style.display = 'none';
     try {
@@ -3108,7 +3134,7 @@
         apiFetch('/api/users'),
         apiFetch('/api/banned')
       ]);
-      manageData = { cmd: cmdRes, users: usersRes, banned: bannedRes };
+      manageData = { cmd: cmdRes, users: usersRes, banned: bannedRes, status: statusRes };
       document.getElementById('manage-loader').style.display = 'none';
       document.getElementById('manage-content').style.display = 'block';
       renderManagePage(manageData);
@@ -3120,6 +3146,10 @@
   }
 
   function renderManagePage(data) {
+    if (data.status) {
+      document.getElementById('mc-visits').textContent = data.status.visits || 0;
+      document.getElementById('mc-impressions').textContent = data.status.impressions || 0;
+    }
     renderCommandsPanel(data.cmd);
     renderNLCPanel(data.cmd);
     renderUsersManagePanel(data.users, data.banned);
