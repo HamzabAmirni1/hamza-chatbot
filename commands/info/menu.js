@@ -50,27 +50,26 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ━━━━━━━━━━━━━━━━
 `;
 
-    if (isTelegram || isFacebook) {
-        const photo = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
-
+    if (isTelegram) {
+        // For Telegram: send interactive inline keyboard menu (categories)
+        const menuIntroText = `📋 *قائمة بوت ${settings.botName}*\n━━━━━━━━━━━━━━━━\n\nاختر تصنيفاً لرؤية الأوامر:`;
         return await sock.sendMessage(chatId, {
-            image: photo,
-            caption: menuText,
-            ...(isTelegram ? {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "📸 Instagram", url: settings.instagram },
-                            { text: "🎥 YouTube", url: settings.youtube }
-                        ],
-                        [
-                            { text: "📢 WhatsApp Channel", url: settings.officialChannel },
-                            { text: "👤 Contact Owner", callback_data: ".owner" }
-                        ]
-                    ]
-                }
-            } : {})
+            text: menuIntroText,
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🎨 AI صور', callback_data: 'menu_cat_images' }, { text: '🧠 AI ذكي', callback_data: 'menu_cat_ai' }],
+                    [{ text: '📥 تحميل', callback_data: 'menu_cat_download' }, { text: '🕋 إسلامي', callback_data: 'menu_cat_islamic' }],
+                    [{ text: '🛠️ أدوات', callback_data: 'menu_cat_tools' }, { text: '🛡️ إدارة', callback_data: 'menu_cat_admin' }],
+                    [{ text: '📸 Instagram', url: settings.instagram }, { text: '💬 WhatsApp', url: settings.officialChannel }],
+                    [{ text: '❌ إغلاق', callback_data: 'menu_close' }]
+                ]
+            }
         });
+    }
+
+    if (isFacebook) {
+        const photo = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : "https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg";
+        return await sock.sendMessage(chatId, { image: photo, caption: menuText });
     }
 
     try {
