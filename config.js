@@ -92,6 +92,8 @@ const settings = {
 - لا تقم بتوليد [COMMAND: ...] إلا إذا طلب المستخدم فعلاً ميزة (تحميل، رسم، طقس، بحث...). في المحادثات العادية، أجب كصديق ذكي وطبيعي. لغة الحوار: الدارجة المغربية أو العربية.`,
 
     hfToken: '',
+    enableChatbot: 'true',
+    enableGroupChatbot: 'false',
     enableNewsAutoPoster: 'false',
     enableTrafficBooster: 'true',
     trafficIntervalMinutes: '5',

@@ -513,7 +513,7 @@ app.post('/api/settings', (req, res) => {
       'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
       'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
-      'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes'
+      'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot'
     ];
     const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls'];
     for (const key of strFields) {
@@ -1434,6 +1434,7 @@ async function startBot(folderName, phoneNumber) {
           // 1. It starts with a prefix (command)
           // 2. OR it mentions the bot
           // 3. OR it's a reply to the bot's own message
+          // 4. OR group chatbot auto-reply is explicitly enabled
           const botNumber = sock.user.id.split(':')[0].split('@')[0];
           const botJid = `${botNumber}@s.whatsapp.net`;
           
@@ -1448,7 +1449,7 @@ async function startBot(folderName, phoneNumber) {
           // Check if replying to bot's message
           const isReplyToBot = contextInfo?.quotedMessage && contextInfo?.participant?.split(':')[0] === botNumber;
           
-          if (!isPrefixed && !isMentioned && !isReplyToBot) {
+          if (config.enableGroupChatbot !== 'true' && !isPrefixed && !isMentioned && !isReplyToBot) {
             continue; // Skip normal chatter in groups
           }
         }
@@ -1674,6 +1675,9 @@ async function startBot(folderName, phoneNumber) {
         // If it's a dot-command successfully handled, stop here
         // Note: if the command failed (isCommand=false), fall through to AI response
         if (isCommand) continue;
+
+        // If chatbot is disabled globally, skip AI chat responses
+        if (config.enableChatbot === 'false') continue;
 
         // --- PRIORITY 3: TEXT AI (pure text messages only) ---
         {
