@@ -933,6 +933,9 @@
     <a class="nav-item" onclick="showPage('activity')" id="nav-activity">
       <i class="fas fa-history"></i> سجل النشاط
     </a>
+    <a class="nav-item" onclick="showPage('manage')" id="nav-manage" style="background:linear-gradient(135deg,rgba(159,122,234,0.15),rgba(99,179,237,0.15));border:1px solid rgba(159,122,234,0.3);">
+      <i class="fas fa-sliders-h" style="color:var(--purple);"></i> <span style="color:var(--purple);font-weight:700;">إدارة شاملة</span>
+    </a>
   </nav>
 
   <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
@@ -1683,6 +1686,210 @@
     </div>
   </div>
 
+  <!-- =================== MANAGE PAGE =================== -->
+  <div class="page" id="page-manage">
+    <div class="page-header">
+      <h1><i class="fas fa-sliders-h" style="color:var(--purple)"></i> الإدارة الشاملة</h1>
+      <p>كل شيء في مكان واحد - أوامر، مستخدمين، حظر، بث، إعادة تشغيل</p>
+    </div>
+
+    <!-- loader -->
+    <div id="manage-loader" style="display:none;justify-content:center;align-items:center;padding:60px;flex-direction:column;gap:16px;">
+      <div style="width:50px;height:50px;border:3px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      <div style="color:var(--text-muted);font-size:14px;">جاري تحميل البيانات...</div>
+    </div>
+
+    <div id="manage-content" style="display:block;">
+
+      <!-- summary cards row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(159,122,234,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--purple);" id="mc-total-files">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📁 ملفات الأوامر</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(99,179,237,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--blue);" id="mc-total-aliases">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">🏷️ مجموع الأوامر</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(246,224,94,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--yellow);" id="mc-total-cats">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📂 التصنيفات</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(37,211,102,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--accent);" id="mc-total-nlc">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">💬 NLC طبيعي</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(99,179,237,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--blue);" id="um-total">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">👥 المستخدمون</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;border:1px solid rgba(252,129,129,0.3);">
+          <div style="font-size:26px;font-weight:800;color:var(--red);" id="um-banned">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">🚫 المحظورون</div>
+        </div>
+      </div>
+
+      <!-- platform row -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+        <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;">
+          <i class="fab fa-whatsapp" style="font-size:22px;color:#25d366;"></i>
+          <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="um-wa">—</div><div style="font-size:11px;color:var(--text-muted);">واتساب</div></div>
+        </div>
+        <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;">
+          <i class="fab fa-telegram-plane" style="font-size:22px;color:#38bdf8;"></i>
+          <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="um-tg">—</div><div style="font-size:11px;color:var(--text-muted);">تليجرام</div></div>
+        </div>
+        <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;">
+          <i class="fab fa-facebook-messenger" style="font-size:22px;color:#0084ff;"></i>
+          <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="um-fb">—</div><div style="font-size:11px;color:var(--text-muted);">فيسبوك</div></div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-btns" style="margin-bottom:20px;">
+        <button class="tab-btn manage-tab-btn active" id="mtab-commands" onclick="switchManageTab('commands')">
+          <i class="fas fa-terminal"></i> الأوامر
+        </button>
+        <button class="tab-btn manage-tab-btn" id="mtab-nlc" onclick="switchManageTab('nlc')">
+          <i class="fas fa-comment-dots"></i> NLC
+        </button>
+        <button class="tab-btn manage-tab-btn" id="mtab-ban" onclick="switchManageTab('ban')">
+          <i class="fas fa-ban"></i> الحظر
+        </button>
+        <button class="tab-btn manage-tab-btn" id="mtab-broadcast" onclick="switchManageTab('broadcast')">
+          <i class="fas fa-bullhorn"></i> بث سريع
+        </button>
+        <button class="tab-btn manage-tab-btn" id="mtab-control" onclick="switchManageTab('control')">
+          <i class="fas fa-power-off"></i> تحكم
+        </button>
+      </div>
+
+      <!-- Commands Panel -->
+      <div class="manage-panel" id="mpanel-commands">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:linear-gradient(135deg,var(--blue),var(--purple));"><i class="fas fa-terminal"></i></div>
+            <div class="card-title">كل الأوامر</div>
+            <input id="cmd-search" type="text" placeholder="🔍 ابحث عن أمر..." style="margin-right:auto;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;min-width:200px;" />
+          </div>
+          <div id="commands-list" style="padding:4px;">
+            <div style="color:var(--text-muted);text-align:center;padding:30px;">جاري التحميل...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NLC Panel -->
+      <div class="manage-panel" id="mpanel-nlc" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:linear-gradient(135deg,var(--purple),var(--blue));"><i class="fas fa-comment-dots"></i></div>
+            <div class="card-title">الكلمات الطبيعية (NLC)</div>
+            <span id="nlc-count-badge" style="margin-right:auto;background:rgba(159,122,234,0.15);color:var(--purple);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;"></span>
+          </div>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;padding:0 4px;">هذه الكلمات تُفعّل الأوامر بدون الحاجة لكتابة النقطة (.) في بداية الرسالة</p>
+          <div id="nlc-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;padding:4px;">
+            <div style="color:var(--text-muted);text-align:center;padding:30px;">جاري التحميل...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ban Panel -->
+      <div class="manage-panel" id="mpanel-ban" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-icon red"><i class="fas fa-user-slash"></i></div>
+              <div class="card-title">حظر مستخدم</div>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input id="ban-input" type="text" placeholder="رقم أو JID مثال: 212XXXXXXXXX" style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;" />
+              <button onclick="doBanUser()" style="background:linear-gradient(135deg,var(--red),#e53e3e);border:none;color:white;padding:10px 18px;border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+                <i class="fas fa-ban"></i> حظر
+              </button>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);">أدخل رقم الهاتف بدون + أو الـ JID الكامل</p>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-icon" style="background:linear-gradient(135deg,var(--red),#e53e3e);"><i class="fas fa-list-ul"></i></div>
+              <div class="card-title">المحظورون</div>
+            </div>
+            <div id="banned-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">
+              <div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Broadcast Panel -->
+      <div class="manage-panel" id="mpanel-broadcast" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon yellow"><i class="fas fa-bullhorn"></i></div>
+            <div class="card-title">بث رسالة سريع</div>
+          </div>
+          <div style="display:grid;gap:12px;">
+            <div>
+              <label style="font-size:13px;color:var(--text-muted);margin-bottom:6px;display:block;">المنصة</label>
+              <select id="quick-bc-plat" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;">
+                <option value="all">🌐 كل المنصات (واتساب + تليجرام + فيسبوك)</option>
+                <option value="whatsapp">💬 واتساب فقط</option>
+                <option value="telegram">✈️ تليجرام فقط</option>
+                <option value="facebook">📘 فيسبوك فقط</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:13px;color:var(--text-muted);margin-bottom:6px;display:block;">الرسالة</label>
+              <textarea id="quick-bc-msg" rows="5" placeholder="اكتب رسالتك هنا... (يدعم النص العادي و*Bold* و_Italic_)" style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:14px;resize:vertical;"></textarea>
+            </div>
+            <button id="quick-bc-btn" onclick="doQuickBroadcast()" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:15px;">
+              <i class="fas fa-paper-plane"></i> إرسال للجميع
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Control Panel -->
+      <div class="manage-panel" id="mpanel-control" style="display:none;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
+          <div class="card" style="text-align:center;padding:24px;border:1px solid rgba(252,129,129,0.3);">
+            <i class="fas fa-redo-alt" style="font-size:32px;color:var(--yellow);margin-bottom:12px;display:block;"></i>
+            <div style="font-weight:700;margin-bottom:8px;">إعادة تشغيل البوت</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">إيقاف وإعادة تشغيل جميع العمليات</div>
+            <button onclick="doRestart()" style="background:linear-gradient(135deg,var(--yellow),#d97706);border:none;color:#000;padding:10px 20px;border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
+              <i class="fas fa-power-off"></i> إعادة التشغيل
+            </button>
+          </div>
+          <div class="card" style="text-align:center;padding:24px;border:1px solid rgba(99,179,237,0.3);">
+            <i class="fas fa-sync-alt" style="font-size:32px;color:var(--blue);margin-bottom:12px;display:block;"></i>
+            <div style="font-weight:700;margin-bottom:8px;">تحديث البيانات</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">إعادة تحميل كل بيانات هذه الصفحة</div>
+            <button onclick="manageData=null;loadManagePage();" style="background:linear-gradient(135deg,var(--blue),var(--purple));border:none;color:white;padding:10px 20px;border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
+              <i class="fas fa-sync-alt"></i> تحديث
+            </button>
+          </div>
+          <div class="card" style="text-align:center;padding:24px;border:1px solid rgba(37,211,102,0.3);">
+            <i class="fas fa-cog" style="font-size:32px;color:var(--accent);margin-bottom:12px;display:block;"></i>
+            <div style="font-weight:700;margin-bottom:8px;">الإعدادات</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">تعديل إعدادات البوت الأساسية</div>
+            <button onclick="showPage('settings')" style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:white;padding:10px 20px;border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
+              <i class="fas fa-cog"></i> فتح الإعدادات
+            </button>
+          </div>
+          <div class="card" style="text-align:center;padding:24px;border:1px solid rgba(159,122,234,0.3);">
+            <i class="fas fa-link" style="font-size:32px;color:var(--purple);margin-bottom:12px;display:block;"></i>
+            <div style="font-weight:700;margin-bottom:8px;">ربط رقم جديد</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">إضافة واتساب أو تليجرام أو فيسبوك</div>
+            <button onclick="showPage('pairing')" style="background:linear-gradient(135deg,var(--purple),var(--blue));border:none;color:white;padding:10px 20px;border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
+              <i class="fas fa-plus"></i> ربط جديد
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end manage-content -->
+  </div><!-- end page-manage -->
+
 </main>
 
 <script>
@@ -1815,6 +2022,7 @@
     if (page === 'cmdstats') loadCmdStats();
     if (page === 'activity') loadActivity();
     if (page === 'broadcast') loadUsers();
+    if (page === 'manage') loadManagePage();
   }
 
   // =================== DASHBOARD ===================
@@ -2613,6 +2821,199 @@
     toast.className = `toast ${type} show`;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  // =================== MANAGE PAGE ===================
+  let manageData = null;
+  let manageTab = 'commands';
+
+  function switchManageTab(tab) {
+    manageTab = tab;
+    document.querySelectorAll('.manage-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('mtab-' + tab).classList.add('active');
+    document.querySelectorAll('.manage-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('mpanel-' + tab).style.display = 'block';
+  }
+
+  async function loadManagePage() {
+    if (manageData) return renderManagePage(manageData);
+    document.getElementById('manage-loader').style.display = 'flex';
+    document.getElementById('manage-content').style.display = 'none';
+    try {
+      const [cmdRes, usersRes, bannedRes] = await Promise.all([
+        apiFetch('/api/commands'),
+        apiFetch('/api/users'),
+        apiFetch('/api/banned')
+      ]);
+      manageData = { cmd: cmdRes, users: usersRes, banned: bannedRes };
+      document.getElementById('manage-loader').style.display = 'none';
+      document.getElementById('manage-content').style.display = 'block';
+      renderManagePage(manageData);
+    } catch(e) {
+      document.getElementById('manage-loader').style.display = 'none';
+      document.getElementById('manage-content').style.display = 'block';
+      showToast('خطأ في تحميل البيانات', 'error');
+    }
+  }
+
+  function renderManagePage(data) {
+    renderCommandsPanel(data.cmd);
+    renderNLCPanel(data.cmd);
+    renderUsersManagePanel(data.users, data.banned);
+    renderBannedPanel(data.banned);
+  }
+
+  const catInfo = {
+    islamic: { icon: '🕌', label: 'إسلامي', color: '#f6e05e' },
+    thmil:   { icon: '📥', label: 'تحميل',  color: '#25d366' },
+    ai:      { icon: '🤖', label: 'ذكاء اصطناعي', color: '#9f7aea' },
+    image:   { icon: '🖼', label: 'صور',    color: '#63b3ed' },
+    tools:   { icon: '🛠', label: 'أدوات',  color: '#fc8181' },
+    morocco: { icon: '🇲🇦', label: 'المغرب', color: '#f97316' },
+    info:    { icon: 'ℹ️', label: 'معلومات', color: '#38bdf8' },
+    admin:   { icon: '⚙️', label: 'إدارة',   color: '#a78bfa' },
+  };
+
+  function renderCommandsPanel(data) {
+    if (!data || !data.ok) return;
+    const cats = data.categories;
+    let totalFiles = data.totalFiles, totalAliases = data.totalAliases;
+
+    // update summary cards
+    document.getElementById('mc-total-files').textContent = totalFiles;
+    document.getElementById('mc-total-aliases').textContent = totalAliases;
+    document.getElementById('mc-total-cats').textContent = Object.keys(cats).length;
+    document.getElementById('mc-total-nlc').textContent = data.nlcList.length;
+
+    // search filter
+    const searchInput = document.getElementById('cmd-search');
+    function renderList(filter = '') {
+      let html = '';
+      for (const [catKey, cat] of Object.entries(cats)) {
+        const ci = catInfo[catKey] || { icon: '📌', label: catKey, color: '#ccc' };
+        const filtered = cat.commands.filter(c =>
+          !filter || c.aliases.some(a => a.includes(filter)) || c.file.includes(filter)
+        );
+        if (!filtered.length) continue;
+        html += `<div style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:18px;">${ci.icon}</span>
+            <span style="font-weight:700;color:${ci.color};font-size:14px;">${ci.label}</span>
+            <span style="background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:20px;font-size:11px;color:var(--text-muted);">${filtered.length} أمر</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;">
+            ${filtered.map(c => `
+              <div style="background:var(--bg);border-radius:10px;padding:10px 12px;border:1px solid var(--border);display:flex;align-items:flex-start;gap:10px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;direction:ltr;">${c.file}</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                    ${c.aliases.map(a => `<span style="background:rgba(99,179,237,0.1);color:var(--blue);padding:2px 7px;border-radius:6px;font-size:11px;direction:ltr;font-weight:600;">.${a}</span>`).join('')}
+                  </div>
+                </div>
+                ${c.uses ? `<span style="background:rgba(37,211,102,0.15);color:var(--accent);padding:2px 7px;border-radius:6px;font-size:11px;white-space:nowrap;">${c.uses}×</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+      }
+      document.getElementById('commands-list').innerHTML = html || '<div style="color:var(--text-muted);text-align:center;padding:30px;">لا توجد نتائج</div>';
+    }
+    renderList();
+    searchInput.oninput = () => renderList(searchInput.value.toLowerCase().trim());
+  }
+
+  function renderNLCPanel(data) {
+    if (!data || !data.ok) return;
+    const nlcList = data.nlcList;
+    let html = nlcList.map(n => {
+      const ci = catInfo[n.file.split('/')[0]] || { icon: '📌', color: '#ccc', label: n.file.split('/')[0] };
+      return `<div style="background:var(--bg);border-radius:10px;padding:12px;border:1px solid var(--border);display:flex;align-items:flex-start;gap:10px;">
+        <div style="font-size:20px;line-height:1;">${ci.icon}</div>
+        <div style="flex:1;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;direction:ltr;">${n.file}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${n.aliases.map(a => `<span style="background:rgba(159,122,234,0.12);color:var(--purple);padding:2px 8px;border-radius:6px;font-size:12px;">${a}</span>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('nlc-list').innerHTML = html;
+    document.getElementById('nlc-count-badge').textContent = nlcList.length + ' كلمة';
+  }
+
+  function renderUsersManagePanel(usersData, bannedData) {
+    if (!usersData || !usersData.ok) return;
+    const banned = (bannedData && bannedData.ok) ? bannedData.banned : [];
+    const users = usersData.users || [];
+    document.getElementById('um-total').textContent = users.length;
+    document.getElementById('um-banned').textContent = banned.length;
+    const wa = users.filter(u => u.platform === 'whatsapp' || (!u.platform && !u.jid?.startsWith('tg:') && !u.jid?.startsWith('fb:')));
+    const tg = users.filter(u => u.platform === 'telegram' || u.jid?.startsWith('tg:'));
+    const fb = users.filter(u => u.platform === 'facebook' || u.jid?.startsWith('fb:'));
+    document.getElementById('um-wa').textContent = wa.length;
+    document.getElementById('um-tg').textContent = tg.length;
+    document.getElementById('um-fb').textContent = fb.length;
+  }
+
+  function renderBannedPanel(bannedData) {
+    const banned = (bannedData && bannedData.ok) ? bannedData.banned : [];
+    const container = document.getElementById('banned-list');
+    if (!banned.length) {
+      container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;"><i class="fas fa-shield-alt" style="font-size:30px;margin-bottom:8px;display:block;color:var(--accent);"></i>لا يوجد مستخدمون محظورون</div>';
+      return;
+    }
+    container.innerHTML = banned.map(jid => `
+      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(252,129,129,0.05);border:1px solid rgba(252,129,129,0.2);border-radius:10px;padding:10px 14px;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-ban" style="color:var(--red);"></i>
+          <span style="font-size:13px;direction:ltr;">${jid}</span>
+        </div>
+        <button onclick="unbanUser('${jid}')" style="background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);color:var(--accent);padding:5px 12px;border-radius:7px;font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;">
+          <i class="fas fa-unlock"></i> رفع الحظر
+        </button>
+      </div>
+    `).join('');
+  }
+
+  async function doBanUser() {
+    const inp = document.getElementById('ban-input').value.trim();
+    if (!inp) return showToast('أدخل رقم المستخدم', 'error');
+    const jid = inp.includes('@') ? inp : inp + '@s.whatsapp.net';
+    try {
+      const r = await apiFetch('/api/ban', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ jid }) });
+      if (r.ok) { showToast('✅ تم الحظر'); document.getElementById('ban-input').value = ''; manageData = null; loadManagePage(); }
+      else showToast(r.error || 'خطأ', 'error');
+    } catch(e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
+  async function unbanUser(jid) {
+    try {
+      const r = await apiFetch('/api/unban', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ jid }) });
+      if (r.ok) { showToast('✅ تم رفع الحظر'); manageData = null; loadManagePage(); }
+      else showToast(r.error || 'خطأ', 'error');
+    } catch(e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
+  async function doQuickBroadcast() {
+    const msg = document.getElementById('quick-bc-msg').value.trim();
+    const plat = document.getElementById('quick-bc-plat').value;
+    if (!msg) return showToast('أدخل الرسالة', 'error');
+    const btn = document.getElementById('quick-bc-btn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+    try {
+      const r = await apiFetch('/api/broadcast', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: msg, platform: plat }) });
+      if (r.ok) { showToast('✅ تم الإرسال بنجاح'); document.getElementById('quick-bc-msg').value = ''; }
+      else showToast(r.error || 'خطأ', 'error');
+    } catch(e) { showToast('خطأ في الاتصال', 'error'); }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال';
+  }
+
+  async function doRestart() {
+    if (!confirm('هل تريد إعادة تشغيل البوت؟')) return;
+    try {
+      await apiFetch('/api/restart', { method: 'POST' });
+      showToast('🔄 جاري إعادة التشغيل...');
+    } catch(e) { showToast('خطأ', 'error'); }
   }
 </script>
 </body>
