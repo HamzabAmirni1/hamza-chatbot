@@ -1053,10 +1053,23 @@
 
   <!-- =================== DASHBOARD PAGE =================== -->
   <div class="page active" id="page-dashboard">
-    <div class="page-header">
-      <h1>🏠 لوحة التحكم</h1>
-      <p>نظرة عامة على حالة البوت والإحصائيات</p>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1>🏠 لوحة التحكم</h1>
+        <p>نظرة عامة على حالة البوت والإحصائيات</p>
+      </div>
+      <button id="btn-refresh-data" onclick="refreshCurrentPageData()" style="
+        display:flex;align-items:center;gap:8px;padding:10px 20px;
+        background:linear-gradient(135deg,rgba(37,211,102,0.15),rgba(99,179,237,0.15));
+        border:1px solid rgba(37,211,102,0.3);border-radius:12px;
+        color:var(--accent);font-family:'Cairo',sans-serif;font-size:13px;
+        font-weight:700;cursor:pointer;transition:all 0.3s;white-space:nowrap;
+      " onmouseover="this.style.background='linear-gradient(135deg,rgba(37,211,102,0.25),rgba(99,179,237,0.25))'"
+         onmouseout="this.style.background='linear-gradient(135deg,rgba(37,211,102,0.15),rgba(99,179,237,0.15))'">
+        <i class="fas fa-sync-alt"></i> تحديث البيانات
+      </button>
     </div>
+
 
     <div class="grid grid-4" style="margin-bottom:24px;">
       <div class="stat-card green">
