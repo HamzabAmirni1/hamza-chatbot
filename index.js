@@ -1719,6 +1719,8 @@ async function startBot(folderName, phoneNumber) {
             aiPromises.push(getStableAIResponse(sender, body));
             aiPromises.push(getAutoGPTResponse(sender, body));
 
+            console.log(chalk.cyan(`[AI] Racing ${aiPromises.length} providers for: "${body.substring(0,30)}"`));
+
             try {
               // Race them and return the first one that resolves with a value
               const racePromise = Promise.any(aiPromises.map(p => p.then(res => {
@@ -1728,10 +1730,18 @@ async function startBot(folderName, phoneNumber) {
 
               const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 25000));
               reply = await Promise.race([racePromise, timeoutPromise]);
+              if (reply) console.log(chalk.green(`[AI] Got response (${reply.length} chars)`));
             } catch (e) {
-              console.log("AI Race failed or timed out. Falling back to sequential...");
+              console.log(chalk.yellow(`[AI] Race failed (${e.message}). Trying sequential fallback...`));
               // Sequential fallback for the most reliable one
               reply = await getStableAIResponse(sender, body) || await getBlackboxResponse(sender, body) || await getPollinationsResponse(sender, body);
+              if (reply) console.log(chalk.green(`[AI] Sequential fallback succeeded`));
+            }
+
+            // Last resort: if ALL AI providers failed, give a basic reply so user knows bot is alive
+            if (!reply) {
+              console.log(chalk.red(`[AI] ALL providers failed for "${body.substring(0,30)}". Using fallback.`));
+              reply = `🤖 *بوت حمزة اعمرني*\n\nأنا هنا! خدمات الذكاء الاصطناعي بطيئة قليلاً الآن.\n\nجرب:\n• *.menu* لرؤية الأوامر\n• *.ping* للتحقق من الاتصال\n• *.weather* للطقس\n• *.gen* لتوليد صورة`;
             }
           }
         }
