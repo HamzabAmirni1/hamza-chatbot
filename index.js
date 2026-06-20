@@ -73,6 +73,13 @@ const commandErrors = {};
 const activeUsers = new Set();
 const botUsersMap = {}; // { 'phoneNumber': Set(['userJid']) }
 
+// Global state for Dashboard API
+global.clients = [];
+global.pendingPairingCodes = {};
+global._activityLog = [];
+global._cmdStats = {};
+global._activeUsers = activeUsers;
+
 const sessionBaseDir = path.join(__dirname, "sessions");
 if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
 
@@ -138,9 +145,11 @@ const express = require("express");
 const app = express();
 const port = process.env.PORT || 8000;
 app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// 🚀 Enhanced Keep-Alive Server for Koyeb (Prevents Sleep Mode)
+// 🚀 Serve Dashboard or JSON status
 app.get("/", (req, res) => {
+  // Auto-detect public URL
   const protocol = req.headers["x-forwarded-proto"] || "http";
   const host = req.headers.host;
   if (host && !host.includes("127.0.0.1") && !host.includes("localhost")) {
@@ -148,19 +157,16 @@ app.get("/", (req, res) => {
     if (!config.publicUrl || config.publicUrl.includes("available-karena")) {
       config.publicUrl = detectedUrl;
       console.log(chalk.green(`✨ Auto-Detected Public URL: ${config.publicUrl}`));
-      try {
-        fs.writeFileSync(path.join(__dirname, "server_url.json"), JSON.stringify({ url: detectedUrl }));
-      } catch (e) { }
+      try { fs.writeFileSync(path.join(__dirname, "server_url.json"), JSON.stringify({ url: detectedUrl })); } catch (e) {}
     }
   }
-
-  const status = {
-    bot: config.botName, status: "running", uptime: getUptime(),
-    timestamp: new Date().toISOString(), memory: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
-    version: config.version, publicUrl: config.publicUrl,
-    platform: process.platform, arch: process.arch, node: process.version
-  };
-  res.json(status);
+  // Serve dashboard to browsers
+  const accept = req.headers['accept'] || '';
+  if (accept.includes('text/html')) {
+    const dashPath = path.join(__dirname, 'public/index.html');
+    if (fs.existsSync(dashPath)) return res.sendFile(dashPath);
+  }
+  res.json({ bot: config.botName, status: "running", uptime: getUptime(), timestamp: new Date().toISOString(), memory: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB` });
 });
 
 app.get("/health", (req, res) => res.status(200).json({ status: "healthy", uptime: getUptime() }));
@@ -209,17 +215,252 @@ app.post("/update-config", async (req, res) => {
 app.post("/connect-wa", async (req, res) => {
   const { phone } = req.body;
   if (!phone) return res.status(400).json({ error: "Phone number required" });
-  
   const cleanPhone = phone.replace(/[^0-9]/g, "");
   console.log(chalk.cyan(`🚀 Starting new WA connection for: ${cleanPhone}`));
-  
-  // Register in DB first
   await db.updateWhatsAppAuth(cleanPhone, null);
-  
-  // Start the bot (in a separate non-blocking call if needed, but startBot handles async naturally)
   startBot(`session_wa_${cleanPhone}`, cleanPhone);
-  
   res.json({ status: "initiated", message: "Bot starting, wait for pairing code in Dashboard." });
+});
+
+// ========== DASHBOARD API ROUTES ==========
+const AUTH_TOKEN = process.env.DASHBOARD_TOKEN || 'hamza-auth-token-2005';
+
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login') return next();
+  const authHeader = req.headers['authorization'];
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else if (req.headers.cookie) {
+    const cookies = req.headers.cookie.split(';').reduce((acc, c) => {
+      const [k, v] = c.trim().split('=');
+      if (k && k.trim()) acc[k.trim()] = v;
+      return acc;
+    }, {});
+    token = cookies['auth_token'];
+  }
+  if (token === AUTH_TOKEN) return next();
+  return res.status(401).json({ ok: false, error: 'Unauthorized' });
+});
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === 'hamza' && password === '2005') {
+    res.json({ success: true, token: AUTH_TOKEN });
+  } else {
+    res.status(401).json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+  }
+});
+
+app.get('/api/status', (req, res) => {
+  try {
+    const sessions = (global.clients || []).map(sock => {
+      const user = sock?.user;
+      return {
+        jid: user?.id || null,
+        number: user?.id?.split(':')[0] || sock._num || null,
+        connected: !!user,
+        path: sock._folderName || null
+      };
+    });
+    res.json({
+      ok: true,
+      sessions,
+      commandCount: Object.keys(require('./lib/commandMap').ALL_COMMANDS).length || 566,
+      apkLimit: config.apkLimit || 5,
+      settings: {
+        botName: config.botName, botOwner: config.botOwner, prefix: config.prefix,
+        commandMode: config.commandMode, timezone: config.timezone,
+        pairingNumber: config.pairingNumber, version: config.version
+      }
+    });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/settings', (req, res) => {
+  try {
+    const c = require('./config');
+    res.json({ ...c, apkLimit: c.apkLimit || 5 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/settings', (req, res) => {
+  try {
+    const configPath = path.join(__dirname, 'config.js');
+    let src = fs.readFileSync(configPath, 'utf-8');
+    const strFields = [
+      'botName','botOwner','prefix','commandMode','timezone','pairingNumber',
+      'AUTO_STATUS_REACT','AUTO_STATUS_REPLY','AUTO_STATUS_MSG','AUTORECORD','AUTOTYPE','AUTORECORDTYPE',
+      'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
+      'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
+      'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description'
+    ];
+    const arrFields = ['ownerNumber','extraNumbers'];
+    for (const key of strFields) {
+      if (req.body[key] !== undefined) {
+        const val = String(req.body[key]).replace(/'/g, "\\'");
+        src = src.replace(new RegExp(`(^\\s*${key}\\s*:\\s*)(.+?)(,?\\s*$)`, 'm'), `$1'${val}'$3`);
+      }
+    }
+    for (const key of arrFields) {
+      if (req.body[key] !== undefined && Array.isArray(req.body[key])) {
+        src = src.replace(new RegExp(`(${key}\\s*:\\s*)\\[[^\\]]*\\]`), `$1${JSON.stringify(req.body[key])}`);
+      }
+    }
+    fs.writeFileSync(configPath, src, 'utf-8');
+    // Update in-memory config
+    const currentConfig = require('./config');
+    for (const key of strFields) { if (req.body[key] !== undefined) currentConfig[key] = req.body[key]; }
+    for (const key of arrFields) { if (req.body[key] !== undefined && Array.isArray(req.body[key])) currentConfig[key] = req.body[key]; }
+    delete require.cache[require.resolve('./config')];
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/apk-limit', (req, res) => {
+  try {
+    const limit = parseInt(req.body.limit);
+    if (isNaN(limit) || limit < 1 || limit > 100) return res.status(400).json({ success: false, error: 'قيمة غير صالحة' });
+    const configPath = path.join(__dirname, 'config.js');
+    let src = fs.readFileSync(configPath, 'utf-8');
+    if (src.includes('apkLimit:')) { src = src.replace(/(apkLimit\s*:\s*)(\d+)/, `$1${limit}`); }
+    else { src = src.replace(/(const settings = \{)/, `$1\n  apkLimit: ${limit},`); }
+    fs.writeFileSync(configPath, src, 'utf-8');
+    try { const c = require('./config'); c.apkLimit = limit; } catch (e) {}
+    delete require.cache[require.resolve('./config')];
+    res.json({ success: true, limit });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/pair', async (req, res) => {
+  try {
+    const { number } = req.body;
+    if (!number || !/^\d{10,15}$/.test(number)) return res.status(400).json({ success: false, error: 'رقم غير صالح' });
+    const cleanNumber = number.replace(/[^0-9]/g, '');
+    delete global.pendingPairingCodes[cleanNumber];
+    const folderName = `session_wa_${cleanNumber}`;
+    startBot(folderName, cleanNumber).catch(err => console.error(`[API/Pair] Error:`, err.message));
+    let attempts = 0;
+    while (attempts < 50) {
+      await new Promise(r => setTimeout(r, 500));
+      if (global.pendingPairingCodes[cleanNumber]) {
+        const { code } = global.pendingPairingCodes[cleanNumber];
+        return res.json({ success: true, code, number: cleanNumber });
+      }
+      attempts++;
+    }
+    return res.status(504).json({ success: false, error: 'انتهت مهلة طلب الكود. يرجى المحاولة مرة أخرى.' });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/pair-cancel', async (req, res) => {
+  try {
+    const { number } = req.body;
+    if (!number) return res.status(400).json({ success: false, error: 'رقم مطلوب' });
+    const cleanNumber = number.replace(/[^0-9]/g, '');
+    const folderName = `session_wa_${cleanNumber}`;
+    const activeClient = (global.clients || []).find(c => c._folderName === folderName);
+    if (activeClient) { try { activeClient.end(); } catch (e) {} }
+    global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+    delete global.pendingPairingCodes[cleanNumber];
+    const sessionPath = path.join(__dirname, 'sessions', folderName);
+    const credsFile = path.join(sessionPath, 'creds.json');
+    let isRegistered = false;
+    if (fs.existsSync(credsFile)) { try { const c = JSON.parse(fs.readFileSync(credsFile,'utf-8')); isRegistered = !!c.registered; } catch (e) {} }
+    if (!isRegistered && fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/restart', (req, res) => {
+  res.json({ success: true, message: 'جاري إعادة التشغيل...' });
+  setTimeout(() => process.exit(0), 500);
+});
+
+app.get('/api/users', (req, res) => {
+  try {
+    const DATA_DIR = path.join(__dirname, 'data');
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    let users = [], banned = [];
+    try { users = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'users.json'), 'utf-8')); } catch (e) { users = []; }
+    try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8')); } catch (e) { banned = []; }
+    // Normalize users to objects
+    const normalizedUsers = users.map(u => typeof u === 'string' ? { id: u, lastSeen: null } : u);
+    const activeCount = global._activeUsers ? global._activeUsers.size : 0;
+    res.json({ ok: true, users: normalizedUsers, banned, activeCount, total: normalizedUsers.length });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/ban', (req, res) => {
+  try {
+    const { number } = req.body;
+    if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
+    const bannedPath = path.join(__dirname, 'data/banned.json');
+    if (!fs.existsSync(path.dirname(bannedPath))) fs.mkdirSync(path.dirname(bannedPath), { recursive: true });
+    let banned = [];
+    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8')); } catch (e) { banned = []; }
+    const jid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+    if (!banned.includes(jid)) banned.push(jid);
+    fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/unban', (req, res) => {
+  try {
+    const { number } = req.body;
+    if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
+    const bannedPath = path.join(__dirname, 'data/banned.json');
+    let banned = [];
+    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8')); } catch (e) { banned = []; }
+    const jid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+    banned = banned.filter(b => b !== jid);
+    fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/cmd-stats', (req, res) => {
+  try {
+    const { ALL_COMMANDS } = require('./lib/commandMap');
+    const stats = global._cmdStats || {};
+    const cmdFiles = [...new Set(Object.values(ALL_COMMANDS))];
+    const unusedFiles = cmdFiles.filter(f => {
+      const cmdsForFile = Object.entries(ALL_COMMANDS).filter(([,v]) => v === f).map(([k]) => k);
+      return !cmdsForFile.some(c => stats[c]);
+    });
+    const topCommands = Object.entries(stats).sort((a,b) => b[1]-a[1]).slice(0,20).map(([cmd,count]) => ({ cmd, count }));
+    res.json({ ok: true, total: cmdFiles.length, usedCount: cmdFiles.length - unusedFiles.length, unusedCount: unusedFiles.length, unusedFiles, topCommands, stats });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/activity', (req, res) => {
+  try {
+    res.json({ ok: true, log: (global._activityLog || []).slice(0, 50) });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/broadcast', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ ok: false, error: 'رسالة مطلوبة' });
+    let users = [];
+    try { users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/users.json'), 'utf-8')); } catch (e) {}
+    const clients = global.clients || [];
+    if (!clients.length) return res.status(503).json({ ok: false, error: 'لا توجد جلسات متصلة' });
+    const sock = clients.find(c => c?.user) || clients[0];
+    let sent = 0, failed = 0;
+    for (const user of users) {
+      try {
+        const jid = user.id || user.jid || (typeof user === 'string' ? user : null);
+        if (!jid || jid === 'test@s.whatsapp.net') continue;
+        await sock.sendMessage(jid, { text: message });
+        sent++;
+        await new Promise(r => setTimeout(r, 500));
+      } catch (e) { failed++; }
+    }
+    res.json({ ok: true, sent, failed, total: users.length });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 // Facebook Webhook Authentication
@@ -422,6 +663,12 @@ async function startBot(folderName, phoneNumber) {
     markOnlineOnConnect: true,
   });
 
+  // Register socket in global clients list for dashboard
+  sock._folderName = folderName;
+  sock._num = num || null;
+  global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+  global.clients.push(sock);
+
   if (!sock.authState.creds.registered && num) {
     // Reduced delay to 2.5s. Baileys often closes the connection if it waits too long
     setTimeout(async () => {
@@ -429,7 +676,8 @@ async function startBot(folderName, phoneNumber) {
         let code = await sock.requestPairingCode(num);
         code = code?.match(/.{1,4}/g)?.join("-") || code;
         console.log(chalk.black.bgGreen(` [${folderName}] PAIRING CODE: `), chalk.white.bgRed.bold(` ${code} `));
-        
+        // Store for dashboard API polling
+        global.pendingPairingCodes[num] = { code, time: Date.now() };
         // 🚀 Real-time: Upload pairing code to Supabase
         await db.updatePairingCode(num, code, 'connecting');
       } catch (e) {
@@ -443,6 +691,8 @@ async function startBot(folderName, phoneNumber) {
     if (num) await db.updateWAStatus(num, connection || 'disconnected');
 
     if (connection === "close") {
+      // Remove from global clients on disconnect
+      global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
       const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       if (statusCode === 401) {
@@ -563,6 +813,15 @@ async function startBot(folderName, phoneNumber) {
         const sender = msg.key.remoteJid;
         logUser(sender);
 
+        // Check if user is banned
+        try {
+          const bannedPath = path.join(__dirname, 'data', 'banned.json');
+          let bannedUsers = [];
+          try { bannedUsers = JSON.parse(fs.readFileSync(bannedPath, 'utf8') || '[]'); } catch (_) {}
+          const senderJid = sender.includes('@') ? sender : `${sender}@s.whatsapp.net`;
+          if (bannedUsers.includes(senderJid)) continue;
+        } catch (_) {}
+
         // ===== SUBSCRIPTION GATE =====
         // Skip gate for owner numbers
         const senderNum = sender.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
@@ -646,6 +905,12 @@ async function startBot(folderName, phoneNumber) {
               isCommand = true;
               commandUsage[command] = (commandUsage[command] || 0) + 1;
               activeUsers.add(sender);
+              // Log activity for dashboard
+              if (!global._activityLog) global._activityLog = [];
+              global._activityLog.unshift({ time: Date.now(), cmd: command, user: sender, chat: sender });
+              if (global._activityLog.length > 100) global._activityLog.length = 100;
+              if (!global._cmdStats) global._cmdStats = {};
+              global._cmdStats[command] = (global._cmdStats[command] || 0) + 1;
               continue;
             } catch (err) { 
               console.error(chalk.red(`[Command Error] .${command}:`), err.message);

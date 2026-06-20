@@ -1,0 +1,2221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🤖 لوحة تحكم البوت - حمزة اعمرني</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --surface: #111827;
+      --card: #1a2235;
+      --card2: #1e2d45;
+      --border: rgba(99,179,237,0.15);
+      --accent: #25d366;
+      --accent2: #128c7e;
+      --blue: #63b3ed;
+      --purple: #9f7aea;
+      --red: #fc8181;
+      --yellow: #f6e05e;
+      --text: #e2e8f0;
+      --text-muted: #718096;
+      --glass: rgba(255,255,255,0.04);
+      --glow: 0 0 30px rgba(37,211,102,0.15);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background animated */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 20%, rgba(37,211,102,0.06) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 80%, rgba(99,179,237,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: 260px;
+      height: 100vh;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      padding: 0 0 20px;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px;
+      background: linear-gradient(135deg, rgba(37,211,102,0.15), rgba(18,140,126,0.1));
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .sidebar-logo {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+      font-size: 28px;
+      box-shadow: var(--glow);
+    }
+
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .sidebar-subtitle {
+      font-size: 11px;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+
+    .nav-section {
+      padding: 20px 12px 8px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-section::-webkit-scrollbar {
+      width: 6px;
+    }
+    .nav-section::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .nav-section::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    .nav-section::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 0 8px 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      margin-bottom: 4px;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background: var(--glass);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(37,211,102,0.2), rgba(18,140,126,0.1));
+      color: var(--accent);
+      border: 1px solid rgba(37,211,102,0.2);
+    }
+
+    .nav-item i { width: 18px; text-align: center; font-size: 16px; }
+
+    /* Status badge in sidebar */
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      margin: 8px 12px;
+      background: rgba(37,211,102,0.1);
+      border: 1px solid rgba(37,211,102,0.2);
+      border-radius: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Main content */
+    .main {
+      margin-right: 260px;
+      min-height: 100vh;
+      padding: 30px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Page sections */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Header */
+    .page-header {
+      margin-bottom: 30px;
+    }
+
+    .page-header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: 14px;
+    }
+
+    /* Cards grid */
+    .grid { display: grid; gap: 20px; }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    /* Stat cards */
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .stat-card.green::before { background: linear-gradient(90deg, var(--accent), transparent); }
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
+    .stat-card.purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
+    .stat-card.red::before { background: linear-gradient(90deg, var(--red), transparent); }
+
+    .stat-card:hover { transform: translateY(-2px); border-color: rgba(99,179,237,0.3); }
+
+    .stat-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .stat-icon.green { background: rgba(37,211,102,0.15); color: var(--accent); }
+    .stat-icon.blue { background: rgba(99,179,237,0.15); color: var(--blue); }
+    .stat-icon.purple { background: rgba(159,122,234,0.15); color: var(--purple); }
+    .stat-icon.red { background: rgba(252,129,129,0.15); color: var(--red); }
+
+    .stat-info { flex: 1; }
+    .stat-value { font-size: 26px; font-weight: 800; }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Settings card */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .card-icon.green { background: rgba(37,211,102,0.15); color: var(--accent); }
+    .card-icon.blue { background: rgba(99,179,237,0.15); color: var(--blue); }
+    .card-icon.purple { background: rgba(159,122,234,0.15); color: var(--purple); }
+    .card-icon.yellow { background: rgba(246,224,94,0.15); color: var(--yellow); }
+    .card-icon.red { background: rgba(252,129,129,0.15); color: var(--red); }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* Form elements */
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'Cairo', sans-serif;
+      font-size: 14px;
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,211,102,0.1);
+    }
+
+    .form-input::placeholder { color: var(--text-muted); }
+
+    select.form-input {
+      cursor: pointer;
+    }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .toggle-row:last-child { border-bottom: none; }
+
+    .toggle-info { flex: 1; }
+    .toggle-title { font-size: 14px; font-weight: 600; }
+    .toggle-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 13px;
+      transition: all 0.3s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: all 0.3s;
+    }
+
+    .toggle input:checked + .toggle-slider {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+    }
+
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(22px);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      box-shadow: 0 4px 15px rgba(37,211,102,0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37,211,102,0.4);
+    }
+
+    .btn-secondary {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--blue);
+    }
+
+    .btn-danger {
+      background: rgba(252,129,129,0.15);
+      border: 1px solid rgba(252,129,129,0.3);
+      color: var(--red);
+    }
+
+    .btn-danger:hover {
+      background: rgba(252,129,129,0.25);
+    }
+
+    .btn-blue {
+      background: rgba(99,179,237,0.15);
+      border: 1px solid rgba(99,179,237,0.3);
+      color: var(--blue);
+    }
+
+    .btn-blue:hover { background: rgba(99,179,237,0.25); }
+
+    /* Pairing section */
+    .pairing-box {
+      background: linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.05));
+      border: 1px solid rgba(37,211,102,0.2);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .pairing-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .pairing-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .pairing-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .pairing-code-display {
+      display: none;
+      background: var(--bg);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 24px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .pairing-code-display.visible { display: block; }
+
+    .code-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .code-value {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: var(--accent);
+      text-shadow: 0 0 20px rgba(37,211,102,0.4);
+      font-family: monospace;
+    }
+
+    .code-timer {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    /* Sessions list */
+    .session-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+
+    .session-card:hover { border-color: rgba(99,179,237,0.3); }
+
+    .session-avatar {
+      width: 46px;
+      height: 46px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .session-info { flex: 1; }
+    .session-number { font-size: 15px; font-weight: 600; }
+    .session-status { font-size: 12px; margin-top: 4px; }
+    .session-status.connected { color: var(--accent); }
+    .session-status.disconnected { color: var(--red); }
+
+    /* Tags / Chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .chip-green { background: rgba(37,211,102,0.15); color: var(--accent); border: 1px solid rgba(37,211,102,0.2); }
+    .chip-blue { background: rgba(99,179,237,0.15); color: var(--blue); border: 1px solid rgba(99,179,237,0.2); }
+    .chip-red { background: rgba(252,129,129,0.15); color: var(--red); border: 1px solid rgba(252,129,129,0.2); }
+
+    /* Alert */
+    .alert {
+      padding: 14px 18px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+    }
+
+    .alert.show { display: flex; align-items: center; gap: 10px; }
+    .alert-success { background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.3); color: var(--accent); }
+    .alert-error { background: rgba(252,129,129,0.1); border: 1px solid rgba(252,129,129,0.3); color: var(--red); }
+    .alert-info { background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.3); color: var(--blue); }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Numbers list */
+    .number-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+
+    .number-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .number-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* APK limit slider */
+    .range-input {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 6px;
+    }
+
+    .range-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--accent);
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 9999;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: rgba(37,211,102,0.4); color: var(--accent); }
+    .toast.error { border-color: rgba(252,129,129,0.4); color: var(--red); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar { width: 220px; }
+      .main { margin-right: 220px; padding: 20px; }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      .sidebar { width: 100%; height: auto; position: relative; }
+      .main { margin-right: 0; }
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    }
+
+    /* Steps */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-text { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+    .step-text strong { color: var(--text); }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      flex-direction: column;
+      gap: 16px;
+      transition: opacity 0.5s;
+    }
+
+    #loading-overlay.hide { opacity: 0; pointer-events: none; }
+
+    .loading-logo {
+      font-size: 48px;
+      animation: bounce 1s infinite alternate;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+
+    .loading-text {
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    .loading-bar {
+      width: 200px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .loading-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--blue));
+      border-radius: 2px;
+      animation: loading 1.5s ease-in-out infinite;
+    }
+
+    @keyframes loading {
+      0% { width: 0%; }
+      100% { width: 100%; }
+    }
+
+    /* Login overlay */
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      flex-direction: column;
+      gap: 20px;
+      transition: opacity 0.5s;
+      padding: 20px;
+    }
+    #login-overlay.hide { opacity: 0; pointer-events: none; }
+    
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 400px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), var(--glow);
+      text-align: center;
+      position: relative;
+    }
+    
+    .login-header {
+      margin-bottom: 24px;
+    }
+    
+    .login-logo {
+      width: 70px;
+      height: 70px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 32px;
+      box-shadow: var(--glow);
+    }
+    
+    .login-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    .login-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .input-group {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .input-group label {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    
+    .input-group input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.3s;
+      width: 100%;
+      text-align: right;
+    }
+    
+    .input-group input:focus {
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading-overlay">
+  <div class="loading-logo">🤖</div>
+  <div class="loading-text">جاري تحميل لوحة التحكم...</div>
+  <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+</div>
+
+<!-- Login screen -->
+<div id="login-overlay" class="hide">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo">🤖</div>
+      <h2 class="login-title">تسجيل الدخول للوحة التحكم</h2>
+      <p class="login-subtitle">يرجى إدخال اسم المستخدم وكلمة المرور للمتابعة</p>
+    </div>
+    <form class="login-form" id="login-form" onsubmit="handleLogin(event)">
+      <div id="login-alert" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+      
+      <div class="input-group">
+        <label for="username"><i class="fas fa-user"></i> اسم المستخدم</label>
+        <input type="text" id="username" required placeholder="مثال: hamza" autocomplete="username">
+      </div>
+      
+      <div class="input-group">
+        <label for="password"><i class="fas fa-lock"></i> كلمة المرور</label>
+        <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
+      </div>
+      
+      <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%; padding:14px; font-size:15px; font-weight:700; margin-top:8px;">
+        <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">🤖</div>
+    <div class="sidebar-title">حمزة اعمرني</div>
+    <div class="sidebar-subtitle">⚡ لوحة تحكم البوت</div>
+  </div>
+
+  <div class="status-badge">
+    <div class="status-dot" id="global-status-dot"></div>
+    <span id="global-status-text" style="font-size:13px;font-weight:600;">جاري الاتصال...</span>
+  </div>
+
+  <nav class="nav-section">
+    <div class="nav-label">القائمة الرئيسية</div>
+    <a class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <i class="fas fa-chart-pie"></i> لوحة التحكم
+    </a>
+    <a class="nav-item" onclick="showPage('sessions')" id="nav-sessions">
+      <i class="fab fa-whatsapp"></i> الجلسات
+    </a>
+    <a class="nav-item" onclick="showPage('pairing')" id="nav-pairing">
+      <i class="fas fa-link"></i> ربط رقم جديد
+    </a>
+    <a class="nav-item" onclick="showPage('settings')" id="nav-settings">
+      <i class="fas fa-cog"></i> الإعدادات
+    </a>
+    <a class="nav-item" onclick="showPage('apk')" id="nav-apk">
+      <i class="fab fa-android"></i> حدود APK
+    </a>
+    <a class="nav-item" onclick="showPage('social')" id="nav-social">
+      <i class="fas fa-share-alt"></i> الروابط الاجتماعية
+    </a>
+    <a class="nav-item" onclick="showPage('users')" id="nav-users">
+      <i class="fas fa-users"></i> إدارة المستخدمين
+    </a>
+    <a class="nav-item" onclick="showPage('cmdstats')" id="nav-cmdstats">
+      <i class="fas fa-chart-bar"></i> إحصائيات الأوامر
+    </a>
+    <a class="nav-item" onclick="showPage('broadcast')" id="nav-broadcast">
+      <i class="fas fa-bullhorn"></i> البث الجماعي
+    </a>
+    <a class="nav-item" onclick="showPage('activity')" id="nav-activity">
+      <i class="fas fa-history"></i> سجل النشاط
+    </a>
+  </nav>
+
+  <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
+    <button class="btn btn-danger" onclick="handleLogout()" style="width:100%;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;">
+      <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+    </button>
+    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:10px;">
+      <i class="fas fa-code"></i> تم البناء بواسطة حمزة اعمرني<br/>
+      <span id="current-time" style="color:var(--accent);"></span>
+    </div>
+  </div>
+</aside>
+
+<!-- Main content -->
+<main class="main">
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- =================== DASHBOARD PAGE =================== -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h1>🏠 لوحة التحكم</h1>
+      <p>نظرة عامة على حالة البوت والإحصائيات</p>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="stat-card green">
+        <div class="stat-icon green"><i class="fab fa-whatsapp"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-sessions">0</div>
+          <div class="stat-label">جلسات نشطة</div>
+        </div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon blue"><i class="fas fa-terminal"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-commands">566</div>
+          <div class="stat-label">أوامر متاحة</div>
+        </div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-users">—</div>
+          <div class="stat-label">مستخدمون</div>
+        </div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon red"><i class="fab fa-android"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-apk-limit">5</div>
+          <div class="stat-label">حد APK اليومي</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <!-- Bot info -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon green"><i class="fas fa-robot"></i></div>
+          <div class="card-title">معلومات البوت</div>
+        </div>
+        <div id="bot-info-list">
+          <div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue"><i class="fas fa-bolt"></i></div>
+          <div class="card-title">إجراءات سريعة</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-secondary" onclick="showPage('pairing')">
+            <i class="fas fa-link"></i> ربط رقم جديد
+          </button>
+          <button class="btn btn-secondary" onclick="showPage('settings')">
+            <i class="fas fa-cog"></i> تعديل الإعدادات
+          </button>
+          <button class="btn btn-secondary" onclick="loadDashboard()">
+            <i class="fas fa-sync-alt"></i> تحديث البيانات
+          </button>
+          <button class="btn btn-danger" onclick="confirmRestart()">
+            <i class="fas fa-power-off"></i> إعادة تشغيل البوت
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== SESSIONS PAGE =================== -->
+  <div class="page" id="page-sessions">
+    <div class="page-header">
+      <h1><i class="fab fa-whatsapp" style="color:var(--accent)"></i> الجلسات المتصلة</h1>
+      <p>قائمة بجميع حسابات واتساب المتصلة بالبوت</p>
+    </div>
+
+    <div id="sessions-list">
+      <div style="text-align:center;padding:40px;color:var(--text-muted);">
+        <i class="fas fa-spinner fa-spin" style="font-size:30px;margin-bottom:12px;"></i>
+        <br/>جاري تحميل الجلسات...
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="showPage('pairing')">
+        <i class="fas fa-plus"></i> إضافة رقم جديد
+      </button>
+    </div>
+  </div>
+
+  <!-- =================== PAIRING PAGE =================== -->
+  <div class="page" id="page-pairing">
+    <div class="page-header">
+      <h1><i class="fas fa-link" style="color:var(--accent)"></i> ربط رقم جديد</h1>
+      <p>قم بربط حساب واتساب جديد بالبوت عبر كود الإقران</p>
+    </div>
+
+    <div class="grid grid-2">
+      <div>
+        <div class="pairing-box">
+          <div class="pairing-icon">📱</div>
+          <div class="pairing-title">أدخل رقم الهاتف</div>
+          <div class="pairing-desc">أدخل الرقم الدولي بدون + لتلقي كود الإقران على هاتفك</div>
+
+          <div id="alert-pairing" class="alert"></div>
+
+          <div class="form-group">
+            <label class="form-label">رقم الهاتف (مثال: 212612345678)</label>
+            <input type="tel" id="pairing-number" class="form-input" placeholder="212XXXXXXXXX" style="text-align:center;font-size:18px;letter-spacing:2px;" />
+          </div>
+
+          <button class="btn btn-primary" id="pairing-btn" onclick="requestPairingCode()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
+            <i class="fas fa-key"></i> طلب كود الإقران
+          </button>
+
+          <!-- Code display -->
+          <div class="pairing-code-display" id="pairing-code-display">
+            <div class="code-label">🔑 كود الإقران الخاص بك</div>
+            <div class="code-value" id="code-value">----</div>
+            <div class="code-timer" id="code-timer">أدخل الكود خلال دقيقتين</div>
+            <div style="margin-top:16px;">
+              <button class="btn btn-danger" id="cancel-pairing-btn" onclick="cancelPairingRequest()" style="width:100%;justify-content:center;">
+                <i class="fas fa-times-circle"></i> إلغاء الطلب
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon yellow"><i class="fas fa-info-circle"></i></div>
+          <div class="card-title">كيفية الإقران</div>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">أدخل رقم هاتفك الكامل مع كود الدولة <strong>بدون +</strong> (مثال: 212612345678)</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">اضغط على <strong>"طلب كود الإقران"</strong></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">افتح واتساب على هاتفك → <strong>الأجهزة المرتبطة</strong></div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text">اضغط <strong>"ربط جهاز"</strong> ثم اختر <strong>"ربط برقم هاتف"</strong></div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-text">أدخل <strong>كود الإقران</strong> الذي ظهر في الصفحة</div>
+          </div>
+          <div class="step">
+            <div class="step-num">6</div>
+            <div class="step-text">تم الإقران! أضف رقمك إلى <strong>extraNumbers</strong> في الإعدادات</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== SETTINGS PAGE =================== -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <h1><i class="fas fa-cog" style="color:var(--accent)"></i> إعدادات البوت</h1>
+      <p>تخصيص جميع إعدادات البوت</p>
+    </div>
+
+    <div id="settings-alert" class="alert"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green"><i class="fas fa-robot"></i></div>
+        <div class="card-title">المعلومات الأساسية</div>
+      </div>
+      <div class="grid grid-2">
+        <div class="form-group">
+          <label class="form-label">اسم البوت</label>
+          <input type="text" id="s-botName" class="form-input" placeholder="Bot Name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">اسم المطور</label>
+          <input type="text" id="s-botOwner" class="form-input" placeholder="Developer Name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">البادئة (Prefix)</label>
+          <input type="text" id="s-prefix" class="form-input" placeholder="." maxlength="3" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">وضع الأوامر</label>
+          <select id="s-commandMode" class="form-input">
+            <option value="public">عام (Public)</option>
+            <option value="private">خاص (Private)</option>
+            <option value="owner">للمالك فقط</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">المنطقة الزمنية</label>
+          <input type="text" id="s-timezone" class="form-input" placeholder="Africa/Casablanca" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">رقم الإقران الرئيسي</label>
+          <input type="tel" id="s-pairingNumber" class="form-input" placeholder="212XXXXXXXXX" />
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label class="form-label">وصف البوت</label>
+          <textarea id="s-description" class="form-input" placeholder="وصف البوت..." rows="3" style="resize:vertical;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue"><i class="fas fa-toggle-on"></i></div>
+        <div class="card-title">الميزات التلقائية</div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">تفاعل تلقائي على الحالات</div>
+          <div class="toggle-desc">يتفاعل البوت تلقائيًا مع حالات واتساب</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-autoStatusReact" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">رد تلقائي على الحالات</div>
+          <div class="toggle-desc">يرد البوت تلقائيًا عند مشاهدة الحالة</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-autoStatusReply" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="form-group" style="margin-top:12px;padding: 0 10px;">
+        <label class="form-label">رسالة الرد التلقائي على الحالات</label>
+        <input type="text" id="s-autoStatusMsg" class="form-input" placeholder="Status Viewed by Bot" />
+      </div>
+      <div class="toggle-row" style="margin-top:12px;">
+        <div class="toggle-info">
+          <div class="toggle-title">تسجيل صوتي تلقائي</div>
+          <div class="toggle-desc">يظهر البوت كأنه يسجل رسالة صوتية</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-autoRecord" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">مؤشر الكتابة التلقائي</div>
+          <div class="toggle-desc">يظهر البوت كأنه يكتب عند معالجة الأوامر</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-autoType" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">تسجيل صوتي وكتابة معاً</div>
+          <div class="toggle-desc">يظهر البوت كأنه يكتب ويسجل في نفس الوقت</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-autoRecordType" /><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <!-- Stickers & Newsletters Settings -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple"><i class="fas fa-sticky-note"></i></div>
+        <div class="card-title">إعدادات الملصقات والقنوات الإخبارية</div>
+      </div>
+      <div class="grid grid-2">
+        <div class="form-group">
+          <label class="form-label">اسم حزمة الملصقات (Pack Name)</label>
+          <input type="text" id="s-packname" class="form-input" placeholder="Pack Name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">حقوق الملصق (Author)</label>
+          <input type="text" id="s-author" class="form-input" placeholder="Author Name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">اسم القناة الإخبارية (Newsletter Name)</label>
+          <input type="text" id="s-newsletterName" class="form-input" placeholder="Newsletter Name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">JID القناة الإخبارية (Newsletter JID)</label>
+          <input type="text" id="s-newsletterJid" class="form-input" placeholder="xxxxxxxxxx@newsletter" />
+        </div>
+      </div>
+    </div>
+
+    <!-- API Keys & Database Connections -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow"><i class="fas fa-key"></i></div>
+        <div class="card-title">مفاتيح API والربط الخارجي</div>
+      </div>
+      <div class="grid grid-2">
+        <div class="form-group">
+          <label class="form-label">مفتاح Giphy API Key</label>
+          <input type="password" id="s-giphyApiKey" class="form-input" placeholder="Giphy API Key" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">مفتاح HuggingFace AI (hfToken)</label>
+          <input type="password" id="s-hfToken" class="form-input" placeholder="HuggingFace Token" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supabase URL</label>
+          <input type="text" id="s-supabaseUrl" class="form-input" placeholder="https://xxxxxx.supabase.co" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supabase API Key (supabaseKey)</label>
+          <input type="password" id="s-supabaseKey" class="form-input" placeholder="Supabase Key" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">توكن بوت تيليجرام (Telegram Token)</label>
+          <input type="password" id="s-telegramToken" class="form-input" placeholder="Telegram Bot Token" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">معرّف صفحة فيسبوك (Facebook Page ID)</label>
+          <input type="text" id="s-fbPageId" class="form-input" placeholder="Facebook Page ID" />
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label class="form-label">توكن صفحة فيسبوك (Facebook Page Access Token)</label>
+          <textarea id="s-fbPageAccessToken" class="form-input" placeholder="Facebook Page Access Token..." rows="2" style="resize:vertical;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Owner numbers -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple"><i class="fas fa-crown"></i></div>
+        <div class="card-title">أرقام المالكين</div>
+      </div>
+      <div id="owner-numbers-list"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <input type="tel" id="new-owner-num" class="form-input" placeholder="أدخل رقماً جديداً" style="flex:1;" />
+        <button class="btn btn-primary" onclick="addOwnerNumber()">
+          <i class="fas fa-plus"></i> إضافة
+        </button>
+      </div>
+    </div>
+
+    <!-- Extra sessions numbers -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue"><i class="fas fa-phone-alt"></i></div>
+        <div class="card-title">أرقام الجلسات الإضافية</div>
+      </div>
+      <div id="extra-numbers-list"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <input type="tel" id="new-extra-num" class="form-input" placeholder="أدخل رقم جلسة إضافية" style="flex:1;" />
+        <button class="btn btn-primary" onclick="addExtraNumber()">
+          <i class="fas fa-plus"></i> إضافة
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="saveSettings()">
+        <i class="fas fa-save"></i> حفظ جميع الإعدادات
+      </button>
+      <button class="btn btn-secondary" onclick="loadSettings()">
+        <i class="fas fa-undo"></i> إعادة التحميل
+      </button>
+    </div>
+  </div>
+
+  <!-- =================== APK LIMIT PAGE =================== -->
+  <div class="page" id="page-apk">
+    <div class="page-header">
+      <h1><i class="fab fa-android" style="color:var(--accent)"></i> إعدادات حدود APK</h1>
+      <p>إدارة الحد اليومي لتحميل تطبيقات الأندرويد</p>
+    </div>
+
+    <div class="card" style="max-width:500px;">
+      <div class="card-header">
+        <div class="card-icon green"><i class="fas fa-download"></i></div>
+        <div class="card-title">الحد اليومي للتحميل</div>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">حدد عدد مرات تحميل تطبيقات APK المسموح به لكل مستخدم في اليوم</p>
+
+      <div class="range-value" id="apk-range-value">5</div>
+      <input type="range" class="range-input" id="apk-limit-range" min="1" max="20" value="5"
+        oninput="document.getElementById('apk-range-value').textContent=this.value" />
+
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-top:8px;">
+        <span>1 (صارم)</span>
+        <span>20 (مرن)</span>
+      </div>
+
+      <div style="margin-top:24px;">
+        <button class="btn btn-primary" onclick="saveApkLimit()" style="width:100%;justify-content:center;">
+          <i class="fas fa-save"></i> حفظ الحد
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== SOCIAL LINKS PAGE =================== -->
+  <div class="page" id="page-social">
+    <div class="page-header">
+      <h1><i class="fas fa-share-alt" style="color:var(--accent)"></i> الروابط الاجتماعية</h1>
+      <p>إدارة روابط التواصل الاجتماعي الخاصة بالبوت</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple"><i class="fas fa-globe"></i></div>
+        <div class="card-title">روابط التواصل</div>
+      </div>
+      <div class="grid grid-2">
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-instagram"></i> انستغرام 1</label>
+          <input type="url" id="s-instagram" class="form-input" placeholder="https://instagram.com/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-instagram"></i> انستغرام 2</label>
+          <input type="url" id="s-instagram2" class="form-input" placeholder="https://instagram.com/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-instagram"></i> قناة انستغرام</label>
+          <input type="url" id="s-instagramChannel" class="form-input" placeholder="https://instagram.com/j/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-facebook"></i> فيسبوك الشخصي</label>
+          <input type="url" id="s-facebook" class="form-input" placeholder="https://facebook.com/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-facebook"></i> صفحة فيسبوك</label>
+          <input type="url" id="s-facebookPage" class="form-input" placeholder="https://facebook.com/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-youtube"></i> يوتيوب</label>
+          <input type="url" id="s-youtube" class="form-input" placeholder="https://youtube.com/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-telegram"></i> تيليغرام</label>
+          <input type="url" id="s-telegram" class="form-input" placeholder="https://t.me/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-whatsapp"></i> قناة واتساب الرسمية</label>
+          <input type="url" id="s-officialChannel" class="form-input" placeholder="https://whatsapp.com/channel/..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-whatsapp"></i> مجموعة واتساب</label>
+          <input type="url" id="s-waGroups" class="form-input" placeholder="https://chat.whatsapp.com/..." />
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label"><i class="fas fa-globe"></i> الموقع الشخصي</label>
+          <input type="url" id="s-portfolio" class="form-input" placeholder="https://..." />
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveSocialLinks()">
+        <i class="fas fa-save"></i> حفظ الروابط
+      </button>
+    </div>
+  </div>
+
+
+  <!-- =================== USERS PAGE =================== -->
+  <div class="page" id="page-users">
+    <div class="page-header">
+      <h1><i class="fas fa-users" style="color:var(--blue)"></i> إدارة المستخدمين</h1>
+      <p>عرض وإدارة جميع مستخدمي البوت</p>
+    </div>
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="stat-card blue"><div class="stat-icon blue"><i class="fas fa-users"></i></div><div class="stat-info"><div class="stat-value" id="u-total">—</div><div class="stat-label">إجمالي المستخدمين</div></div></div>
+      <div class="stat-card green"><div class="stat-icon green"><i class="fas fa-user-check"></i></div><div class="stat-info"><div class="stat-value" id="u-active">—</div><div class="stat-label">نشطون منذ التشغيل</div></div></div>
+      <div class="stat-card red"><div class="stat-icon red"><i class="fas fa-user-slash"></i></div><div class="stat-info"><div class="stat-value" id="u-banned">—</div><div class="stat-label">محظورون</div></div></div>
+      <div class="stat-card purple"><div class="stat-icon purple"><i class="fas fa-globe"></i></div><div class="stat-info"><div class="stat-value" id="u-langs">—</div><div class="stat-label">لغات مستخدمة</div></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-icon blue"><i class="fas fa-user-edit"></i></div><div class="card-title">حظر / رفع حظر مستخدم</div></div>
+        <div class="form-group">
+          <label class="form-label">رقم الهاتف (مع كود الدولة)</label>
+          <input type="tel" id="ban-number" class="form-input" placeholder="212XXXXXXXXX" />
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-danger" onclick="banUser()" style="flex:1;justify-content:center;"><i class="fas fa-ban"></i> حظر</button>
+          <button class="btn btn-primary" onclick="unbanUser()" style="flex:1;justify-content:center;"><i class="fas fa-unlock"></i> رفع الحظر</button>
+        </div>
+        <div id="ban-alert" class="alert" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon red"><i class="fas fa-user-slash"></i></div><div class="card-title">قائمة المحظورين</div></div>
+        <div id="banned-list" style="max-height:220px;overflow-y:auto;">
+          <div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue"><i class="fas fa-list"></i></div>
+        <div class="card-title">قائمة المستخدمين المسجلين</div>
+        <button class="btn btn-secondary" onclick="loadUsers()" style="margin-right:auto;padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div id="users-list"><div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div></div>
+    </div>
+  </div>
+
+  <!-- =================== CMD STATS PAGE =================== -->
+  <div class="page" id="page-cmdstats">
+    <div class="page-header">
+      <h1><i class="fas fa-chart-bar" style="color:var(--purple)"></i> إحصائيات الأوامر</h1>
+      <p>الأوامر الأكثر استخداماً والأوامر غير المستخدمة</p>
+    </div>
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="stat-card blue"><div class="stat-icon blue"><i class="fas fa-terminal"></i></div><div class="stat-info"><div class="stat-value" id="cs-total">—</div><div class="stat-label">إجمالي الأوامر</div></div></div>
+      <div class="stat-card green"><div class="stat-icon green"><i class="fas fa-check"></i></div><div class="stat-info"><div class="stat-value" id="cs-used">—</div><div class="stat-label">مستخدمة</div></div></div>
+      <div class="stat-card red"><div class="stat-icon red"><i class="fas fa-times"></i></div><div class="stat-info"><div class="stat-value" id="cs-unused">—</div><div class="stat-label">غير مستخدمة</div></div></div>
+      <div class="stat-card purple"><div class="stat-icon purple"><i class="fas fa-fire"></i></div><div class="stat-info"><div class="stat-value" id="cs-top" style="font-size:16px;">—</div><div class="stat-label">الأكثر استخداماً</div></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-icon green"><i class="fas fa-fire"></i></div><div class="card-title">🔥 الأوامر الأكثر استخداماً</div></div>
+        <div id="top-commands-list"><div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon red"><i class="fas fa-ghost"></i></div><div class="card-title">💤 الأوامر غير المستخدمة</div></div>
+        <div id="unused-commands-list" style="max-height:420px;overflow-y:auto;"><div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== BROADCAST PAGE =================== -->
+  <div class="page" id="page-broadcast">
+    <div class="page-header">
+      <h1><i class="fas fa-bullhorn" style="color:var(--yellow)"></i> البث الجماعي</h1>
+      <p>إرسال رسائل لجميع مستخدمي البوت</p>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-icon yellow"><i class="fas fa-paper-plane"></i></div><div class="card-title">إرسال رسالة جماعية</div></div>
+        <div class="form-group">
+          <label class="form-label">الرسالة (يدعم تنسيق واتساب *غامق* _مائل_)</label>
+          <textarea id="broadcast-msg" class="form-input" rows="7" placeholder="اكتب رسالتك هنا..." style="resize:vertical;"></textarea>
+        </div>
+        <div style="background:rgba(246,224,94,0.08);border:1px solid rgba(246,224,94,0.2);border-radius:12px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--yellow);">
+          <i class="fas fa-exclamation-triangle"></i> ستُرسل لجميع المستخدمين المسجلين — تأكد من المحتوى قبل الإرسال
+        </div>
+        <button class="btn btn-primary" onclick="sendBroadcast()" style="width:100%;justify-content:center;font-size:15px;padding:14px;">
+          <i class="fas fa-paper-plane"></i> إرسال للجميع
+        </button>
+        <div id="broadcast-alert" class="alert" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon blue"><i class="fas fa-info-circle"></i></div><div class="card-title">معلومات البث</div></div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg);border-radius:12px;">
+            <span style="color:var(--text-muted);"><i class="fas fa-users"></i> إجمالي المستلمين</span>
+            <span id="broadcast-total" style="font-weight:700;color:var(--blue);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg);border-radius:12px;">
+            <span style="color:var(--text-muted);"><i class="fas fa-check-circle"></i> آخر عملية إرسال</span>
+            <span id="broadcast-last" style="font-weight:700;color:var(--accent);">—</span>
+          </div>
+          <div style="padding:14px;background:rgba(99,179,237,0.05);border:1px solid rgba(99,179,237,0.15);border-radius:12px;font-size:13px;color:var(--text-muted);line-height:1.8;">
+            <i class="fas fa-clock" style="color:var(--blue);"></i>
+            تأخير 500ms بين كل مستخدم لتجنب الحظر من واتساب.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== ACTIVITY LOG PAGE =================== -->
+  <div class="page" id="page-activity">
+    <div class="page-header">
+      <h1><i class="fas fa-history" style="color:var(--yellow)"></i> سجل النشاط المباشر</h1>
+      <p>آخر 50 أمر تم تنفيذه في البوت في الوقت الفعلي</p>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow"><i class="fas fa-list-alt"></i></div>
+        <div class="card-title">الأنشطة الأخيرة</div>
+        <button class="btn btn-secondary" onclick="loadActivity()" style="margin-right:auto;padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div id="activity-log">
+        <div style="color:var(--text-muted);text-align:center;padding:40px;">
+          <i class="fas fa-history" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+          الأنشطة تُسجَّل تلقائياً بعد استخدام الأوامر في البوت
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // =================== AUTHENTICATION INTERCEPTOR ===================
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args) {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      if (!args[1]) args[1] = {};
+      if (!args[1].headers) args[1].headers = {};
+      if (args[1].headers instanceof Headers) {
+        args[1].headers.set('Authorization', 'Bearer ' + token);
+      } else if (Array.isArray(args[1].headers)) {
+        args[1].headers.push(['Authorization', 'Bearer ' + token]);
+      } else {
+        args[1].headers['Authorization'] = 'Bearer ' + token;
+      }
+    }
+    
+    const response = await originalFetch(...args);
+    if (response.status === 401 && !args[0].includes('/api/login')) {
+      localStorage.removeItem('auth_token');
+      document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+      showLoginOverlay();
+    }
+    return response;
+  };
+
+  function showLoginOverlay() {
+    document.getElementById('login-overlay').classList.remove('hide');
+  }
+
+  function hideLoginOverlay() {
+    document.getElementById('login-overlay').classList.add('hide');
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const alertEl = document.getElementById('login-alert');
+    const btn = document.getElementById('login-btn');
+    
+    alertEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> جاري التحقق...';
+    
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.token) {
+        localStorage.setItem('auth_token', data.token);
+        document.cookie = "auth_token=" + data.token + "; path=/; max-age=31536000; SameSite=Strict";
+        hideLoginOverlay();
+        await loadDashboard();
+        await loadSettings();
+        showToast('تم تسجيل الدخول بنجاح', 'success');
+      } else {
+        alertEl.style.display = 'block';
+        alertEl.className = 'alert alert-error show';
+        alertEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${data.error || 'اسم المستخدم أو كلمة المرور غير صحيحة'}`;
+      }
+    } catch(err) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert alert-error show';
+      alertEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> خطأ في الاتصال بالخادم`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> تسجيل الدخول';
+    }
+  }
+
+  function handleLogout() {
+    if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+      localStorage.removeItem('auth_token');
+      document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+      showLoginOverlay();
+      showToast('تم تسجيل الخروج بنجاح', 'info');
+    }
+  }
+
+  // =================== STATE ===================
+  const API = ''; // Same origin
+  let settingsData = {};
+  let countdownInterval;
+  let currentPairingNumber = '';
+
+  // =================== INIT ===================
+  window.onload = async () => {
+    updateClock();
+    setInterval(updateClock, 1000);
+    
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      showLoginOverlay();
+      setTimeout(() => {
+        document.getElementById('loading-overlay').classList.add('hide');
+      }, 500);
+      return;
+    }
+    
+    await loadDashboard();
+    await loadSettings();
+    
+    setTimeout(() => {
+      document.getElementById('loading-overlay').classList.add('hide');
+    }, 800);
+  };
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('current-time').textContent =
+      now.toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  // =================== NAVIGATION ===================
+  function showPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.getElementById('nav-' + page).classList.add('active');
+
+    if (page === 'sessions') loadSessions();
+    if (page === 'settings') loadSettings();
+    if (page === 'users') loadUsers();
+    if (page === 'cmdstats') loadCmdStats();
+    if (page === 'activity') loadActivity();
+    if (page === 'broadcast') loadUsers();
+  }
+
+  // =================== DASHBOARD ===================
+  async function loadDashboard() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      
+      // Status badge
+      const connected = data.sessions?.some(s => s.connected);
+      document.getElementById('global-status-dot').style.background = connected ? 'var(--accent)' : 'var(--red)';
+      document.getElementById('global-status-text').textContent = connected ? 'متصل ✓' : 'غير متصل';
+
+      // Stats
+      document.getElementById('stat-sessions').textContent = data.sessions?.filter(s => s.connected).length || 0;
+      document.getElementById('stat-commands').textContent = data.commandCount || '566';
+      document.getElementById('stat-apk-limit').textContent = data.apkLimit || 5;
+
+      // Bot info
+      const info = data.settings || {};
+      document.getElementById('bot-info-list').innerHTML = `
+        ${infoRow('🤖', 'اسم البوت', info.botName || '—')}
+        ${infoRow('👑', 'المطور', info.botOwner || '—')}
+        ${infoRow('🔑', 'البادئة', info.prefix || '.')}
+        ${infoRow('⚙️', 'وضع الأوامر', info.commandMode || '—')}
+        ${infoRow('🔢', 'الرقم الرئيسي', info.pairingNumber || '—')}
+        ${infoRow('🌍', 'المنطقة الزمنية', info.timezone || '—')}
+        ${infoRow('📦', 'الإصدار', info.version || '—')}
+      `;
+    } catch (e) {
+      document.getElementById('global-status-text').textContent = 'خطأ في الاتصال';
+      document.getElementById('global-status-dot').style.background = 'var(--red)';
+    }
+  }
+
+  function infoRow(icon, label, value) {
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <span style="color:var(--text-muted);font-size:13px;">${icon} ${label}</span>
+      <span style="font-size:13px;font-weight:600;">${value}</span>
+    </div>`;
+  }
+
+  // =================== SESSIONS ===================
+  async function loadSessions() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      const sessions = data.sessions || [];
+
+      if (sessions.length === 0) {
+        document.getElementById('sessions-list').innerHTML = `
+          <div style="text-align:center;padding:40px;color:var(--text-muted);">
+            <i class="fas fa-unlink" style="font-size:40px;margin-bottom:16px;display:block;"></i>
+            لا توجد جلسات متصلة حالياً
+          </div>`;
+        return;
+      }
+
+      document.getElementById('sessions-list').innerHTML = sessions.map(s => `
+        <div class="session-card">
+          <div class="session-avatar">📱</div>
+          <div class="session-info">
+            <div class="session-number">${s.number || s.path || 'غير معروف'}</div>
+            <div class="session-status ${s.connected ? 'connected' : 'disconnected'}">
+              ${s.connected ? '🟢 متصل' : '🔴 غير متصل'}
+              ${s.jid ? ' — ' + s.jid : ''}
+            </div>
+          </div>
+          <span class="chip ${s.connected ? 'chip-green' : 'chip-red'}">
+            ${s.connected ? 'نشط' : 'منفصل'}
+          </span>
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('sessions-list').innerHTML = `
+        <div class="alert alert-error show"><i class="fas fa-exclamation-circle"></i> تعذر تحميل الجلسات</div>`;
+    }
+  }
+
+  // =================== PAIRING CODE ===================
+  async function requestPairingCode() {
+    const num = document.getElementById('pairing-number').value.trim().replace(/[^0-9]/g, '');
+    const alert = document.getElementById('alert-pairing');
+    const btn = document.getElementById('pairing-btn');
+    const display = document.getElementById('pairing-code-display');
+
+    if (!num || num.length < 10) {
+      showAlert(alert, 'error', 'أدخل رقماً صحيحاً مع كود الدولة (على الأقل 10 أرقام)');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> جاري الطلب...';
+    display.classList.remove('visible');
+    showAlert(alert, 'info', `⏳ جاري طلب كود الإقران للرقم ${num}...`);
+    currentPairingNumber = num;
+
+    try {
+      const res = await fetch('/api/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: num })
+      });
+      const data = await res.json();
+
+      if (data.success && data.code) {
+        showAlert(alert, 'success', '✅ تم إنشاء الكود بنجاح! أدخله في واتساب خلال دقيقتين');
+        document.getElementById('code-value').textContent = data.code;
+        display.classList.add('visible');
+
+        // Countdown
+        let secs = 120;
+        const timer = document.getElementById('code-timer');
+        clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+          secs--;
+          timer.textContent = `⏱️ ينتهي الكود خلال ${secs} ثانية`;
+          if (secs <= 0) {
+            clearInterval(countdownInterval);
+            timer.textContent = '❌ انتهت صلاحية الكود - أعد الطلب';
+            display.classList.remove('visible');
+          }
+        }, 1000);
+      } else {
+        showAlert(alert, 'error', data.error || 'فشل في طلب الكود. تأكد أن البوت متصل وحاول مرة أخرى.');
+      }
+    } catch (e) {
+      showAlert(alert, 'error', 'خطأ في الاتصال بالسيرفر. تأكد أن البوت يعمل.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-key"></i> طلب كود الإقران';
+    }
+  }
+
+  async function cancelPairingRequest() {
+    if (!currentPairingNumber) return;
+    const alert = document.getElementById('alert-pairing');
+    const btn = document.getElementById('cancel-pairing-btn');
+    const display = document.getElementById('pairing-code-display');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> جاري الإلغاء...';
+
+    try {
+      const res = await fetch('/api/pair-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: currentPairingNumber })
+      });
+      const data = await res.json();
+      if (data.success) {
+        clearInterval(countdownInterval);
+        display.classList.remove('visible');
+        showAlert(alert, 'info', 'ℹ️ تم إلغاء طلب الإقران وتنظيف الجلسة بنجاح.');
+        currentPairingNumber = '';
+      } else {
+        showToast(data.error || 'فشل إلغاء الطلب', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-times-circle"></i> إلغاء الطلب';
+    }
+  }
+
+  // =================== SETTINGS ===================
+  async function loadSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      settingsData = data;
+
+      // Basic info
+      document.getElementById('s-botName').value = data.botName || '';
+      document.getElementById('s-botOwner').value = data.botOwner || '';
+      document.getElementById('s-prefix').value = data.prefix || '.';
+      document.getElementById('s-commandMode').value = data.commandMode || 'public';
+      document.getElementById('s-timezone').value = data.timezone || '';
+      document.getElementById('s-pairingNumber').value = data.pairingNumber || '';
+      document.getElementById('s-description').value = data.description || '';
+
+      // Toggles
+      document.getElementById('s-autoStatusReact').checked = data.AUTO_STATUS_REACT === 'true';
+      document.getElementById('s-autoStatusReply').checked = data.AUTO_STATUS_REPLY === 'true';
+      document.getElementById('s-autoStatusMsg').value = data.AUTO_STATUS_MSG || '';
+      document.getElementById('s-autoRecord').checked = data.AUTORECORD === 'true';
+      document.getElementById('s-autoType').checked = data.AUTOTYPE === 'true';
+      document.getElementById('s-autoRecordType').checked = data.AUTORECORDTYPE === 'true';
+
+      // Stickers & Newsletters
+      document.getElementById('s-packname').value = data.packname || '';
+      document.getElementById('s-author').value = data.author || '';
+      document.getElementById('s-newsletterName').value = data.newsletterName || '';
+      document.getElementById('s-newsletterJid').value = data.newsletterJid || '';
+
+      // API Keys & Databases
+      document.getElementById('s-giphyApiKey').value = data.giphyApiKey || '';
+      document.getElementById('s-hfToken').value = data.hfToken || '';
+      document.getElementById('s-supabaseUrl').value = data.supabaseUrl || '';
+      document.getElementById('s-supabaseKey').value = data.supabaseKey || '';
+      document.getElementById('s-telegramToken').value = data.telegramToken || '';
+      document.getElementById('s-fbPageId').value = data.fbPageId || '';
+      document.getElementById('s-fbPageAccessToken').value = data.fbPageAccessToken || '';
+
+      // Social links
+      document.getElementById('s-instagram').value = data.instagram || '';
+      document.getElementById('s-instagram2').value = data.instagram2 || '';
+      document.getElementById('s-instagramChannel').value = data.instagramChannel || '';
+      document.getElementById('s-facebook').value = data.facebook || '';
+      document.getElementById('s-facebookPage').value = data.facebookPage || '';
+      document.getElementById('s-youtube').value = data.youtube || '';
+      document.getElementById('s-telegram').value = data.telegram || '';
+      document.getElementById('s-officialChannel').value = data.officialChannel || '';
+      document.getElementById('s-waGroups').value = data.waGroups || '';
+      document.getElementById('s-portfolio').value = data.portfolio || '';
+
+      // APK limit
+      document.getElementById('apk-limit-range').value = data.apkLimit || 5;
+      document.getElementById('apk-range-value').textContent = data.apkLimit || 5;
+
+      // Owner numbers
+      renderNumbersList('owner-numbers-list', data.ownerNumber || [], 'owner');
+      renderNumbersList('extra-numbers-list', data.extraNumbers || [], 'extra');
+
+    } catch (e) {
+      showToast('خطأ في تحميل الإعدادات', 'error');
+    }
+  }
+
+  function renderNumbersList(containerId, nums, type) {
+    const container = document.getElementById(containerId);
+    if (!nums || nums.length === 0) {
+      container.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">لا توجد أرقام مضافة</p>`;
+      return;
+    }
+    container.innerHTML = nums.map((num, i) => `
+      <div class="number-item">
+        <div class="number-item-left">
+          <div class="number-dot"></div>
+          <span style="font-size:14px;font-weight:600;">${num}</span>
+        </div>
+        <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="removeNumber('${type}', ${i})">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    `).join('');
+  }
+
+  function addOwnerNumber() {
+    const input = document.getElementById('new-owner-num');
+    const num = input.value.trim().replace(/[^0-9]/g, '');
+    if (!num || num.length < 10) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
+    if (!settingsData.ownerNumber) settingsData.ownerNumber = [];
+    settingsData.ownerNumber.push(num);
+    renderNumbersList('owner-numbers-list', settingsData.ownerNumber, 'owner');
+    input.value = '';
+    showToast('تمت إضافة الرقم', 'success');
+  }
+
+  function addExtraNumber() {
+    const input = document.getElementById('new-extra-num');
+    const num = input.value.trim().replace(/[^0-9]/g, '');
+    if (!num || num.length < 10) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
+    if (!settingsData.extraNumbers) settingsData.extraNumbers = [];
+    settingsData.extraNumbers.push(num);
+    renderNumbersList('extra-numbers-list', settingsData.extraNumbers, 'extra');
+    input.value = '';
+    showToast('تمت إضافة الرقم', 'success');
+  }
+
+  function removeNumber(type, index) {
+    if (type === 'owner') {
+      settingsData.ownerNumber.splice(index, 1);
+      renderNumbersList('owner-numbers-list', settingsData.ownerNumber, 'owner');
+    } else {
+      settingsData.extraNumbers.splice(index, 1);
+      renderNumbersList('extra-numbers-list', settingsData.extraNumbers, 'extra');
+    }
+    showToast('تم حذف الرقم', 'success');
+  }
+
+  async function saveSettings() {
+    const payload = {
+      botName: document.getElementById('s-botName').value,
+      botOwner: document.getElementById('s-botOwner').value,
+      prefix: document.getElementById('s-prefix').value || '.',
+      commandMode: document.getElementById('s-commandMode').value,
+      timezone: document.getElementById('s-timezone').value,
+      pairingNumber: document.getElementById('s-pairingNumber').value.replace(/[^0-9]/g, ''),
+      description: document.getElementById('s-description').value,
+
+      AUTO_STATUS_REACT: document.getElementById('s-autoStatusReact').checked ? 'true' : 'false',
+      AUTO_STATUS_REPLY: document.getElementById('s-autoStatusReply').checked ? 'true' : 'false',
+      AUTO_STATUS_MSG: document.getElementById('s-autoStatusMsg').value,
+      AUTORECORD: document.getElementById('s-autoRecord').checked ? 'true' : 'false',
+      AUTOTYPE: document.getElementById('s-autoType').checked ? 'true' : 'false',
+      AUTORECORDTYPE: document.getElementById('s-autoRecordType').checked ? 'true' : 'false',
+
+      packname: document.getElementById('s-packname').value,
+      author: document.getElementById('s-author').value,
+      newsletterName: document.getElementById('s-newsletterName').value,
+      newsletterJid: document.getElementById('s-newsletterJid').value,
+
+      giphyApiKey: document.getElementById('s-giphyApiKey').value,
+      hfToken: document.getElementById('s-hfToken').value,
+      supabaseUrl: document.getElementById('s-supabaseUrl').value,
+      supabaseKey: document.getElementById('s-supabaseKey').value,
+      telegramToken: document.getElementById('s-telegramToken').value,
+      fbPageId: document.getElementById('s-fbPageId').value,
+      fbPageAccessToken: document.getElementById('s-fbPageAccessToken').value,
+
+      ownerNumber: settingsData.ownerNumber || [],
+      extraNumbers: settingsData.extraNumbers || [],
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('✅ تم حفظ الإعدادات بنجاح', 'success');
+        showAlert(document.getElementById('settings-alert'), 'success', '✅ تم حفظ الإعدادات بنجاح! أعد تشغيل البوت لتطبيق التغييرات.');
+      } else {
+        showToast(data.error || 'فشل الحفظ', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال', 'error');
+    }
+  }
+
+  async function saveSocialLinks() {
+    const payload = {
+      instagram: document.getElementById('s-instagram').value,
+      instagram2: document.getElementById('s-instagram2').value,
+      instagramChannel: document.getElementById('s-instagramChannel').value,
+      facebook: document.getElementById('s-facebook').value,
+      facebookPage: document.getElementById('s-facebookPage').value,
+      youtube: document.getElementById('s-youtube').value,
+      telegram: document.getElementById('s-telegram').value,
+      officialChannel: document.getElementById('s-officialChannel').value,
+      waGroups: document.getElementById('s-waGroups').value,
+      portfolio: document.getElementById('s-portfolio').value,
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) showToast('✅ تم حفظ الروابط بنجاح', 'success');
+      else showToast(data.error || 'فشل الحفظ', 'error');
+    } catch (e) {
+      showToast('خطأ في الاتصال', 'error');
+    }
+  }
+
+  async function saveApkLimit() {
+    const limit = parseInt(document.getElementById('apk-limit-range').value);
+    try {
+      const res = await fetch('/api/apk-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`✅ تم تحديث الحد إلى ${limit} يومياً`, 'success');
+        document.getElementById('stat-apk-limit').textContent = limit;
+      } else showToast(data.error || 'فشل الحفظ', 'error');
+    } catch (e) {
+      showToast('خطأ في الاتصال', 'error');
+    }
+  }
+
+  function confirmRestart() {
+    if (confirm('⚠️ هل أنت متأكد من إعادة تشغيل البوت؟ سيتم قطع الاتصال مؤقتاً.')) {
+      fetch('/api/restart', { method: 'POST' })
+        .then(() => showToast('🔄 جاري إعادة التشغيل...', 'success'))
+        .catch(() => showToast('خطأ في الاتصال', 'error'));
+    }
+  }
+
+  // =================== USERS ===================
+  async function loadUsers() {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      document.getElementById('u-total').textContent = data.total || 0;
+      document.getElementById('u-active').textContent = data.activeCount || 0;
+      document.getElementById('u-banned').textContent = (data.banned || []).length;
+      const langs = [...new Set((data.users || []).map(u => u.language).filter(Boolean))];
+      document.getElementById('u-langs').textContent = langs.length || 1;
+      if(document.getElementById('broadcast-total')) document.getElementById('broadcast-total').textContent = data.total || 0;
+      // Banned list
+      const bannedList = document.getElementById('banned-list');
+      if (!data.banned || data.banned.length === 0) {
+        bannedList.innerHTML = `<p style="color:var(--accent);font-size:13px;text-align:center;padding:16px;">✅ لا يوجد مستخدمون محظورون</p>`;
+      } else {
+        bannedList.innerHTML = data.banned.map(jid => {
+          const num = jid.split('@')[0];
+          return `<div class="number-item"><div class="number-item-left"><div class="number-dot" style="background:var(--red);"></div><span style="font-size:13px;font-weight:600;">+${num}</span></div><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}')"><i class="fas fa-unlock"></i> رفع</button></div>`;
+        }).join('');
+      }
+      // Users list
+      const usersList = document.getElementById('users-list');
+      if (!data.users || data.users.length === 0) {
+        usersList.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">لا يوجد مستخدمون مسجلون بعد</p>`;
+      } else {
+        usersList.innerHTML = `<div style="display:grid;gap:8px;">` + data.users.map(u => {
+          const num = (u.id || '').split('@')[0];
+          const isBanned = (data.banned || []).includes(u.id);
+          const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
+          return `<div class="number-item"><div class="number-item-left"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-size:14px;">👤</div><div><div style="font-size:13px;font-weight:700;">+${num}</div><div style="font-size:11px;color:var(--text-muted);">آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div></div></div><div style="display:flex;gap:6px;align-items:center;">${isBanned ? `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}')"><i class="fas fa-unlock"></i></button>` : `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}')"><i class="fas fa-ban"></i></button>`}</div></div>`;
+        }).join('') + `</div>`;
+      }
+    } catch(e) { showToast('خطأ في تحميل المستخدمين', 'error'); }
+  }
+
+  async function banUser() {
+    const num = document.getElementById('ban-number').value.trim().replace(/[^0-9]/g,'');
+    if (!num || num.length < 10) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
+    const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+    const data = await res.json();
+    if (data.ok) { showAlert(document.getElementById('ban-alert'),'success','✅ تم الحظر بنجاح'); loadUsers(); }
+    else showAlert(document.getElementById('ban-alert'),'error', data.error || 'فشل');
+  }
+
+  async function unbanUser() {
+    const num = document.getElementById('ban-number').value.trim().replace(/[^0-9]/g,'');
+    if (!num || num.length < 10) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
+    const res = await fetch('/api/unban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+    const data = await res.json();
+    if (data.ok) { showAlert(document.getElementById('ban-alert'),'success','✅ تم رفع الحظر'); loadUsers(); }
+    else showAlert(document.getElementById('ban-alert'),'error', data.error || 'فشل');
+  }
+
+  async function quickBan(num) {
+    if (!confirm(`حظر +${num}؟`)) return;
+    const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+    const data = await res.json();
+    if (data.ok) { showToast('✅ تم الحظر', 'success'); loadUsers(); }
+    else showToast(data.error || 'فشل', 'error');
+  }
+
+  async function quickUnban(num) {
+    const res = await fetch('/api/unban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+    const data = await res.json();
+    if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); loadUsers(); }
+    else showToast(data.error || 'فشل', 'error');
+  }
+
+  // =================== CMD STATS ===================
+  async function loadCmdStats() {
+    try {
+      const res = await fetch('/api/cmd-stats');
+      const data = await res.json();
+      document.getElementById('cs-total').textContent = data.total || 0;
+      document.getElementById('cs-used').textContent = data.usedCount || 0;
+      document.getElementById('cs-unused').textContent = data.unusedCount || 0;
+      document.getElementById('cs-top').textContent = data.topCommands?.[0]?.cmd ? '.' + data.topCommands[0].cmd : '—';
+      // Top commands bars
+      const topEl = document.getElementById('top-commands-list');
+      if (!data.topCommands || data.topCommands.length === 0) {
+        topEl.innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">لم يُستخدم أي أمر بعد منذ آخر تشغيل</p>`;
+      } else {
+        const maxCount = data.topCommands[0]?.count || 1;
+        const colors = ['var(--accent)','var(--blue)','var(--purple)','var(--yellow)','var(--red)'];
+        topEl.innerHTML = data.topCommands.map((item, i) => {
+          const pct = Math.round((item.count / maxCount) * 100);
+          const color = colors[i % colors.length];
+          return `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:13px;font-weight:600;"><i class="fas fa-terminal" style="color:${color};margin-left:6px;"></i>.${item.cmd}</span><span style="font-size:13px;font-weight:700;color:${color};">${item.count}x</span></div><div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${color};border-radius:6px;transition:width 0.5s;"></div></div></div>`;
+        }).join('');
+      }
+      // Unused commands
+      const unusedEl = document.getElementById('unused-commands-list');
+      if (!data.unusedFiles || data.unusedFiles.length === 0) {
+        unusedEl.innerHTML = `<p style="color:var(--accent);text-align:center;padding:20px;">🎉 جميع الأوامر تم استخدامها!</p>`;
+      } else {
+        const catColors = {thmil:'var(--blue)',ai:'var(--purple)',image:'var(--yellow)',tools:'var(--accent)',admin:'var(--red)',group:'var(--blue)',fun:'var(--yellow)',info:'var(--text-muted)',islamic:'var(--accent)',morocco:'var(--red)'};
+        unusedEl.innerHTML = data.unusedFiles.map(f => {
+          const [cat, name] = f.split('/');
+          const col = catColors[cat] || 'var(--text-muted)';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:10px;margin-bottom:6px;"><span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(252,129,129,0.1);color:var(--red);font-weight:600;white-space:nowrap;">غير مستخدم</span><span style="font-size:13px;flex:1;"><span style="color:${col};font-weight:700;">${cat}/</span>${name||f}</span></div>`;
+        }).join('');
+      }
+    } catch(e) { showToast('خطأ في تحميل الإحصائيات', 'error'); }
+  }
+
+  // =================== BROADCAST ===================
+  async function sendBroadcast() {
+    const msg = document.getElementById('broadcast-msg').value.trim();
+    if (!msg) { showToast('اكتب رسالة أولاً', 'error'); return; }
+    if (!confirm('إرسال هذه الرسالة لجميع المستخدمين؟')) return;
+    const alert = document.getElementById('broadcast-alert');
+    showAlert(alert, 'info', '⏳ جاري الإرسال، يرجى الانتظار...');
+    try {
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showAlert(alert, 'success', `✅ تم الإرسال: ${data.sent} بنجاح، ${data.failed} فشل من أصل ${data.total}`);
+        document.getElementById('broadcast-last').textContent = new Date().toLocaleTimeString('ar-MA');
+        document.getElementById('broadcast-msg').value = '';
+      } else {
+        showAlert(alert, 'error', data.error || 'فشل الإرسال');
+      }
+    } catch(e) { showAlert(alert, 'error', 'خطأ في الاتصال'); }
+  }
+
+  // =================== ACTIVITY LOG ===================
+  async function loadActivity() {
+    try {
+      const res = await fetch('/api/activity');
+      const data = await res.json();
+      const logEl = document.getElementById('activity-log');
+      if (!data.log || data.log.length === 0) {
+        logEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-history" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>الأنشطة تُسجَّل بعد استخدام الأوامر في البوت</div>`;
+        return;
+      }
+      logEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;">` +
+        data.log.map(entry => {
+          const d = new Date(entry.time);
+          const timeStr = d.toLocaleTimeString('ar-MA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+          const dateStr = d.toLocaleDateString('ar-MA');
+          const num = (entry.user||'').split('@')[0];
+          const isGroup = (entry.chat||'').includes('@g.us');
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:12px;border-right:3px solid var(--accent);"><div style="font-size:18px;">${isGroup?'👥':'👤'}</div><div style="flex:1;"><span style="background:rgba(37,211,102,0.1);color:var(--accent);padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;">.${entry.cmd}</span> <span style="font-size:12px;color:var(--text-muted);">من +${num}${isGroup?' (مجموعة)':''}</span></div><div style="text-align:left;font-size:11px;color:var(--text-muted);white-space:nowrap;"><div>${timeStr}</div><div>${dateStr}</div></div></div>`;
+        }).join('') + `</div>`;
+    } catch(e) { showToast('خطأ في تحميل السجل', 'error'); }
+  }
+
+  // =================== HELPERS ===================
+  function showAlert(el, type, msg) {
+    el.className = `alert alert-${type} show`;
+    el.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i> ${msg}`;
+    if (type === 'success') setTimeout(() => el.classList.remove('show'), 5000);
+  }
+
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
