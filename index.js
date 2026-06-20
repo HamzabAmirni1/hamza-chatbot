@@ -509,7 +509,8 @@ app.post('/api/settings', (req, res) => {
       'AUTO_STATUS_REACT','AUTO_STATUS_REPLY','AUTO_STATUS_MSG','AUTORECORD','AUTOTYPE','AUTORECORDTYPE',
       'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
-      'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description'
+      'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
+      'enableNewsAutoPoster'
     ];
     const arrFields = ['ownerNumber','extraNumbers'];
     for (const key of strFields) {
@@ -726,6 +727,31 @@ app.post('/api/unban', (req, res) => {
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
+
+app.post('/api/delete-all-users', async (req, res) => {
+  try {
+    const success = await db.deleteAllUsers();
+    if (success) {
+      if (global._activeUsers) global._activeUsers.clear();
+      res.json({ ok: true });
+    } else {
+      res.status(500).json({ ok: false, error: 'فشل حذف المستخدمين' });
+    }
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/clear-activity', async (req, res) => {
+  try {
+    const success = await db.clearAllActivity();
+    if (success) {
+      global._activityLog = [];
+      res.json({ ok: true });
+    } else {
+      res.status(500).json({ ok: false, error: 'فشل مسح سجل النشاط' });
+    }
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 
 app.get('/api/cmd-stats', (req, res) => {
   try {
