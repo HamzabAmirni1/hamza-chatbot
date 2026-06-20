@@ -225,6 +225,9 @@ app.get("/", (req, res) => {
       config.publicUrl = detectedUrl;
       console.log(chalk.green(`✨ Auto-Detected Public URL: ${config.publicUrl}`));
       try { fs.writeFileSync(path.join(__dirname, "server_url.json"), JSON.stringify({ url: detectedUrl })); } catch (e) {}
+      if (db && db.setCache) {
+        db.setCache("public_url", detectedUrl).catch(err => console.error("Failed to cache public URL in Supabase:", err));
+      }
     }
   }
   // Serve dashboard to browsers
@@ -1035,7 +1038,30 @@ app.post("/webhook", (req, res) => {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(chalk.green(`✅ Server listening on port ${port} (0.0.0.0)`));
-  console.log(chalk.cyan(`🌐 Keep-Alive: ${config.publicUrl || "⚠️ Not Set"}`));
+
+  // Load saved public URL from local file or Supabase cache
+  (async () => {
+    try {
+      const urlPath = path.join(__dirname, "server_url.json");
+      if (fs.existsSync(urlPath)) {
+        const saved = JSON.parse(fs.readFileSync(urlPath, "utf-8"));
+        if (saved && saved.url) {
+          config.publicUrl = saved.url;
+          console.log(chalk.cyan(`🌐 Loaded Public URL from server_url.json: ${config.publicUrl}`));
+        }
+      }
+      if (db && db.getCache) {
+        const cachedUrl = await db.getCache("public_url");
+        if (cachedUrl) {
+          config.publicUrl = cachedUrl;
+          console.log(chalk.green(`🌐 Loaded Public URL from Supabase cache: ${config.publicUrl}`));
+        }
+      }
+    } catch (e) {
+      console.error("Error loading startup public URL:", e);
+    }
+    console.log(chalk.cyan(`🌐 Keep-Alive: ${config.publicUrl || "⚠️ Not Set"}`));
+  })();
 
   /* 
    * 🌟 Keep-Alive Mechanism 🌟
