@@ -1423,6 +1423,13 @@
         </div>
         <label class="toggle"><input type="checkbox" id="s-autoRecordType" /><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">نشر الأخبار التلقائي</div>
+          <div class="toggle-desc">نشر الأخبار التقنية والعامة تلقائياً على فيسبوك وتليجرام</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableNewsAutoPoster" /><span class="toggle-slider"></span></label>
+      </div>
     </div>
 
     <!-- Stickers & Newsletters Settings -->
@@ -2614,6 +2621,7 @@
       document.getElementById('s-autoRecord').checked = data.AUTORECORD === 'true';
       document.getElementById('s-autoType').checked = data.AUTOTYPE === 'true';
       document.getElementById('s-autoRecordType').checked = data.AUTORECORDTYPE === 'true';
+      document.getElementById('s-enableNewsAutoPoster').checked = data.enableNewsAutoPoster === 'true';
 
       // Stickers & Newsletters
       document.getElementById('s-packname').value = data.packname || '';
@@ -2723,6 +2731,7 @@
       AUTORECORD: document.getElementById('s-autoRecord').checked ? 'true' : 'false',
       AUTOTYPE: document.getElementById('s-autoType').checked ? 'true' : 'false',
       AUTORECORDTYPE: document.getElementById('s-autoRecordType').checked ? 'true' : 'false',
+      enableNewsAutoPoster: document.getElementById('s-enableNewsAutoPoster').checked ? 'true' : 'false',
 
       packname: document.getElementById('s-packname').value,
       author: document.getElementById('s-author').value,

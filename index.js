@@ -509,7 +509,8 @@ app.post('/api/settings', (req, res) => {
       'AUTO_STATUS_REACT','AUTO_STATUS_REPLY','AUTO_STATUS_MSG','AUTORECORD','AUTOTYPE','AUTORECORDTYPE',
       'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
-      'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description'
+      'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
+      'enableNewsAutoPoster'
     ];
     const arrFields = ['ownerNumber','extraNumbers'];
     for (const key of strFields) {
