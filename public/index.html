@@ -1542,8 +1542,16 @@
       <div class="card">
         <div class="card-header"><div class="card-icon blue"><i class="fas fa-user-edit"></i></div><div class="card-title">حظر / رفع حظر مستخدم</div></div>
         <div class="form-group">
-          <label class="form-label">رقم الهاتف (مع كود الدولة)</label>
-          <input type="tel" id="ban-number" class="form-input" placeholder="212XXXXXXXXX" />
+          <label class="form-label">المنصة</label>
+          <select id="ban-platform" class="form-input" style="background:var(--card-bg);color:var(--text-main);border:1px solid var(--border);border-radius:8px;padding:10px;width:100%;box-sizing:border-box;margin-bottom:12px;">
+            <option value="whatsapp">WhatsApp</option>
+            <option value="telegram">Telegram</option>
+            <option value="facebook">Facebook</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">معرف المستخدم / رقم الهاتف</label>
+          <input type="text" id="ban-number" class="form-input" placeholder="212XXXXXXXXX أو معرف تليجرام/فيسبوك" style="box-sizing:border-box;" />
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-danger" onclick="banUser()" style="flex:1;justify-content:center;"><i class="fas fa-ban"></i> حظر</button>
@@ -1825,14 +1833,30 @@
       document.getElementById('stat-commands').textContent = data.commandCount || '566';
       document.getElementById('stat-apk-limit').textContent = data.apkLimit || 5;
 
+      // Fetch users count
+      try {
+        const usersRes = await fetch('/api/users');
+        const usersData = await usersRes.json();
+        if (document.getElementById('stat-users')) {
+          document.getElementById('stat-users').textContent = usersData.total || 0;
+        }
+      } catch (err) {
+        console.error('Failed to load user count:', err);
+      }
+
       // Bot info
       const info = data.settings || {};
+      const activeTg = data.telegramBots?.filter(b => b.connected).length || 0;
+      const activeFb = data.facebookPages?.filter(p => p.connected).length || 0;
+      
       document.getElementById('bot-info-list').innerHTML = `
         ${infoRow('🤖', 'اسم البوت', info.botName || '—')}
         ${infoRow('👑', 'المطور', info.botOwner || '—')}
         ${infoRow('🔑', 'البادئة', info.prefix || '.')}
         ${infoRow('⚙️', 'وضع الأوامر', info.commandMode || '—')}
         ${infoRow('🔢', 'الرقم الرئيسي', info.pairingNumber || '—')}
+        ${infoRow('✈️', 'بوتات تليجرام النشطة', activeTg)}
+        ${infoRow('🔵', 'صفحات فيسبوك المرتبطة', activeFb)}
         ${infoRow('🌍', 'المنطقة الزمنية', info.timezone || '—')}
         ${infoRow('📦', 'الإصدار', info.version || '—')}
       `;
@@ -2367,8 +2391,19 @@
         bannedList.innerHTML = `<p style="color:var(--accent);font-size:13px;text-align:center;padding:16px;">✅ لا يوجد مستخدمون محظورون</p>`;
       } else {
         bannedList.innerHTML = data.banned.map(jid => {
-          const num = jid.split('@')[0];
-          return `<div class="number-item"><div class="number-item-left"><div class="number-dot" style="background:var(--red);"></div><span style="font-size:13px;font-weight:600;">+${num}</span></div><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}')"><i class="fas fa-unlock"></i> رفع</button></div>`;
+          let platform = 'whatsapp';
+          let displayId = jid.split('@')[0];
+          let prefix = '+';
+          if (jid.startsWith('tg:')) {
+            platform = 'telegram';
+            displayId = jid.replace('tg:', '');
+            prefix = 'تليجرام: ';
+          } else if (jid.startsWith('fb:')) {
+            platform = 'facebook';
+            displayId = jid.replace('fb:', '');
+            prefix = 'فيسبوك: ';
+          }
+          return `<div class="number-item"><div class="number-item-left"><div class="number-dot" style="background:var(--red);"></div><span style="font-size:13px;font-weight:600;">${prefix}${displayId}</span></div><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${displayId}', '${platform}')"><i class="fas fa-unlock"></i> رفع</button></div>`;
         }).join('');
       }
       // Users list
@@ -2378,7 +2413,16 @@
       } else {
         usersList.innerHTML = `<div style="display:grid;gap:8px;">` + data.users.map(u => {
           const num = (u.id || '').split('@')[0];
-          const isBanned = (data.banned || []).includes(u.id);
+          
+          let isBanned = false;
+          if (u.platform === 'whatsapp') {
+            isBanned = (data.banned || []).includes(u.id) || (data.banned || []).includes(`${num}@s.whatsapp.net`);
+          } else if (u.platform === 'telegram') {
+            isBanned = (data.banned || []).includes(`tg:${num}`);
+          } else if (u.platform === 'facebook') {
+            isBanned = (data.banned || []).includes(`fb:${num}`);
+          }
+          
           const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
           
           let icon = '👤';
@@ -2394,48 +2438,50 @@
             icon = '<i class="fab fa-telegram-plane"></i>';
             bg = 'linear-gradient(135deg,#38bdf8,#0284c7)';
             platBadge = `<span class="chip" style="background:rgba(56,189,248,0.1);color:#38bdf8;font-size:10px;padding:1px 6px;">Telegram</span>`;
-            userLabel = `ID: ${num}`;
+            userLabel = `تليجرام: ${num}`;
           } else if (u.platform === 'facebook') {
             icon = '<i class="fab fa-facebook-messenger"></i>';
             bg = 'linear-gradient(135deg,#0084ff,#0044ff)';
             platBadge = `<span class="chip" style="background:rgba(0,132,255,0.1);color:#0084ff;font-size:10px;padding:1px 6px;">Facebook</span>`;
-            userLabel = `ID: ${num}`;
+            userLabel = `فيسبوك: ${num}`;
           }
           
-          return `<div class="number-item"><div class="number-item-left"><div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">${icon}</div><div><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">${userLabel} ${platBadge}</div><div style="font-size:11px;color:var(--text-muted);">آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div></div></div><div style="display:flex;gap:6px;align-items:center;">${isBanned ? `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}')"><i class="fas fa-unlock"></i></button>` : `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}')"><i class="fas fa-ban"></i></button>`}</div></div>`;
+          return `<div class="number-item"><div class="number-item-left"><div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">${icon}</div><div><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">${userLabel} ${platBadge}</div><div style="font-size:11px;color:var(--text-muted);">آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div></div></div><div style="display:flex;gap:6px;align-items:center;">${isBanned ? `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}', '${u.platform}')"><i class="fas fa-unlock"></i></button>` : `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}', '${u.platform}')"><i class="fas fa-ban"></i></button>`}</div></div>`;
         }).join('') + `</div>`;
       }
     } catch(e) { showToast('خطأ في تحميل المستخدمين', 'error'); }
   }
 
   async function banUser() {
-    const num = document.getElementById('ban-number').value.trim().replace(/[^0-9]/g,'');
-    if (!num || num.length < 10) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
-    const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+    const num = document.getElementById('ban-number').value.trim();
+    const platform = document.getElementById('ban-platform').value;
+    if (!num) { showToast('أدخل رقماً أو معرفاً صحيحاً', 'error'); return; }
+    const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num, platform}) });
     const data = await res.json();
     if (data.ok) { showAlert(document.getElementById('ban-alert'),'success','✅ تم الحظر بنجاح'); loadUsers(); }
     else showAlert(document.getElementById('ban-alert'),'error', data.error || 'فشل');
   }
 
   async function unbanUser() {
-    const num = document.getElementById('ban-number').value.trim().replace(/[^0-9]/g,'');
-    if (!num || num.length < 10) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
-    const res = await fetch('/api/unban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+    const num = document.getElementById('ban-number').value.trim();
+    const platform = document.getElementById('ban-platform').value;
+    if (!num) { showToast('أدخل رقماً أو معرفاً صحيحاً', 'error'); return; }
+    const res = await fetch('/api/unban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num, platform}) });
     const data = await res.json();
     if (data.ok) { showAlert(document.getElementById('ban-alert'),'success','✅ تم رفع الحظر'); loadUsers(); }
     else showAlert(document.getElementById('ban-alert'),'error', data.error || 'فشل');
   }
 
-  async function quickBan(num) {
-    if (!confirm(`حظر +${num}؟`)) return;
-    const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+  async function quickBan(num, platform) {
+    if (!confirm(`حظر ${platform === 'whatsapp' ? '+' : ''}${num}؟`)) return;
+    const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num, platform}) });
     const data = await res.json();
     if (data.ok) { showToast('✅ تم الحظر', 'success'); loadUsers(); }
     else showToast(data.error || 'فشل', 'error');
   }
 
-  async function quickUnban(num) {
-    const res = await fetch('/api/unban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num}) });
+  async function quickUnban(num, platform) {
+    const res = await fetch('/api/unban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num, platform}) });
     const data = await res.json();
     if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); loadUsers(); }
     else showToast(data.error || 'فشل', 'error');

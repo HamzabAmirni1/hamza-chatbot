@@ -76,6 +76,9 @@ const botUsersMap = {}; // { 'phoneNumber': Set(['userJid']) }
 // Global state for Dashboard API
 global.clients = [];
 global.pendingPairingCodes = {};
+global.lastPairingRequestTime = {};
+global.pairingMode = {};
+global.pairingCodeRequested = {};
 global._activityLog = [];
 global._cmdStats = {};
 global._activeUsers = activeUsers;
@@ -482,6 +485,7 @@ app.post('/api/pair', async (req, res) => {
     // Reset pairing code and throttle timer so it's forced fresh
     delete global.pendingPairingCodes[cleanNumber];
     if (global.lastPairingRequestTime) delete global.lastPairingRequestTime[folderName];
+    if (global.pairingCodeRequested) delete global.pairingCodeRequested[folderName];
 
     // ✅ Mark as pairing-mode (suppress auto-reconnect while waiting)
     global.pairingMode = global.pairingMode || {};
@@ -511,6 +515,9 @@ app.post('/api/pair-cancel', async (req, res) => {
     if (activeClient) { try { activeClient.end(); } catch (e) {} }
     global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
     delete global.pendingPairingCodes[cleanNumber];
+    if (global.pairingMode) delete global.pairingMode[folderName];
+    if (global.pairingCodeRequested) delete global.pairingCodeRequested[folderName];
+    if (global.lastPairingRequestTime) delete global.lastPairingRequestTime[folderName];
     const sessionPath = path.join(__dirname, 'sessions', folderName);
     const credsFile = path.join(sessionPath, 'creds.json');
     let isRegistered = false;
@@ -525,6 +532,17 @@ app.post('/api/restart', (req, res) => {
   setTimeout(() => process.exit(0), 500);
 });
 
+function getPlatformFromJid(jid) {
+  if (!jid) return 'whatsapp';
+  if (jid.startsWith('tg:')) return 'telegram';
+  if (jid.startsWith('fb:')) return 'facebook';
+  if (jid.includes('@')) return 'whatsapp';
+  if (/^\d+$/.test(jid)) {
+    return jid.length >= 15 ? 'facebook' : 'telegram';
+  }
+  return 'whatsapp';
+}
+
 app.get('/api/users', async (req, res) => {
   try {
     const DATA_DIR = path.join(__dirname, 'data');
@@ -533,28 +551,31 @@ app.get('/api/users', async (req, res) => {
     let banned = [];
     try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8') || '[]'); } catch (e) {}
 
-    // Fetch all users from Supabase ai_memory (persists across restarts)
-    const [waRows, tgRows, fbRows] = await Promise.all([
-      db.getUsers('whatsapp'),
-      db.getUsers('telegram'),
-      db.getUsers('facebook')
-    ]);
+    // Fetch all users from Supabase
+    const rows = await db.getAllUsers();
+    
+    const mappedWa = [];
+    const mappedTg = [];
+    const mappedFb = [];
 
-    const mappedWa = waRows.map(u => ({
-      id: u.jid,
-      platform: 'whatsapp',
-      lastSeen: u.updated_at
-    }));
-    const mappedTg = tgRows.map(u => ({
-      id: u.jid.replace('tg:', ''),
-      platform: 'telegram',
-      lastSeen: u.updated_at
-    }));
-    const mappedFb = fbRows.map(u => ({
-      id: u.jid.replace('fb:', ''),
-      platform: 'facebook',
-      lastSeen: u.updated_at
-    }));
+    for (const u of rows) {
+      if (!u.jid) continue;
+      const platform = getPlatformFromJid(u.jid);
+      const cleanId = u.jid.replace('tg:', '').replace('fb:', '').split('@')[0];
+      const userObj = {
+        id: cleanId,
+        platform,
+        lastSeen: u.updated_at
+      };
+
+      if (platform === 'whatsapp') {
+        mappedWa.push(userObj);
+      } else if (platform === 'telegram') {
+        mappedTg.push(userObj);
+      } else if (platform === 'facebook') {
+        mappedFb.push(userObj);
+      }
+    }
 
     const allUsers = [...mappedWa, ...mappedTg, ...mappedFb];
     const activeCount = global._activeUsers ? global._activeUsers.size : 0;
@@ -576,13 +597,24 @@ app.get('/api/users', async (req, res) => {
 
 app.post('/api/ban', (req, res) => {
   try {
-    const { number } = req.body;
+    const { number, platform } = req.body;
     if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
     const bannedPath = path.join(__dirname, 'data/banned.json');
     if (!fs.existsSync(path.dirname(bannedPath))) fs.mkdirSync(path.dirname(bannedPath), { recursive: true });
     let banned = [];
     try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8')); } catch (e) { banned = []; }
-    const jid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+    
+    let jid = '';
+    const cleanNum = number.trim();
+    const plat = platform || 'whatsapp';
+    if (plat === 'telegram') {
+      jid = `tg:${cleanNum}`;
+    } else if (plat === 'facebook') {
+      jid = `fb:${cleanNum}`;
+    } else {
+      jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
+    }
+    
     if (!banned.includes(jid)) banned.push(jid);
     fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
     res.json({ ok: true });
@@ -591,13 +623,24 @@ app.post('/api/ban', (req, res) => {
 
 app.post('/api/unban', (req, res) => {
   try {
-    const { number } = req.body;
+    const { number, platform } = req.body;
     if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
     const bannedPath = path.join(__dirname, 'data/banned.json');
     let banned = [];
     try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8')); } catch (e) { banned = []; }
-    const jid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
-    banned = banned.filter(b => b !== jid);
+    
+    let jid = '';
+    const cleanNum = number.trim();
+    const plat = platform || 'whatsapp';
+    if (plat === 'telegram') {
+      jid = `tg:${cleanNum}`;
+    } else if (plat === 'facebook') {
+      jid = `fb:${cleanNum}`;
+    } else {
+      jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
+    }
+    
+    banned = banned.filter(b => b !== jid && b !== cleanNum && b !== `tg:${cleanNum}` && b !== `fb:${cleanNum}`);
     fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
@@ -696,10 +739,31 @@ app.post('/api/broadcast', async (req, res) => {
     const targetPlatform = platform || 'all';
     let results = { whatsapp: { sent: 0, failed: 0 }, telegram: { sent: 0, failed: 0 }, facebook: { sent: 0, failed: 0 } };
     
+    // Fetch all users from Supabase to construct target lists
+    let waUsers = [], tgUsers = [], fbUsers = [];
+    try {
+      const rows = await db.getAllUsers();
+      for (const u of rows) {
+        if (!u.jid) continue;
+        const plat = getPlatformFromJid(u.jid);
+        const cleanId = u.jid.replace('tg:', '').replace('fb:', '');
+        if (plat === 'whatsapp') {
+          waUsers.push(u.jid);
+        } else if (plat === 'telegram') {
+          tgUsers.push(cleanId);
+        } else if (plat === 'facebook') {
+          fbUsers.push({ id: cleanId });
+        }
+      }
+    } catch (e) {
+      console.error('[Broadcast API] Failed to fetch users from Supabase, falling back to local files:', e.message);
+      try { waUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/users.json'), 'utf-8') || '[]'); } catch (_) {}
+      try { tgUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/tg_users.json'), 'utf-8') || '[]'); } catch (_) {}
+      try { fbUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/fb_users.json'), 'utf-8') || '[]'); } catch (_) {}
+    }
+    
     // 1. WhatsApp Broadcast
     if (targetPlatform === 'all' || targetPlatform === 'whatsapp') {
-      let waUsers = [];
-      try { waUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/users.json'), 'utf-8') || '[]'); } catch (e) {}
       const clients = global.clients || [];
       if (waUsers.length > 0) {
         if (clients.length > 0) {
@@ -721,8 +785,6 @@ app.post('/api/broadcast', async (req, res) => {
     
     // 2. Telegram Broadcast
     if (targetPlatform === 'all' || targetPlatform === 'telegram') {
-      let tgUsers = [];
-      try { tgUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/tg_users.json'), 'utf-8') || '[]'); } catch (e) {}
       if (tgUsers.length > 0) {
         if (config.telegramToken) {
           const { sendTelegramPrayerReminder } = require('./lib/telegram');
@@ -745,8 +807,6 @@ app.post('/api/broadcast', async (req, res) => {
     
     // 3. Facebook Broadcast
     if (targetPlatform === 'all' || targetPlatform === 'facebook') {
-      let fbUsers = [];
-      try { fbUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/fb_users.json'), 'utf-8') || '[]'); } catch (e) {}
       if (fbUsers.length > 0) {
         if (config.fbPageAccessToken) {
           const { sendFacebookMessage } = require('./lib/facebook');
@@ -984,7 +1044,10 @@ async function startBot(folderName, phoneNumber) {
   global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
   global.clients.push(sock);
 
-  if (!sock.authState.creds.registered && num) {
+  const isPairingMode = global.pairingMode && global.pairingMode[folderName];
+  const codeAlreadyRequested = global.pairingCodeRequested && global.pairingCodeRequested[folderName];
+
+  if (!sock.authState.creds.registered && num && isPairingMode && !codeAlreadyRequested) {
     // Throttling logic to avoid duplicate/spam pairing code requests
     global.lastPairingRequestTime = global.lastPairingRequestTime || {};
     const lastRequest = global.lastPairingRequestTime[folderName] || 0;
@@ -993,6 +1056,7 @@ async function startBot(folderName, phoneNumber) {
       setTimeout(async () => {
         try {
           if (!sock.authState.creds.registered) {
+            global.pairingCodeRequested[folderName] = true; // Mark as requested BEFORE requesting to prevent race conditions
             global.lastPairingRequestTime[folderName] = Date.now();
             let code = await sock.requestPairingCode(num);
             code = code?.match(/.{1,4}/g)?.join("-") || code;
@@ -1007,11 +1071,16 @@ async function startBot(folderName, phoneNumber) {
           }
         } catch (e) {
           console.log(chalk.red(`[${folderName}] Failed to get pairing code: ${e.message}`));
+          // Reset status on failure so we can try again
+          if (global.pairingCodeRequested) delete global.pairingCodeRequested[folderName];
+          if (global.lastPairingRequestTime) delete global.lastPairingRequestTime[folderName];
         }
       }, 5000); // 5 seconds delay is much safer to ensure socket negotiation
     } else {
       console.log(chalk.yellow(`⚠️ [${folderName}] A pairing code request was skipped to avoid rate limits.`));
     }
+  } else if (!sock.authState.creds.registered && num) {
+    console.log(chalk.blue(`ℹ️ [${folderName}] Socket is unregistered. PairingMode: ${isPairingMode}, CodeRequested: ${codeAlreadyRequested}. Waiting for user action...`));
   }
 
   sock.ev.on("connection.update", async (update) => {
@@ -1024,21 +1093,19 @@ async function startBot(folderName, phoneNumber) {
       const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-      // ✅ Don't reconnect if we're in pairing mode (waiting for user to enter code)
-      const inPairingMode = global.pairingMode && global.pairingMode[folderName];
-
       if (statusCode === 401) {
         // Logged out — clear session and restart clean
         if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
         if (num) await db.updateWhatsAppSession(num, null);
-        if (!inPairingMode) setTimeout(() => startBot(folderName, phoneNumber), 2000);
-      } else if (shouldReconnect && !inPairingMode) {
+        setTimeout(() => startBot(folderName, phoneNumber), 2000);
+      } else if (shouldReconnect) {
         setTimeout(() => startBot(folderName, phoneNumber), 10000);
       }
     } else if (connection === "open") {
       console.log(chalk.green(`✅ [${folderName}] Connected!`));
       // ✅ Clear pairing mode on successful connection
       if (global.pairingMode) delete global.pairingMode[folderName];
+      if (global.pairingCodeRequested) delete global.pairingCodeRequested[folderName];
       if (num) delete global.pendingPairingCodes[num];
       if (num) await db.updatePairingCode(num, null, 'connected'); // Clear code on success
       
