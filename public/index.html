@@ -849,6 +849,99 @@
     .input-group input:focus {
       border-color: var(--accent);
     }
+
+    /* Custom confirmation modal */
+    .custom-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .custom-modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .custom-modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 90%;
+      max-width: 420px;
+      padding: 24px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), var(--glow);
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+      text-align: center;
+    }
+    .custom-modal-overlay.show .custom-modal {
+      transform: scale(1);
+    }
+    .custom-modal-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .custom-modal-icon {
+      font-size: 45px;
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 8px rgba(37,211,102,0.3));
+    }
+    .custom-modal-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .custom-modal-body {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .custom-modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .custom-modal-btn {
+      font-family: 'Cairo', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      flex: 1;
+    }
+    .custom-modal-btn.btn-cancel {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .custom-modal-btn.btn-cancel:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+    .custom-modal-btn.btn-ok {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
+    }
+    .custom-modal-btn.btn-ok:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -1762,6 +1855,9 @@
         <button class="tab-btn manage-tab-btn" id="mtab-control" onclick="switchManageTab('control')">
           <i class="fas fa-power-off"></i> تحكم
         </button>
+        <button class="tab-btn manage-tab-btn" id="mtab-monitor" onclick="switchManageTab('monitor')">
+          <i class="fas fa-desktop"></i> مراقبة مباشرة
+        </button>
       </div>
 
       <!-- Commands Panel -->
@@ -1887,8 +1983,50 @@
         </div>
       </div>
 
+      <!-- Live Monitoring Panel -->
+      <div class="manage-panel" id="mpanel-monitor" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:linear-gradient(135deg,var(--blue),var(--purple));"><i class="fas fa-desktop"></i></div>
+            <div class="card-title">مراقبة مباشرة (SysLog)</div>
+            <div style="margin-right:auto;display:flex;align-items:center;gap:8px;">
+              <select id="log-filter" onchange="renderLogs()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;">
+                <option value="all">كل المستويات</option>
+                <option value="error">❌ الأخطاء فقط</option>
+                <option value="warn">⚠️ التحذيرات فقط</option>
+                <option value="info">ℹ️ المعلومات فقط</option>
+                <option value="log">📋 السجلات العامة</option>
+              </select>
+              <button onclick="clearLiveLogs()" style="background:rgba(252,129,129,0.1);border:1px solid rgba(252,129,129,0.3);color:var(--red);padding:6px 12px;border-radius:8px;font-family:Cairo,sans-serif;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                <i class="fas fa-trash-alt"></i> مسح الشاشة
+              </button>
+            </div>
+          </div>
+          <div id="live-logs-container" style="background:#05070f;border:1px solid var(--border);border-radius:12px;padding:14px;font-family:monospace;font-size:13px;max-height:450px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;direction:ltr;text-align:left;">
+            <div style="color:var(--text-muted);text-align:center;padding:30px;font-family:Cairo,sans-serif;">جاري تشغيل المراقبة المباشرة...</div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- end manage-content -->
   </div><!-- end page-manage -->
+
+  <!-- Custom Modal Confirmation Dialog -->
+  <div id="custom-confirm-modal" class="custom-modal-overlay hide">
+    <div class="custom-modal">
+      <div class="custom-modal-header">
+        <i class="fas fa-question-circle custom-modal-icon"></i>
+        <span class="custom-modal-title">تأكيد الإجراء</span>
+      </div>
+      <div class="custom-modal-body" id="custom-confirm-message">
+        هل أنت متأكد من هذا الإجراء؟
+      </div>
+      <div class="custom-modal-footer">
+        <button id="custom-confirm-cancel" class="custom-modal-btn btn-cancel">إلغاء</button>
+        <button id="custom-confirm-ok" class="custom-modal-btn btn-ok">تأكيد</button>
+      </div>
+    </div>
+  </div>
 
 </main>
 
@@ -1917,6 +2055,45 @@
     }
     return response;
   };
+
+  async function apiFetch(url, opts) {
+    const res = await fetch(url, opts);
+    return res.json();
+  }
+
+  function showConfirm(msg) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('custom-confirm-modal');
+      const msgEl = document.getElementById('custom-confirm-message');
+      const okBtn = document.getElementById('custom-confirm-ok');
+      const cancelBtn = document.getElementById('custom-confirm-cancel');
+      
+      msgEl.innerHTML = msg;
+      modal.classList.add('show');
+      modal.classList.remove('hide');
+      
+      function cleanUp() {
+        modal.classList.remove('show');
+        modal.classList.add('hide');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+      }
+      
+      function onOk() {
+        cleanUp();
+        resolve(true);
+      }
+      
+      function onCancel() {
+        cleanUp();
+        resolve(false);
+      }
+      
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+
 
   function showLoginOverlay() {
     document.getElementById('login-overlay').classList.remove('hide');
@@ -1966,8 +2143,8 @@
     }
   }
 
-  function handleLogout() {
-    if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+  async function handleLogout() {
+    if (await showConfirm('هل أنت متأكد من تسجيل الخروج؟')) {
       localStorage.removeItem('auth_token');
       document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
       showLoginOverlay();
@@ -2015,6 +2192,10 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
     document.getElementById('nav-' + page).classList.add('active');
+
+    if (page !== 'manage' || manageTab !== 'monitor') {
+      stopLogsPolling();
+    }
 
     if (page === 'sessions') loadSessions();
     if (page === 'settings') loadSettings();
@@ -2152,7 +2333,7 @@
   }
 
   async function deleteBotConfig(id) {
-    if (!confirm('هل أنت متأكد من حذف هذا البوت/الصفحة؟')) return;
+    if (!await showConfirm('هل أنت متأكد من حذف هذا البوت/الصفحة؟')) return;
     try {
       const res = await fetch(`/api/delete-config`, {
         method: 'POST',
@@ -2168,7 +2349,7 @@
   }
 
   async function deleteWASession(phone) {
-    if (!confirm('هل أنت متأكد من حذف هذه الجلسة؟ سيتم قطع الاتصال بالكامل.')) return;
+    if (!await showConfirm('هل أنت متأكد من حذف هذه الجلسة؟ سيتم قطع الاتصال بالكامل.')) return;
     try {
       const res = await fetch('/api/delete-wa', {
         method: 'POST',
@@ -2568,8 +2749,8 @@
     }
   }
 
-  function confirmRestart() {
-    if (confirm('⚠️ هل أنت متأكد من إعادة تشغيل البوت؟ سيتم قطع الاتصال مؤقتاً.')) {
+  async function confirmRestart() {
+    if (await showConfirm('⚠️ هل أنت متأكد من إعادة تشغيل البوت؟ سيتم قطع الاتصال مؤقتاً.')) {
       fetch('/api/restart', { method: 'POST' })
         .then(() => showToast('🔄 جاري إعادة التشغيل...', 'success'))
         .catch(() => showToast('خطأ في الاتصال', 'error'));
@@ -2681,7 +2862,7 @@
   }
 
   async function quickBan(num, platform) {
-    if (!confirm(`حظر ${platform === 'whatsapp' ? '+' : ''}${num}؟`)) return;
+    if (!await showConfirm(`حظر ${platform === 'whatsapp' ? '+' : ''}${num}؟`)) return;
     const res = await fetch('/api/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({number:num, platform}) });
     const data = await res.json();
     if (data.ok) { showToast('✅ تم الحظر', 'success'); loadUsers(); }
@@ -2737,7 +2918,7 @@
     const msg = document.getElementById('broadcast-msg').value.trim();
     const platform = document.getElementById('broadcast-platform').value;
     if (!msg) { showToast('اكتب رسالة أولاً', 'error'); return; }
-    if (!confirm('إرسال هذه الرسالة للمستلمين المحددين؟')) return;
+    if (!await showConfirm('إرسال هذه الرسالة للمستلمين المحددين؟')) return;
     const alert = document.getElementById('broadcast-alert');
     showAlert(alert, 'info', '⏳ جاري الإرسال، يرجى الانتظار...');
     try {
@@ -2827,12 +3008,94 @@
   let manageData = null;
   let manageTab = 'commands';
 
+  let logsInterval = null;
+  let allLogs = [];
+
   function switchManageTab(tab) {
     manageTab = tab;
     document.querySelectorAll('.manage-tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('mtab-' + tab).classList.add('active');
     document.querySelectorAll('.manage-panel').forEach(p => p.style.display = 'none');
     document.getElementById('mpanel-' + tab).style.display = 'block';
+    if (tab === 'monitor') {
+      startLogsPolling();
+    } else {
+      stopLogsPolling();
+    }
+  }
+
+  function startLogsPolling() {
+    stopLogsPolling();
+    pollLogs();
+    logsInterval = setInterval(pollLogs, 3000);
+  }
+
+  function stopLogsPolling() {
+    if (logsInterval) {
+      clearInterval(logsInterval);
+      logsInterval = null;
+    }
+  }
+
+  async function pollLogs() {
+    try {
+      const res = await apiFetch('/api/syslog');
+      if (res && res.ok) {
+        allLogs = res.logs || [];
+        renderLogs();
+      }
+    } catch(e) {
+      console.error('Error polling logs:', e);
+    }
+  }
+
+  function clearLiveLogs() {
+    allLogs = [];
+    document.getElementById('live-logs-container').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-family:Cairo,sans-serif;">تم مسح الشاشة. بانتظار سجلات جديدة...</div>';
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function renderLogs() {
+    const filter = document.getElementById('log-filter').value;
+    const container = document.getElementById('live-logs-container');
+    if (!container) return;
+    
+    let filtered = allLogs;
+    if (filter !== 'all') {
+      filtered = allLogs.filter(l => l.level === filter);
+    }
+    
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-family:Cairo,sans-serif;">لا توجد سجلات مطابقة للفيلتر</div>';
+      return;
+    }
+    
+    const colors = {
+      error: '#fc8181',
+      warn: '#f6e05e',
+      info: '#63b3ed',
+      log: '#e2e8f0'
+    };
+    
+    container.innerHTML = filtered.map(l => {
+      const timeStr = new Date(l.t).toLocaleTimeString('ar-EG', { hour12: false });
+      const color = colors[l.level] || '#e2e8f0';
+      const levelLabel = l.level.toUpperCase();
+      return `<div style="display:flex;align-items:flex-start;gap:8px;border-bottom:1px solid rgba(255,255,255,0.03);padding-bottom:4px;margin-bottom:4px;word-break:break-all;white-space:pre-wrap;">
+        <span style="color:var(--text-muted);white-space:nowrap;font-size:11px;">[${timeStr}]</span>
+        <span style="color:${color};font-weight:bold;white-space:nowrap;font-size:11px;">${l.icon} [${levelLabel}]</span>
+        <span style="color:${color};flex:1;">${escapeHtml(l.msg)}</span>
+      </div>`;
+    }).join('');
   }
 
   async function loadManagePage() {
@@ -3009,7 +3272,7 @@
   }
 
   async function doRestart() {
-    if (!confirm('هل تريد إعادة تشغيل البوت؟')) return;
+    if (!await showConfirm('هل تريد إعادة تشغيل البوت؟')) return;
     try {
       await apiFetch('/api/restart', { method: 'POST' });
       showToast('🔄 جاري إعادة التشغيل...');
