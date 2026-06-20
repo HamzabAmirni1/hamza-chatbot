@@ -1410,6 +1410,7 @@ async function startBot(folderName, phoneNumber) {
         if (!msg.message || msg.key.fromMe) continue;
         const type = Object.keys(msg.message)[0];
         let body = type === "conversation" ? msg.message.conversation : type === "extendedTextMessage" ? msg.message.extendedTextMessage.text : type === "imageMessage" ? msg.message.imageMessage.caption : type === "videoMessage" ? msg.message.videoMessage.caption : "";
+        console.log(chalk.magenta(`[WA MSG] from: ${msg.key.remoteJid} | type: ${type} | body: ${body ? body.substring(0,40) : '[no text]'}`));
 
         if (type === 'interactiveResponseMessage') {
           const response = msg.message.interactiveResponseMessage;
