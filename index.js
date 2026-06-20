@@ -1135,16 +1135,21 @@ async function startBot(folderName, phoneNumber) {
       }, 10000); // Wait 10 seconds after connection before sending
 
       try {
-        startDuasScheduler(sock, { sendWithChannelButton, config });
-        startRamadanScheduler(sock);
-        startPrayerScheduler(sock);
-        const ownerJid = config.ownerNumber?.[0] ? `${config.ownerNumber[0].replace(/[^0-9]/g, '')}@s.whatsapp.net` : null;
-        // startFbPostScheduler(sock, ownerJid); // Disabled per user request (not engaging)
-        startTrafficInterval(); // New Traffic Booster
-        const { startNewsScheduler } = require("./lib/newsAutoPoster");
-        startNewsScheduler(); // Enabled fresh news poster
-        const { startGithubScheduler } = require("./lib/githubAutoPoster");
-        startGithubScheduler(); // Enabled GitHub trending poster
+        if (!sock._schedulersStarted) {
+          sock._schedulersStarted = true;
+          startDuasScheduler(sock, { sendWithChannelButton, config });
+          startRamadanScheduler(sock);
+          startPrayerScheduler(sock);
+        }
+        
+        if (!global._globalSchedulersStarted) {
+          global._globalSchedulersStarted = true;
+          startTrafficInterval(); // New Traffic Booster
+          const { startNewsScheduler } = require("./lib/newsAutoPoster");
+          startNewsScheduler(); // Enabled fresh news poster
+          const { startGithubScheduler } = require("./lib/githubAutoPoster");
+          startGithubScheduler(); // Enabled GitHub trending poster
+        }
       } catch (e) {
         console.log(`[${folderName}] Schedulers error:`, e.message);
       }
