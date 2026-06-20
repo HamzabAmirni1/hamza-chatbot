@@ -225,6 +225,9 @@ app.get("/", (req, res) => {
       config.publicUrl = detectedUrl;
       console.log(chalk.green(`✨ Auto-Detected Public URL: ${config.publicUrl}`));
       try { fs.writeFileSync(path.join(__dirname, "server_url.json"), JSON.stringify({ url: detectedUrl })); } catch (e) {}
+      if (db && db.setCache) {
+        db.setCache("public_url", detectedUrl).catch(err => console.error("Failed to cache public URL in Supabase:", err));
+      }
     }
   }
   // Serve dashboard to browsers
@@ -1035,7 +1038,30 @@ app.post("/webhook", (req, res) => {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(chalk.green(`✅ Server listening on port ${port} (0.0.0.0)`));
-  console.log(chalk.cyan(`🌐 Keep-Alive: ${config.publicUrl || "⚠️ Not Set"}`));
+
+  // Load saved public URL from local file or Supabase cache
+  (async () => {
+    try {
+      const urlPath = path.join(__dirname, "server_url.json");
+      if (fs.existsSync(urlPath)) {
+        const saved = JSON.parse(fs.readFileSync(urlPath, "utf-8"));
+        if (saved && saved.url) {
+          config.publicUrl = saved.url;
+          console.log(chalk.cyan(`🌐 Loaded Public URL from server_url.json: ${config.publicUrl}`));
+        }
+      }
+      if (db && db.getCache) {
+        const cachedUrl = await db.getCache("public_url");
+        if (cachedUrl) {
+          config.publicUrl = cachedUrl;
+          console.log(chalk.green(`🌐 Loaded Public URL from Supabase cache: ${config.publicUrl}`));
+        }
+      }
+    } catch (e) {
+      console.error("Error loading startup public URL:", e);
+    }
+    console.log(chalk.cyan(`🌐 Keep-Alive: ${config.publicUrl || "⚠️ Not Set"}`));
+  })();
 
   /* 
    * 🌟 Keep-Alive Mechanism 🌟
@@ -1398,9 +1424,35 @@ async function startBot(folderName, phoneNumber) {
           if (reply) body = reply;
         }
         if (!body && type !== "imageMessage" && type !== "videoMessage" && type !== "audioMessage") continue;
-        if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter") || msg.key.remoteJid.endsWith("@g.us")) continue;
+        if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter")) continue;
 
         const sender = msg.key.remoteJid;
+        const isGroup = sender.endsWith("@g.us");
+
+        if (isGroup) {
+          // If it's a group, only reply if:
+          // 1. It starts with a prefix (command)
+          // 2. OR it mentions the bot
+          // 3. OR it's a reply to the bot's own message
+          const botNumber = sock.user.id.split(':')[0].split('@')[0];
+          const botJid = `${botNumber}@s.whatsapp.net`;
+          
+          const isPrefixed = body && (body.startsWith('.') || body.startsWith('/'));
+          
+          // Check mentions
+          const msgContent = msg.message?.[type];
+          const contextInfo = msgContent?.contextInfo || msg.message?.extendedTextMessage?.contextInfo;
+          const mentions = contextInfo?.mentionedJid || [];
+          const isMentioned = mentions.includes(botJid) || (body && body.includes(`@${botNumber}`));
+          
+          // Check if replying to bot's message
+          const isReplyToBot = contextInfo?.quotedMessage && contextInfo?.participant?.split(':')[0] === botNumber;
+          
+          if (!isPrefixed && !isMentioned && !isReplyToBot) {
+            continue; // Skip normal chatter in groups
+          }
+        }
+
         logUser(sender);
 
         // Activity log for dashboard
