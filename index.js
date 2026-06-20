@@ -525,33 +525,40 @@ app.post('/api/restart', (req, res) => {
   setTimeout(() => process.exit(0), 500);
 });
 
-app.get('/api/users', (req, res) => {
+app.get('/api/users', async (req, res) => {
   try {
     const DATA_DIR = path.join(__dirname, 'data');
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    
-    let waUsers = [], tgUsers = [], fbUsers = [], banned = [];
-    try { waUsers = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'users.json'), 'utf-8') || '[]'); } catch (e) {}
-    try { tgUsers = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'tg_users.json'), 'utf-8') || '[]'); } catch (e) {}
-    try { fbUsers = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'fb_users.json'), 'utf-8') || '[]'); } catch (e) {}
+
+    let banned = [];
     try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8') || '[]'); } catch (e) {}
-    
-    const mappedWa = waUsers.map(u => {
-      const id = typeof u === 'string' ? u : (u.id || u.jid);
-      return { id, platform: 'whatsapp', lastSeen: typeof u === 'object' ? u.lastSeen : null };
-    });
-    const mappedTg = tgUsers.map(u => {
-      const id = typeof u === 'string' ? u : (u.id || u.chatId);
-      return { id, platform: 'telegram', lastSeen: typeof u === 'object' ? u.lastSeen : null };
-    });
-    const mappedFb = fbUsers.map(u => {
-      const id = typeof u === 'string' ? u : (u.id || u.senderId);
-      return { id, platform: 'facebook', lastSeen: typeof u === 'object' ? u.lastSeen : null, pageId: u.pageId };
-    });
-    
+
+    // Fetch all users from Supabase ai_memory (persists across restarts)
+    const [waRows, tgRows, fbRows] = await Promise.all([
+      db.getUsers('whatsapp'),
+      db.getUsers('telegram'),
+      db.getUsers('facebook')
+    ]);
+
+    const mappedWa = waRows.map(u => ({
+      id: u.jid,
+      platform: 'whatsapp',
+      lastSeen: u.updated_at
+    }));
+    const mappedTg = tgRows.map(u => ({
+      id: u.jid.replace('tg:', ''),
+      platform: 'telegram',
+      lastSeen: u.updated_at
+    }));
+    const mappedFb = fbRows.map(u => ({
+      id: u.jid.replace('fb:', ''),
+      platform: 'facebook',
+      lastSeen: u.updated_at
+    }));
+
     const allUsers = [...mappedWa, ...mappedTg, ...mappedFb];
     const activeCount = global._activeUsers ? global._activeUsers.size : 0;
-    
+
     res.json({
       ok: true,
       users: allUsers,
@@ -610,9 +617,74 @@ app.get('/api/cmd-stats', (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
-app.get('/api/activity', (req, res) => {
+app.get('/api/activity', async (req, res) => {
   try {
-    res.json({ ok: true, log: (global._activityLog || []).slice(0, 50) });
+    const memoryActivity = [];
+    try {
+      const rows = await db.getRecentActivity(50);
+      for (const row of rows) {
+        const jid = row.jid;
+        if (!jid) continue;
+        let platform = 'whatsapp';
+        let user = jid.split('@')[0];
+        if (jid.startsWith('tg:')) {
+          platform = 'telegram';
+          user = jid.replace('tg:', '');
+        } else if (jid.startsWith('fb:')) {
+          platform = 'facebook';
+          user = jid.replace('fb:', '');
+        }
+        
+        let message = '[No message history]';
+        let cmd = '';
+        if (row.history && row.history.length > 0) {
+          const lastMsg = row.history[row.history.length - 1];
+          message = lastMsg.content || '[Media]';
+          if (message.startsWith('.') || message.startsWith('/')) {
+            cmd = message.split(' ')[0].substring(1);
+          }
+        }
+        
+        memoryActivity.push({
+          time: row.updated_at || new Date().toISOString(),
+          platform,
+          user,
+          message: message.length > 60 ? message.substring(0, 60) + '...' : message,
+          cmd
+        });
+      }
+    } catch (e) {
+      console.error('[Activity API] Supabase fetch error:', e.message);
+    }
+
+    const liveLog = global._activityLog || [];
+    const merged = [];
+    
+    // Normalise liveLog entries
+    for (const entry of liveLog) {
+      merged.push({
+        time: entry.time ? new Date(entry.time).toISOString() : new Date().toISOString(),
+        platform: entry.platform || 'whatsapp',
+        user: (entry.user || '').split('@')[0],
+        message: entry.message || (entry.cmd ? '.' + entry.cmd : '') || 'استخدم البوت',
+        cmd: entry.cmd || ''
+      });
+    }
+    
+    for (const mem of memoryActivity) {
+      const exists = merged.some(m => 
+        m.user === mem.user && 
+        m.platform === mem.platform && 
+        Math.abs(new Date(m.time) - new Date(mem.time)) < 5000
+      );
+      if (!exists) {
+        merged.push(mem);
+      }
+    }
+
+    merged.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    res.json({ ok: true, log: merged.slice(0, 50) });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -1076,6 +1148,19 @@ async function startBot(folderName, phoneNumber) {
 
         const sender = msg.key.remoteJid;
         logUser(sender);
+
+        // Activity log for dashboard
+        try {
+          global._activityLog = global._activityLog || [];
+          const preview = body ? (body.length > 60 ? body.substring(0, 60) + '...' : body) : '[Media]';
+          global._activityLog.unshift({
+            time: new Date().toISOString(),
+            platform: 'whatsapp',
+            user: sender.split('@')[0],
+            message: preview
+          });
+          if (global._activityLog.length > 50) global._activityLog.length = 50;
+        } catch (_) {}
 
         // Check if user is banned
         try {

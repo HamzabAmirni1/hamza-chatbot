@@ -2518,9 +2518,37 @@
           const d = new Date(entry.time);
           const timeStr = d.toLocaleTimeString('ar-MA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
           const dateStr = d.toLocaleDateString('ar-MA');
-          const num = (entry.user||'').split('@')[0];
-          const isGroup = (entry.chat||'').includes('@g.us');
-          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:12px;border-right:3px solid var(--accent);"><div style="font-size:18px;">${isGroup?'👥':'👤'}</div><div style="flex:1;"><span style="background:rgba(37,211,102,0.1);color:var(--accent);padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;">.${entry.cmd}</span> <span style="font-size:12px;color:var(--text-muted);">من +${num}${isGroup?' (مجموعة)':''}</span></div><div style="text-align:left;font-size:11px;color:var(--text-muted);white-space:nowrap;"><div>${timeStr}</div><div>${dateStr}</div></div></div>`;
+          
+          let platformColor = 'var(--accent)';
+          let platformIcon = '<i class="fas fa-robot"></i>';
+          let platformBg = 'linear-gradient(135deg,var(--accent),var(--blue))';
+          let userLabel = entry.user || '';
+          
+          if (entry.platform === 'whatsapp') {
+            platformColor = '#25d366';
+            platformIcon = '<i class="fab fa-whatsapp"></i>';
+            platformBg = 'linear-gradient(135deg,#25d366,#128c7e)';
+            userLabel = `+${userLabel}`;
+          } else if (entry.platform === 'telegram') {
+            platformColor = '#38bdf8';
+            platformIcon = '<i class="fab fa-telegram-plane"></i>';
+            platformBg = 'linear-gradient(135deg,#38bdf8,#0284c7)';
+            userLabel = `تليجرام: ${userLabel}`;
+          } else if (entry.platform === 'facebook') {
+            platformColor = '#0084ff';
+            platformIcon = '<i class="fab fa-facebook-messenger"></i>';
+            platformBg = 'linear-gradient(135deg,#0084ff,#0044ff)';
+            userLabel = `فيسبوك: ${userLabel}`;
+          }
+          
+          let contentHtml = '';
+          if (entry.cmd) {
+            contentHtml = `<span style="background:rgba(37,211,102,0.1);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;margin-left:6px;display:inline-block;direction:ltr;">.${entry.cmd}</span>`;
+          }
+          
+          const displayMessage = entry.message || (entry.cmd ? `نفذ الأمر .${entry.cmd}` : 'أرسل رسالة');
+          
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:12px;border-right:3px solid ${platformColor};"><div style="width:32px;height:32px;border-radius:50%;background:${platformBg};display:flex;align-items:center;justify-content:center;font-size:13px;color:white;">${platformIcon}</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;"><span style="font-size:12px;font-weight:700;color:var(--text-main);">${userLabel}</span>${contentHtml}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayMessage}</div></div><div style="text-align:left;font-size:11px;color:var(--text-muted);white-space:nowrap;"><div>${timeStr}</div><div>${dateStr}</div></div></div>`;
         }).join('') + `</div>`;
     } catch(e) { showToast('خطأ في تحميل السجل', 'error'); }
   }
