@@ -731,6 +731,34 @@ app.get('/api/activity', async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// GET /api/commands - return full command map with categories and counts
+app.get('/api/commands', (req, res) => {
+  try {
+    const { ALL_COMMANDS, NLC_KEYWORDS } = require('./lib/commandMap');
+    const stats = global._cmdStats || {};
+    const categories = {};
+    for (const [alias, filePath] of Object.entries(ALL_COMMANDS)) {
+      const cat = filePath.split('/')[0];
+      if (!categories[cat]) categories[cat] = { name: cat, commands: [], total: 0 };
+      const existing = categories[cat].commands.find(c => c.file === filePath);
+      if (existing) { existing.aliases.push(alias); }
+      else { categories[cat].commands.push({ file: filePath, aliases: [alias], uses: stats[alias] || 0 }); categories[cat].total++; }
+    }
+    const nlcList = Object.entries(NLC_KEYWORDS).map(([key, file]) => ({ key, file, aliases: key.split('|') }));
+    res.json({ ok: true, totalAliases: Object.keys(ALL_COMMANDS).length, totalFiles: [...new Set(Object.values(ALL_COMMANDS))].length, categories, nlcList, stats });
+  } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// GET /api/banned - return banned users list
+app.get('/api/banned', (req, res) => {
+  try {
+    const bannedPath = path.join(__dirname, 'data', 'banned.json');
+    let banned = [];
+    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf8') || '[]'); } catch(_) {}
+    res.json({ ok: true, banned });
+  } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 app.post('/api/broadcast', async (req, res) => {
   try {
     const { message, platform } = req.body;
