@@ -25,6 +25,19 @@
       --glow: 0 0 30px rgba(37,211,102,0.15);
     }
 
+    .tab-btns { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn {
+      flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text-muted); font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;
+      font-family: 'Cairo', sans-serif;
+    }
+    .tab-btn:hover { background: var(--card2); color: var(--text); }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      border-color: transparent; color: white; box-shadow: 0 4px 15px rgba(99,179,237,0.2);
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
@@ -1037,76 +1050,188 @@
   <!-- =================== PAIRING PAGE =================== -->
   <div class="page" id="page-pairing">
     <div class="page-header">
-      <h1><i class="fas fa-link" style="color:var(--accent)"></i> ربط رقم جديد</h1>
-      <p>قم بربط حساب واتساب جديد بالبوت عبر كود الإقران</p>
+      <h1><i class="fas fa-link" style="color:var(--accent)"></i> ربط منصة جديدة</h1>
+      <p>قم بربط حساب واتساب جديد، أو بوت تليجرام، أو صفحة فيسبوك بالبوت</p>
+    </div>
+
+    <!-- Tab navigation -->
+    <div class="tab-btns">
+      <button class="tab-btn active" id="tab-btn-wa" onclick="switchPairTab('wa')"><i class="fab fa-whatsapp"></i> واتساب</button>
+      <button class="tab-btn" id="tab-btn-tg" onclick="switchPairTab('tg')"><i class="fab fa-telegram-plane"></i> تليجرام</button>
+      <button class="tab-btn" id="tab-btn-fb" onclick="switchPairTab('fb')"><i class="fab fa-facebook-messenger"></i> فيسبوك</button>
     </div>
 
     <div class="grid grid-2">
       <div>
-        <div class="pairing-box">
-          <div class="pairing-icon">📱</div>
-          <div class="pairing-title">أدخل رقم الهاتف</div>
-          <div class="pairing-desc">أدخل الرقم الدولي بدون + لتلقي كود الإقران على هاتفك</div>
+        <!-- WhatsApp Panel -->
+        <div id="pair-panel-wa">
+          <div class="pairing-box">
+            <div class="pairing-icon"><i class="fab fa-whatsapp" style="font-size: 40px; color: var(--accent);"></i></div>
+            <div class="pairing-title">أدخل رقم الهاتف</div>
+            <div class="pairing-desc">أدخل الرقم الدولي بدون + لتلقي كود الإقران على هاتفك</div>
 
-          <div id="alert-pairing" class="alert"></div>
+            <div id="alert-pairing" class="alert"></div>
 
-          <div class="form-group">
-            <label class="form-label">رقم الهاتف (مثال: 212612345678)</label>
-            <input type="tel" id="pairing-number" class="form-input" placeholder="212XXXXXXXXX" style="text-align:center;font-size:18px;letter-spacing:2px;" />
-          </div>
-
-          <button class="btn btn-primary" id="pairing-btn" onclick="requestPairingCode()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
-            <i class="fas fa-key"></i> طلب كود الإقران
-          </button>
-
-          <!-- Code display -->
-          <div class="pairing-code-display" id="pairing-code-display">
-            <div class="code-label">🔑 كود الإقران الخاص بك</div>
-            <div class="code-value" id="code-value">----</div>
-            <div class="code-timer" id="code-timer">أدخل الكود خلال دقيقتين</div>
-            <div style="margin-top:16px;">
-              <button class="btn btn-danger" id="cancel-pairing-btn" onclick="cancelPairingRequest()" style="width:100%;justify-content:center;">
-                <i class="fas fa-times-circle"></i> إلغاء الطلب
-              </button>
+            <div class="form-group">
+              <label class="form-label">رقم الهاتف (مثال: 212612345678)</label>
+              <input type="tel" id="pairing-number" class="form-input" placeholder="212XXXXXXXXX" style="text-align:center;font-size:18px;letter-spacing:2px;" />
             </div>
+
+            <button class="btn btn-primary" id="pairing-btn" onclick="requestPairingCode()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
+              <i class="fas fa-key"></i> طلب كود الإقران
+            </button>
+
+            <!-- Code display -->
+            <div class="pairing-code-display" id="pairing-code-display">
+              <div class="code-label"><i class="fas fa-lock"></i> كود الإقران الخاص بك</div>
+              <div class="code-value" id="code-value">----</div>
+              <div class="code-timer" id="code-timer">أدخل الكود خلال دقيقتين</div>
+              <div style="margin-top:16px;">
+                <button class="btn btn-danger" id="cancel-pairing-btn" onclick="cancelPairingRequest()" style="width:100%;justify-content:center;">
+                  <i class="fas fa-times-circle"></i> إلغاء الطلب
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telegram Panel -->
+        <div id="pair-panel-tg" style="display:none;">
+          <div class="pairing-box">
+            <div class="pairing-icon"><i class="fab fa-telegram-plane" style="font-size: 40px; color: #38bdf8;"></i></div>
+            <div class="pairing-title">ربط بوت تليجرام جديد</div>
+            <div class="pairing-desc">أدخل رمز الـ Token الخاص بالبوت الذي أنشأته عبر BotFather</div>
+            
+            <div id="alert-pairing-tg" class="alert"></div>
+
+            <div class="form-group">
+              <label class="form-label">اسم البوت (مثال: بوت التواصل العربي)</label>
+              <input type="text" id="tg-bot-name" class="form-input" placeholder="مثال: البوت الإسلامي" style="text-align:center;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">مفتاح الوصول (Bot Token)</label>
+              <input type="password" id="tg-bot-token" class="form-input" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" style="text-align:center;" />
+            </div>
+
+            <button class="btn btn-primary" onclick="connectTelegramBot()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
+              <i class="fas fa-link"></i> ربط بوت تليجرام
+            </button>
+          </div>
+        </div>
+
+        <!-- Facebook Panel -->
+        <div id="pair-panel-fb" style="display:none;">
+          <div class="pairing-box">
+            <div class="pairing-icon"><i class="fab fa-facebook-messenger" style="font-size: 40px; color: #0084ff;"></i></div>
+            <div class="pairing-title">ربط صفحة فيسبوك جديدة</div>
+            <div class="pairing-desc">أدخل رمز الـ Page Access Token ومُعرّف الصفحة لربط الرسائل تلقائياً</div>
+            
+            <div id="alert-pairing-fb" class="alert"></div>
+
+            <div class="form-group">
+              <label class="form-label">اسم الصفحة</label>
+              <input type="text" id="fb-page-name" class="form-input" placeholder="مثال: صفحة الفيسبوك الرسمية" style="text-align:center;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">مُعرّف الصفحة (Page ID)</label>
+              <input type="text" id="fb-page-id" class="form-input" placeholder="100200300400500" style="text-align:center;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">رمز الوصول (Page Access Token)</label>
+              <input type="password" id="fb-page-token" class="form-input" placeholder="EAA..." style="text-align:center;" />
+            </div>
+
+            <button class="btn btn-primary" onclick="connectFacebookPage()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
+              <i class="fas fa-link"></i> ربط الصفحة
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-icon yellow"><i class="fas fa-info-circle"></i></div>
-          <div class="card-title">كيفية الإقران</div>
+      <!-- Instructions panels -->
+      <div>
+        <div class="card" id="pair-instructions-wa">
+          <div class="card-header">
+            <div class="card-icon yellow"><i class="fas fa-info-circle"></i></div>
+            <div class="card-title">كيفية الإقران (واتساب)</div>
+          </div>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">أدخل رقم هاتفك الكامل مع كود الدولة <strong>بدون +</strong> (مثال: 212612345678)</div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">اضغط على <strong>"طلب كود الإقران"</strong></div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">افتح واتساب على هاتفك - <strong>الأجهزة المرتبطة</strong></div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-text">اضغط <strong>"ربط جهاز"</strong> ثم اختر <strong>"ربط برقم هاتف"</strong></div>
+            </div>
+            <div class="step">
+              <div class="step-num">5</div>
+              <div class="step-text">أدخل <strong>كود الإقران</strong> الذي يظهر هنا لتأكيد التوصيل</div>
+            </div>
+          </div>
         </div>
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div class="step-text">أدخل رقم هاتفك الكامل مع كود الدولة <strong>بدون +</strong> (مثال: 212612345678)</div>
+
+        <div class="card" id="pair-instructions-tg" style="display:none;">
+          <div class="card-header">
+            <div class="card-icon blue"><i class="fas fa-info-circle"></i></div>
+            <div class="card-title">خطوات ربط بوت تليجرام</div>
           </div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <div class="step-text">اضغط على <strong>"طلب كود الإقران"</strong></div>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">افتح تطبيق تليجرام وابحث عن المطور الرسمي للبوتات <a href="https://t.me/BotFather" target="_blank" style="color:var(--blue);font-weight:700;">@BotFather</a></div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">أرسل له الأمر <strong>/newbot</strong> ثم اختر اسماً ومعرفاً فريداً للبوت الخاص بك</div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">سيقوم BotFather بإعطائك رمز الـ <strong>API Token</strong> المميز لبوتك</div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-text">أدخل الـ Token والاسم في الحقول المجاورة واضغط <strong>"ربط بوت تليجرام"</strong> للتشغيل فورياً</div>
+            </div>
           </div>
-          <div class="step">
-            <div class="step-num">3</div>
-            <div class="step-text">افتح واتساب على هاتفك → <strong>الأجهزة المرتبطة</strong></div>
+        </div>
+
+        <div class="card" id="pair-instructions-fb" style="display:none;">
+          <div class="card-header">
+            <div class="card-icon blue"><i class="fas fa-info-circle"></i></div>
+            <div class="card-title">خطوات ربط صفحة فيسبوك</div>
           </div>
-          <div class="step">
-            <div class="step-num">4</div>
-            <div class="step-text">اضغط <strong>"ربط جهاز"</strong> ثم اختر <strong>"ربط برقم هاتف"</strong></div>
-          </div>
-          <div class="step">
-            <div class="step-num">5</div>
-            <div class="step-text">أدخل <strong>كود الإقران</strong> الذي ظهر في الصفحة</div>
-          </div>
-          <div class="step">
-            <div class="step-num">6</div>
-            <div class="step-text">تم الإقران! أضف رقمك إلى <strong>extraNumbers</strong> في الإعدادات</div>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">افتح موقع <a href="https://developers.facebook.com/" target="_blank" style="color:var(--blue);font-weight:700;">فيسبوك للمطورين</a> وأنشئ تطبيقاً من نوع Business</div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">أضف منتج الـ <strong>Messenger</strong> إلى التطبيق واربطه بصفحة الفيسبوك الخاصة بك</div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">قم بتوليد رمز الـ <strong>Page Access Token</strong> وانسخ معرّف الصفحة (Page ID)</div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-text">اضبط الـ Webhook الخاص بصفحتك ليشير إلى رابط البوت العام مع مسار <code>/webhook</code> لتحويل الرسائل للبوت</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+  <br/>
 
   <!-- =================== SETTINGS PAGE =================== -->
   <div class="page" id="page-settings">
@@ -1725,36 +1850,185 @@
   }
 
   // =================== SESSIONS ===================
+  function switchPairTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tab-btn-${tab}`).classList.add('active');
+    
+    document.getElementById('pair-panel-wa').style.display = tab === 'wa' ? 'block' : 'none';
+    document.getElementById('pair-panel-tg').style.display = tab === 'tg' ? 'block' : 'none';
+    document.getElementById('pair-panel-fb').style.display = tab === 'fb' ? 'block' : 'none';
+    
+    document.getElementById('pair-instructions-wa').style.display = tab === 'wa' ? 'block' : 'none';
+    document.getElementById('pair-instructions-tg').style.display = tab === 'tg' ? 'block' : 'none';
+    document.getElementById('pair-instructions-fb').style.display = tab === 'fb' ? 'block' : 'none';
+  }
+
+  async function connectTelegramBot() {
+    const name = document.getElementById('tg-bot-name').value.trim();
+    const token = document.getElementById('tg-bot-token').value.trim();
+    const alert = document.getElementById('alert-pairing-tg');
+    if (!token) {
+      showAlert(alert, 'error', 'الرجاء إدخال مفتاح الوصول (Bot Token)');
+      return;
+    }
+    showAlert(alert, 'info', 'جاري ربط البوت...');
+    try {
+      const res = await fetch('/api/connect-tg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert(alert, 'success', 'تم ربط وتشغيل بوت تليجرام بنجاح!');
+        document.getElementById('tg-bot-token').value = '';
+        document.getElementById('tg-bot-name').value = '';
+        setTimeout(() => showPage('sessions'), 1500);
+      } else {
+        showAlert(alert, 'error', data.error || 'فشل الربط');
+      }
+    } catch(e) { showAlert(alert, 'error', 'خطأ في الاتصال'); }
+  }
+
+  async function connectFacebookPage() {
+    const name = document.getElementById('fb-page-name').value.trim();
+    const pageId = document.getElementById('fb-page-id').value.trim();
+    const token = document.getElementById('fb-page-token').value.trim();
+    const alert = document.getElementById('alert-pairing-fb');
+    if (!pageId || !token) {
+      showAlert(alert, 'error', 'الرجاء إدخال معرّف الصفحة ورمز الوصول');
+      return;
+    }
+    showAlert(alert, 'info', 'جاري ربط الصفحة...');
+    try {
+      const res = await fetch('/api/connect-fb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name, pageId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert(alert, 'success', 'تم ربط صفحة الفيسبوك بنجاح!');
+        document.getElementById('fb-page-token').value = '';
+        document.getElementById('fb-page-id').value = '';
+        document.getElementById('fb-page-name').value = '';
+        setTimeout(() => showPage('sessions'), 1500);
+      } else {
+        showAlert(alert, 'error', data.error || 'فشل الربط');
+      }
+    } catch(e) { showAlert(alert, 'error', 'خطأ في الاتصال'); }
+  }
+
+  async function deleteBotConfig(id) {
+    if (!confirm('هل أنت متأكد من حذف هذا البوت/الصفحة؟')) return;
+    try {
+      const res = await fetch(`/api/delete-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('تم حذف البوت بنجاح', 'success');
+        loadSessions();
+      } else showToast(data.error || 'فشل الحذف', 'error');
+    } catch (e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
+  async function deleteWASession(phone) {
+    if (!confirm('هل أنت متأكد من حذف هذه الجلسة؟ سيتم قطع الاتصال بالكامل.')) return;
+    try {
+      const res = await fetch('/api/delete-wa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('تم حذف الجلسة', 'success');
+        loadSessions();
+      } else showToast('فشل حذف الجلسة', 'error');
+    } catch(e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
   async function loadSessions() {
     try {
       const res = await fetch('/api/status');
       const data = await res.json();
       const sessions = data.sessions || [];
-
+      const tgBots = data.telegramBots || [];
+      const fbPages = data.facebookPages || [];
+      
+      let html = '';
+      
+      // 1. WhatsApp Sessions
+      html += `<h3 style="margin-top: 0; margin-bottom: 12px; font-size: 15px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><i class="fab fa-whatsapp" style="color:#25d366;"></i> جلسات واتساب (${sessions.length})</h3>`;
       if (sessions.length === 0) {
-        document.getElementById('sessions-list').innerHTML = `
-          <div style="text-align:center;padding:40px;color:var(--text-muted);">
-            <i class="fas fa-unlink" style="font-size:40px;margin-bottom:16px;display:block;"></i>
-            لا توجد جلسات متصلة حالياً
-          </div>`;
-        return;
-      }
-
-      document.getElementById('sessions-list').innerHTML = sessions.map(s => `
-        <div class="session-card">
-          <div class="session-avatar">📱</div>
-          <div class="session-info">
-            <div class="session-number">${s.number || s.path || 'غير معروف'}</div>
-            <div class="session-status ${s.connected ? 'connected' : 'disconnected'}">
-              ${s.connected ? '🟢 متصل' : '🔴 غير متصل'}
-              ${s.jid ? ' — ' + s.jid : ''}
+        html += `<div style="text-align:center;padding:20px;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">لا توجد جلسات واتساب متصلة</div>`;
+      } else {
+        html += `<div style="display:grid;gap:12px;margin-bottom:24px;">` + sessions.map(s => `
+          <div class="session-card">
+            <div class="session-avatar" style="background:linear-gradient(135deg,#25d366,#128c7e);"><i class="fab fa-whatsapp"></i></div>
+            <div class="session-info">
+              <div class="session-number">+${s.number || s.path || 'غير معروف'}</div>
+              <div class="session-status ${s.connected ? 'connected' : 'disconnected'}">
+                ${s.connected ? 'متصل' : 'غير متصل'}
+                ${s.jid ? ' — ' + s.jid : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="chip ${s.connected ? 'chip-green' : 'chip-red'}">${s.connected ? 'نشط' : 'منفصل'}</span>
+              <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteWASession('${s.number || s.path}')"><i class="fas fa-trash"></i></button>
             </div>
           </div>
-          <span class="chip ${s.connected ? 'chip-green' : 'chip-red'}">
-            ${s.connected ? 'نشط' : 'منفصل'}
-          </span>
-        </div>
-      `).join('');
+        `).join('') + `</div>`;
+      }
+      
+      // 2. Telegram Bots
+      html += `<h3 style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><i class="fab fa-telegram-plane" style="color:#38bdf8;"></i> بوتات تليجرام (${tgBots.length})</h3>`;
+      if (tgBots.length === 0) {
+        html += `<div style="text-align:center;padding:20px;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">لا توجد بوتات تليجرام متصلة</div>`;
+      } else {
+        html += `<div style="display:grid;gap:12px;margin-bottom:24px;">` + tgBots.map(b => `
+          <div class="session-card">
+            <div class="session-avatar" style="background:linear-gradient(135deg,#38bdf8,#0284c7);"><i class="fab fa-telegram-plane"></i></div>
+            <div class="session-info">
+              <div class="session-number">${b.name || 'Telegram Bot'}</div>
+              <div class="session-status ${b.connected ? 'connected' : 'disconnected'}">
+                ${b.connected ? 'متصل وبانتظار الرسائل' : 'غير متصل'} — Token: ${b.token}
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="chip ${b.connected ? 'chip-green' : 'chip-red'}">${b.connected ? 'نشط' : 'غير نشط'}</span>
+              ${b.id.startsWith('local') ? '' : `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteBotConfig('${b.id}')"><i class="fas fa-trash"></i></button>`}
+            </div>
+          </div>
+        `).join('') + `</div>`;
+      }
+      
+      // 3. Facebook Pages
+      html += `<h3 style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><i class="fab fa-facebook-messenger" style="color:#0084ff;"></i> صفحات فيسبوك (${fbPages.length})</h3>`;
+      if (fbPages.length === 0) {
+        html += `<div style="text-align:center;padding:20px;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">لا توجد صفحات فيسبوك مرتبطة</div>`;
+      } else {
+        html += `<div style="display:grid;gap:12px;margin-bottom:24px;">` + fbPages.map(p => `
+          <div class="session-card">
+            <div class="session-avatar" style="background:linear-gradient(135deg,#0084ff,#0044ff);"><i class="fab fa-facebook-messenger"></i></div>
+            <div class="session-info">
+              <div class="session-number">${p.name || 'Facebook Page'}</div>
+              <div class="session-status connected">
+                مرتبطة بالـ Webhook — ID: ${p.pageId}
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="chip chip-green">نشط</span>
+              ${p.id.startsWith('local') ? '' : `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteBotConfig('${p.id}')"><i class="fas fa-trash"></i></button>`}
+            </div>
+          </div>
+        `).join('') + `</div>`;
+      }
+      
+      document.getElementById('sessions-list').innerHTML = html;
     } catch (e) {
       document.getElementById('sessions-list').innerHTML = `
         <div class="alert alert-error show"><i class="fas fa-exclamation-circle"></i> تعذر تحميل الجلسات</div>`;

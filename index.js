@@ -252,7 +252,7 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
   try {
     const sessions = (global.clients || []).map(sock => {
       const user = sock?.user;
@@ -263,9 +263,52 @@ app.get('/api/status', (req, res) => {
         path: sock._folderName || null
       };
     });
+    
+    // Fetch Telegram/Facebook configs from DB
+    const configs = await db.getBotConfigs();
+    const telegramBots = configs.filter(c => c.bot_type === 'telegram').map(c => ({
+      id: c.id,
+      name: c.bot_name,
+      connected: !!global.telegramBot && c.bot_token === config.telegramToken,
+      token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A'
+    }));
+    const facebookPages = configs.filter(c => c.bot_type === 'facebook').map(c => {
+      const parts = c.bot_name.split('|');
+      const pageId = parts[parts.length - 1].trim();
+      const pageName = parts[0] === pageId ? 'Facebook Page' : parts[0];
+      return {
+        id: c.id,
+        name: pageName,
+        pageId: pageId,
+        connected: true,
+        token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A'
+      };
+    });
+    
+    // Add local config defaults if not already present
+    if (config.telegramToken && !telegramBots.some(b => b.token.startsWith(config.telegramToken.substring(0, 8)))) {
+      telegramBots.push({
+        id: 'local_tg',
+        name: config.botName || 'Telegram Bot (محلي)',
+        connected: !!global.telegramBot,
+        token: `${config.telegramToken.substring(0, 8)}...`
+      });
+    }
+    if (config.fbPageAccessToken && !facebookPages.some(p => p.token.startsWith(config.fbPageAccessToken.substring(0, 8)))) {
+      facebookPages.push({
+        id: 'local_fb',
+        name: 'Facebook Page (محلي)',
+        pageId: config.fbPageId || 'me',
+        connected: true,
+        token: `${config.fbPageAccessToken.substring(0, 8)}...`
+      });
+    }
+    
     res.json({
       ok: true,
       sessions,
+      telegramBots,
+      facebookPages,
       commandCount: Object.keys(require('./lib/commandMap').ALL_COMMANDS).length || 566,
       apkLimit: config.apkLimit || 5,
       settings: {
@@ -275,6 +318,95 @@ app.get('/api/status', (req, res) => {
       }
     });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/connect-tg', async (req, res) => {
+  try {
+    const { token, name } = req.body;
+    if (!token) return res.status(400).json({ success: false, error: 'Token is required' });
+    
+    // Insert into DB config
+    const record = await db.insertBotConfig({
+      bot_token: token,
+      bot_name: name || 'Telegram Bot',
+      bot_type: 'telegram'
+    });
+    
+    if (record) {
+      // Start bot in memory
+      const { startTelegramBot } = require('./lib/telegram');
+      startTelegramBot(token);
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ success: false, error: 'فشل حفظ الإعدادات في قاعدة البيانات' });
+    }
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/connect-fb', async (req, res) => {
+  try {
+    const { token, name, pageId } = req.body;
+    if (!token || !pageId) return res.status(400).json({ success: false, error: 'Page Token and Page ID are required' });
+    
+    // Store pageId in bot_name (PageName|PageID format)
+    const formattedName = `${name || 'Facebook Page'}|${pageId}`;
+    
+    const record = await db.insertBotConfig({
+      bot_token: token,
+      bot_name: formattedName,
+      bot_type: 'facebook'
+    });
+    
+    if (record) {
+      // Register in memory
+      global.fbPageTokens = global.fbPageTokens || {};
+      global.fbPageTokens[pageId] = token;
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ success: false, error: 'فشل حفظ الإعدادات في قاعدة البيانات' });
+    }
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/delete-config', async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ success: false, error: 'ID is required' });
+    
+    // Find record first to clean up memory
+    const configs = await db.getBotConfigs();
+    const configRecord = configs.find(c => c.id === id);
+    if (configRecord && configRecord.bot_type === 'facebook') {
+      const parts = configRecord.bot_name.split('|');
+      const pageId = parts[parts.length - 1].trim();
+      if (global.fbPageTokens) delete global.fbPageTokens[pageId];
+    }
+    
+    const success = await db.deleteBotConfig(id);
+    res.json({ success });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/delete-wa', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ success: false, error: 'Phone is required' });
+    
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const folderName = `session_wa_${cleanPhone}`;
+    
+    // Disconnect active socket
+    const activeClient = (global.clients || []).find(c => c._folderName === folderName);
+    if (activeClient) { try { activeClient.end(); } catch (e) {} }
+    global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+    
+    // Delete session from DB and file system
+    const success = await db.deleteWhatsAppSession(cleanPhone);
+    const sessionPath = path.join(__dirname, 'sessions', folderName);
+    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+    
+    res.json({ success });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 app.get('/api/settings', (req, res) => {
@@ -765,20 +897,33 @@ async function startBot(folderName, phoneNumber) {
   global.clients.push(sock);
 
   if (!sock.authState.creds.registered && num) {
-    // Reduced delay to 2.5s. Baileys often closes the connection if it waits too long
-    setTimeout(async () => {
-      try {
-        let code = await sock.requestPairingCode(num);
-        code = code?.match(/.{1,4}/g)?.join("-") || code;
-        console.log(chalk.black.bgGreen(` [${folderName}] PAIRING CODE: `), chalk.white.bgRed.bold(` ${code} `));
-        // Store for dashboard API polling
-        global.pendingPairingCodes[num] = { code, time: Date.now() };
-        // 🚀 Real-time: Upload pairing code to Supabase
-        await db.updatePairingCode(num, code, 'connecting');
-      } catch (e) {
-        console.log(chalk.red(`[${folderName}] Failed to get pairing code: ${e.message}`));
-      }
-    }, 2500);
+    // Throttling logic to avoid duplicate/spam pairing code requests
+    global.lastPairingRequestTime = global.lastPairingRequestTime || {};
+    const lastRequest = global.lastPairingRequestTime[folderName] || 0;
+    const now = Date.now();
+    if (now - lastRequest > 120_000) {
+      setTimeout(async () => {
+        try {
+          if (!sock.authState.creds.registered) {
+            global.lastPairingRequestTime[folderName] = Date.now();
+            let code = await sock.requestPairingCode(num);
+            code = code?.match(/.{1,4}/g)?.join("-") || code;
+            console.log(chalk.black.bgGreen(` [${folderName}] PAIRING CODE: `), chalk.white.bgRed.bold(` ${code} `));
+            
+            // Store for dashboard API polling
+            global.pendingPairingCodes = global.pendingPairingCodes || {};
+            global.pendingPairingCodes[num] = { code, time: Date.now() };
+            
+            // 🚀 Real-time: Upload pairing code to Supabase
+            await db.updatePairingCode(num, code, 'connecting');
+          }
+        } catch (e) {
+          console.log(chalk.red(`[${folderName}] Failed to get pairing code: ${e.message}`));
+        }
+      }, 5000); // 5 seconds delay is much safer to ensure socket negotiation
+    } else {
+      console.log(chalk.yellow(`⚠️ [${folderName}] A pairing code request was skipped to avoid rate limits.`));
+    }
   }
 
   sock.ev.on("connection.update", async (update) => {
@@ -1229,7 +1374,13 @@ async function startBot(folderName, phoneNumber) {
         console.log(chalk.green(`✅ Starting Telegram Bot: ${conf.bot_name || 'Bot'}`));
         startTelegramBot(conf.bot_token);
       }
-      // Add FB token logic here if needed
+      if (conf.bot_type === 'facebook') {
+        global.fbPageTokens = global.fbPageTokens || {};
+        const parts = conf.bot_name.split('|');
+        const pageId = parts[parts.length - 1].trim();
+        global.fbPageTokens[pageId] = conf.bot_token;
+        console.log(chalk.green(`✅ Registered Facebook Page Token for Page ID: ${pageId} (${parts[0]})`));
+      }
     });
   } else {
     // Fallback to local config
