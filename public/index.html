@@ -1433,6 +1433,20 @@
         </div>
         <label class="toggle"><input type="checkbox" id="s-enableNewsAutoPoster" /><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">تفعيل المجيب الآلي (الخاص)</div>
+          <div class="toggle-desc">الرد بالذكاء الاصطناعي تلقائياً في المحادثات الخاصة (DMs)</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableChatbot" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">تفعيل المجيب الآلي (المجموعات)</div>
+          <div class="toggle-desc">الرد بالذكاء الاصطناعي تلقائياً على كافة رسائل المجموعات (بدون إشارة)</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableGroupChatbot" /><span class="toggle-slider"></span></label>
+      </div>
     </div>
 
     <!-- Traffic Booster Settings -->
@@ -2723,6 +2737,8 @@
       document.getElementById('s-autoType').checked = data.AUTOTYPE === 'true';
       document.getElementById('s-autoRecordType').checked = data.AUTORECORDTYPE === 'true';
       document.getElementById('s-enableNewsAutoPoster').checked = data.enableNewsAutoPoster === 'true';
+      document.getElementById('s-enableChatbot').checked = data.enableChatbot === 'true';
+      document.getElementById('s-enableGroupChatbot').checked = data.enableGroupChatbot === 'true';
       document.getElementById('s-enableTrafficBooster').checked = data.enableTrafficBooster === 'true';
       document.getElementById('s-trafficIntervalMinutes').value = data.trafficIntervalMinutes || '5';
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
@@ -2836,6 +2852,8 @@
       AUTOTYPE: document.getElementById('s-autoType').checked ? 'true' : 'false',
       AUTORECORDTYPE: document.getElementById('s-autoRecordType').checked ? 'true' : 'false',
       enableNewsAutoPoster: document.getElementById('s-enableNewsAutoPoster').checked ? 'true' : 'false',
+      enableChatbot: document.getElementById('s-enableChatbot').checked ? 'true' : 'false',
+      enableGroupChatbot: document.getElementById('s-enableGroupChatbot').checked ? 'true' : 'false',
       enableTrafficBooster: document.getElementById('s-enableTrafficBooster').checked ? 'true' : 'false',
       trafficIntervalMinutes: document.getElementById('s-trafficIntervalMinutes').value || '5',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
