@@ -510,9 +510,9 @@ app.post('/api/settings', (req, res) => {
       'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
       'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
-      'enableNewsAutoPoster'
+      'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes'
     ];
-    const arrFields = ['ownerNumber','extraNumbers'];
+    const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls'];
     for (const key of strFields) {
       if (req.body[key] !== undefined) {
         const val = String(req.body[key]).replace(/'/g, "\\'");
