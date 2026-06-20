@@ -70,9 +70,72 @@
       border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      z-index: 100;
+      z-index: 200;
       padding: 0 0 20px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateX(110%);
     }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    /* Dark overlay */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 190;
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+
+    /* Hamburger button */
+    .sidebar-toggle-btn {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 300;
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    }
+    .sidebar-toggle-btn:hover {
+      background: var(--card);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 4px 20px rgba(37,211,102,0.2);
+    }
+
+    /* Main content */
+    .main {
+      margin-right: 0;
+      min-height: 100vh;
+      padding: 30px;
+      padding-top: 74px;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (min-width: 900px) {
+      .sidebar { transform: translateX(0) !important; }
+      .sidebar-toggle-btn { display: none; }
+      .sidebar-overlay { display: none !important; }
+      .main { margin-right: 260px; padding-top: 30px; }
+    }
+
+
 
     .sidebar-header {
       padding: 24px 20px;
@@ -981,9 +1044,25 @@
   </div>
 </div>
 
+<!-- Sidebar overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- Hamburger toggle button -->
+<button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="القائمة">
+  <i class="fas fa-bars"></i>
+</button>
+
 <!-- Sidebar -->
-<aside class="sidebar">
-  <div class="sidebar-header">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header" style="position:relative;">
+    <button onclick="toggleSidebar()" style="
+      position:absolute;left:10px;top:10px;
+      background:rgba(255,255,255,0.07);border:1px solid var(--border);
+      color:var(--text-muted);width:28px;height:28px;border-radius:8px;
+      cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;
+      transition:all 0.2s;" title="إغلاق">
+      <i class="fas fa-times"></i>
+    </button>
     <div class="sidebar-logo">🤖</div>
     <div class="sidebar-title">حمزة اعمرني</div>
     <div class="sidebar-subtitle">⚡ لوحة تحكم البوت</div>
@@ -996,37 +1075,37 @@
 
   <nav class="nav-section">
     <div class="nav-label">القائمة الرئيسية</div>
-    <a class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+    <a class="nav-item active" onclick="showPage('dashboard'); closeSidebarOnMobile()" id="nav-dashboard">
       <i class="fas fa-chart-pie"></i> لوحة التحكم
     </a>
-    <a class="nav-item" onclick="showPage('sessions')" id="nav-sessions">
+    <a class="nav-item" onclick="showPage('sessions'); closeSidebarOnMobile()" id="nav-sessions">
       <i class="fab fa-whatsapp"></i> الجلسات
     </a>
-    <a class="nav-item" onclick="showPage('pairing')" id="nav-pairing">
+    <a class="nav-item" onclick="showPage('pairing'); closeSidebarOnMobile()" id="nav-pairing">
       <i class="fas fa-link"></i> ربط رقم جديد
     </a>
-    <a class="nav-item" onclick="showPage('settings')" id="nav-settings">
+    <a class="nav-item" onclick="showPage('settings'); closeSidebarOnMobile()" id="nav-settings">
       <i class="fas fa-cog"></i> الإعدادات
     </a>
-    <a class="nav-item" onclick="showPage('apk')" id="nav-apk">
+    <a class="nav-item" onclick="showPage('apk'); closeSidebarOnMobile()" id="nav-apk">
       <i class="fab fa-android"></i> حدود APK
     </a>
-    <a class="nav-item" onclick="showPage('social')" id="nav-social">
+    <a class="nav-item" onclick="showPage('social'); closeSidebarOnMobile()" id="nav-social">
       <i class="fas fa-share-alt"></i> الروابط الاجتماعية
     </a>
-    <a class="nav-item" onclick="showPage('users')" id="nav-users">
+    <a class="nav-item" onclick="showPage('users'); closeSidebarOnMobile()" id="nav-users">
       <i class="fas fa-users"></i> إدارة المستخدمين
     </a>
-    <a class="nav-item" onclick="showPage('cmdstats')" id="nav-cmdstats">
+    <a class="nav-item" onclick="showPage('cmdstats'); closeSidebarOnMobile()" id="nav-cmdstats">
       <i class="fas fa-chart-bar"></i> إحصائيات الأوامر
     </a>
-    <a class="nav-item" onclick="showPage('broadcast')" id="nav-broadcast">
+    <a class="nav-item" onclick="showPage('broadcast'); closeSidebarOnMobile()" id="nav-broadcast">
       <i class="fas fa-bullhorn"></i> البث الجماعي
     </a>
-    <a class="nav-item" onclick="showPage('activity')" id="nav-activity">
+    <a class="nav-item" onclick="showPage('activity'); closeSidebarOnMobile()" id="nav-activity">
       <i class="fas fa-history"></i> سجل النشاط
     </a>
-    <a class="nav-item" onclick="showPage('manage')" id="nav-manage" style="background:linear-gradient(135deg,rgba(159,122,234,0.15),rgba(99,179,237,0.15));border:1px solid rgba(159,122,234,0.3);">
+    <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage" style="background:linear-gradient(135deg,rgba(159,122,234,0.15),rgba(99,179,237,0.15));border:1px solid rgba(159,122,234,0.3);">
       <i class="fas fa-sliders-h" style="color:var(--purple);"></i> <span style="color:var(--purple);font-weight:700;">إدارة شاملة</span>
     </a>
   </nav>
@@ -1044,6 +1123,7 @@
     </div>
   </div>
 </aside>
+
 
 <!-- Main content -->
 <main class="main">
@@ -3591,6 +3671,30 @@
       showToast('خطأ في الاتصال للخادم', 'error');
     }
   }
+
+  // =================== SIDEBAR TOGGLE ===================
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen = sidebar.classList.contains('open');
+    if (isOpen) {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    } else {
+      sidebar.classList.add('open');
+      overlay.classList.add('show');
+    }
+  }
+
+  function closeSidebarOnMobile() {
+    if (window.innerWidth < 900) {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    }
+  }
+
 </script>
 </body>
 </html>
