@@ -1243,22 +1243,10 @@ async function startBot(folderName, phoneNumber) {
           if (bannedUsers.includes(senderJid)) continue;
         } catch (_) {}
 
-        // ===== SUBSCRIPTION GATE =====
-        // Skip gate for owner numbers
+        // ===== OWNER CHECK =====
         const senderNum = sender.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
         const isOwner = config.ownerNumber.some(n => n.replace(/[^0-9]/g, '') === senderNum);
-        if (!isOwner) {
-          const gateResult = checkSubscriptionGate(sender, 'wa');
-          if (gateResult === 'blocked') {
-            await sock.sendMessage(sender, { text: getSubscriptionMessage('wa') }, { quoted: msg });
-            continue;
-          } else if (gateResult === 'pending') {
-            await sock.sendMessage(sender, { text: getWelcomeMessage() }, { quoted: msg });
-            // fall through — process their first real message normally
-          }
-          // gateResult === 'allow' → continue normally
-        }
-        // ===== END SUBSCRIPTION GATE =====
+        // ===== END OWNER CHECK =====
         if (phoneNumber) {
           if (!botUsersMap[phoneNumber]) botUsersMap[phoneNumber] = new Set();
           botUsersMap[phoneNumber].add(sender);
@@ -1431,8 +1419,9 @@ async function startBot(folderName, phoneNumber) {
           if (nlcFound) { isCommand = true; continue; }
         }
 
-        // If it's a dot-command already handled, stop here
-        if (isCommand || (body && body.startsWith("."))) continue;
+        // If it's a dot-command successfully handled, stop here
+        // Note: if the command failed (isCommand=false), fall through to AI response
+        if (isCommand) continue;
 
         // --- PRIORITY 3: TEXT AI (pure text messages only) ---
         {
