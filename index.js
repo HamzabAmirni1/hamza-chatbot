@@ -381,14 +381,42 @@ app.get('/api/users', (req, res) => {
   try {
     const DATA_DIR = path.join(__dirname, 'data');
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    let users = [], banned = [];
-    try { users = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'users.json'), 'utf-8')); } catch (e) { users = []; }
-    try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8')); } catch (e) { banned = []; }
-    // Normalize users to objects
-    const normalizedUsers = users.map(u => typeof u === 'string' ? { id: u, lastSeen: null } : u);
+    
+    let waUsers = [], tgUsers = [], fbUsers = [], banned = [];
+    try { waUsers = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'users.json'), 'utf-8') || '[]'); } catch (e) {}
+    try { tgUsers = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'tg_users.json'), 'utf-8') || '[]'); } catch (e) {}
+    try { fbUsers = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'fb_users.json'), 'utf-8') || '[]'); } catch (e) {}
+    try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8') || '[]'); } catch (e) {}
+    
+    const mappedWa = waUsers.map(u => {
+      const id = typeof u === 'string' ? u : (u.id || u.jid);
+      return { id, platform: 'whatsapp', lastSeen: typeof u === 'object' ? u.lastSeen : null };
+    });
+    const mappedTg = tgUsers.map(u => {
+      const id = typeof u === 'string' ? u : (u.id || u.chatId);
+      return { id, platform: 'telegram', lastSeen: typeof u === 'object' ? u.lastSeen : null };
+    });
+    const mappedFb = fbUsers.map(u => {
+      const id = typeof u === 'string' ? u : (u.id || u.senderId);
+      return { id, platform: 'facebook', lastSeen: typeof u === 'object' ? u.lastSeen : null, pageId: u.pageId };
+    });
+    
+    const allUsers = [...mappedWa, ...mappedTg, ...mappedFb];
     const activeCount = global._activeUsers ? global._activeUsers.size : 0;
-    res.json({ ok: true, users: normalizedUsers, banned, activeCount, total: normalizedUsers.length });
-  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    
+    res.json({
+      ok: true,
+      users: allUsers,
+      waCount: mappedWa.length,
+      tgCount: mappedTg.length,
+      fbCount: mappedFb.length,
+      total: allUsers.length,
+      banned,
+      activeCount
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.post('/api/ban', (req, res) => {
@@ -442,24 +470,91 @@ app.get('/api/activity', (req, res) => {
 
 app.post('/api/broadcast', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, platform } = req.body;
     if (!message) return res.status(400).json({ ok: false, error: 'رسالة مطلوبة' });
-    let users = [];
-    try { users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/users.json'), 'utf-8')); } catch (e) {}
-    const clients = global.clients || [];
-    if (!clients.length) return res.status(503).json({ ok: false, error: 'لا توجد جلسات متصلة' });
-    const sock = clients.find(c => c?.user) || clients[0];
-    let sent = 0, failed = 0;
-    for (const user of users) {
-      try {
-        const jid = user.id || user.jid || (typeof user === 'string' ? user : null);
-        if (!jid || jid === 'test@s.whatsapp.net') continue;
-        await sock.sendMessage(jid, { text: message });
-        sent++;
-        await new Promise(r => setTimeout(r, 500));
-      } catch (e) { failed++; }
+    
+    const targetPlatform = platform || 'all';
+    let results = { whatsapp: { sent: 0, failed: 0 }, telegram: { sent: 0, failed: 0 }, facebook: { sent: 0, failed: 0 } };
+    
+    // 1. WhatsApp Broadcast
+    if (targetPlatform === 'all' || targetPlatform === 'whatsapp') {
+      let waUsers = [];
+      try { waUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/users.json'), 'utf-8') || '[]'); } catch (e) {}
+      const clients = global.clients || [];
+      if (waUsers.length > 0) {
+        if (clients.length > 0) {
+          const sock = clients.find(c => c?.user) || clients[0];
+          for (const user of waUsers) {
+            try {
+              const jid = typeof user === 'string' ? user : (user.id || user.jid);
+              if (!jid || jid === 'test@s.whatsapp.net') continue;
+              await sock.sendMessage(jid, { text: message });
+              results.whatsapp.sent++;
+              await new Promise(r => setTimeout(r, 500));
+            } catch (e) { results.whatsapp.failed++; }
+          }
+        } else {
+          results.whatsapp.failed += waUsers.length;
+        }
+      }
     }
-    res.json({ ok: true, sent, failed, total: users.length });
+    
+    // 2. Telegram Broadcast
+    if (targetPlatform === 'all' || targetPlatform === 'telegram') {
+      let tgUsers = [];
+      try { tgUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/tg_users.json'), 'utf-8') || '[]'); } catch (e) {}
+      if (tgUsers.length > 0) {
+        if (config.telegramToken) {
+          const { sendTelegramPrayerReminder } = require('./lib/telegram');
+          for (const chatId of tgUsers) {
+            try {
+              if (global.telegramBot) {
+                await global.telegramBot.sendMessage(chatId, message);
+              } else {
+                await sendTelegramPrayerReminder(chatId, message);
+              }
+              results.telegram.sent++;
+              await new Promise(r => setTimeout(r, 500));
+            } catch (e) { results.telegram.failed++; }
+          }
+        } else {
+          results.telegram.failed += tgUsers.length;
+        }
+      }
+    }
+    
+    // 3. Facebook Broadcast
+    if (targetPlatform === 'all' || targetPlatform === 'facebook') {
+      let fbUsers = [];
+      try { fbUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/fb_users.json'), 'utf-8') || '[]'); } catch (e) {}
+      if (fbUsers.length > 0) {
+        if (config.fbPageAccessToken) {
+          const { sendFacebookMessage } = require('./lib/facebook');
+          for (const user of fbUsers) {
+            try {
+              const recipientId = typeof user === 'string' ? user : user.id;
+              const pageId = typeof user === 'object' ? user.pageId : null;
+              await sendFacebookMessage(recipientId, message, pageId || config.fbPageAccessToken);
+              results.facebook.sent++;
+              await new Promise(r => setTimeout(r, 500));
+            } catch (e) { results.facebook.failed++; }
+          }
+        } else {
+          results.facebook.failed += fbUsers.length;
+        }
+      }
+    }
+    
+    const totalSent = results.whatsapp.sent + results.telegram.sent + results.facebook.sent;
+    const totalFailed = results.whatsapp.failed + results.telegram.failed + results.facebook.failed;
+    
+    res.json({
+      ok: true,
+      sent: totalSent,
+      failed: totalFailed,
+      total: totalSent + totalFailed,
+      details: results
+    });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 

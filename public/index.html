@@ -1477,20 +1477,41 @@
       <div class="card">
         <div class="card-header"><div class="card-icon yellow"><i class="fas fa-paper-plane"></i></div><div class="card-title">إرسال رسالة جماعية</div></div>
         <div class="form-group">
+          <label class="form-label">المنصة المستهدفة</label>
+          <select id="broadcast-platform" class="form-input" style="margin-bottom: 12px;">
+            <option value="all">الكل (واتساب + تليجرام + فيسبوك)</option>
+            <option value="whatsapp">واتساب (WhatsApp)</option>
+            <option value="telegram">تليجرام (Telegram)</option>
+            <option value="facebook">فيسبوك (Facebook Messenger)</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">الرسالة (يدعم تنسيق واتساب *غامق* _مائل_)</label>
           <textarea id="broadcast-msg" class="form-input" rows="7" placeholder="اكتب رسالتك هنا..." style="resize:vertical;"></textarea>
         </div>
         <div style="background:rgba(246,224,94,0.08);border:1px solid rgba(246,224,94,0.2);border-radius:12px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--yellow);">
-          <i class="fas fa-exclamation-triangle"></i> ستُرسل لجميع المستخدمين المسجلين — تأكد من المحتوى قبل الإرسال
+          <i class="fas fa-exclamation-triangle"></i> ستُرسل لجميع المستخدمين المسجلين في المنصة المحددة — تأكد من المحتوى قبل الإرسال
         </div>
         <button class="btn btn-primary" onclick="sendBroadcast()" style="width:100%;justify-content:center;font-size:15px;padding:14px;">
-          <i class="fas fa-paper-plane"></i> إرسال للجميع
+          <i class="fas fa-paper-plane"></i> إرسال الرسالة
         </button>
         <div id="broadcast-alert" class="alert" style="margin-top:12px;"></div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-icon blue"><i class="fas fa-info-circle"></i></div><div class="card-title">معلومات البث</div></div>
         <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg);border-radius:12px;">
+            <span style="color:var(--text-muted);"><i class="fab fa-whatsapp" style="color:#25d366;"></i> مستخدمي واتساب</span>
+            <span id="broadcast-wa" style="font-weight:700;color:#25d366;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg);border-radius:12px;">
+            <span style="color:var(--text-muted);"><i class="fab fa-telegram-plane" style="color:#38bdf8;"></i> مستخدمي تليجرام</span>
+            <span id="broadcast-tg" style="font-weight:700;color:#38bdf8;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg);border-radius:12px;">
+            <span style="color:var(--text-muted);"><i class="fab fa-facebook-messenger" style="color:#0084ff;"></i> مستخدمي فيسبوك</span>
+            <span id="broadcast-fb" style="font-weight:700;color:#0084ff;">—</span>
+          </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg);border-radius:12px;">
             <span style="color:var(--text-muted);"><i class="fas fa-users"></i> إجمالي المستلمين</span>
             <span id="broadcast-total" style="font-weight:700;color:var(--blue);">—</span>
@@ -1501,7 +1522,7 @@
           </div>
           <div style="padding:14px;background:rgba(99,179,237,0.05);border:1px solid rgba(99,179,237,0.15);border-radius:12px;font-size:13px;color:var(--text-muted);line-height:1.8;">
             <i class="fas fa-clock" style="color:var(--blue);"></i>
-            تأخير 500ms بين كل مستخدم لتجنب الحظر من واتساب.
+            تأخير 500ms بين كل مستخدم لتجنب الحظر والحدود.
           </div>
         </div>
       </div>
@@ -2059,7 +2080,13 @@
       document.getElementById('u-banned').textContent = (data.banned || []).length;
       const langs = [...new Set((data.users || []).map(u => u.language).filter(Boolean))];
       document.getElementById('u-langs').textContent = langs.length || 1;
+      
+      // Update broadcast page platform counts
       if(document.getElementById('broadcast-total')) document.getElementById('broadcast-total').textContent = data.total || 0;
+      if(document.getElementById('broadcast-wa')) document.getElementById('broadcast-wa').textContent = data.waCount || 0;
+      if(document.getElementById('broadcast-tg')) document.getElementById('broadcast-tg').textContent = data.tgCount || 0;
+      if(document.getElementById('broadcast-fb')) document.getElementById('broadcast-fb').textContent = data.fbCount || 0;
+      
       // Banned list
       const bannedList = document.getElementById('banned-list');
       if (!data.banned || data.banned.length === 0) {
@@ -2079,7 +2106,29 @@
           const num = (u.id || '').split('@')[0];
           const isBanned = (data.banned || []).includes(u.id);
           const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
-          return `<div class="number-item"><div class="number-item-left"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-size:14px;">👤</div><div><div style="font-size:13px;font-weight:700;">+${num}</div><div style="font-size:11px;color:var(--text-muted);">آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div></div></div><div style="display:flex;gap:6px;align-items:center;">${isBanned ? `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}')"><i class="fas fa-unlock"></i></button>` : `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}')"><i class="fas fa-ban"></i></button>`}</div></div>`;
+          
+          let icon = '👤';
+          let bg = 'linear-gradient(135deg,var(--accent),var(--blue))';
+          let platBadge = '';
+          let userLabel = `+${num}`;
+          
+          if (u.platform === 'whatsapp') {
+            icon = '<i class="fab fa-whatsapp"></i>';
+            bg = 'linear-gradient(135deg,#25d366,#128c7e)';
+            platBadge = `<span class="chip" style="background:rgba(37,211,102,0.1);color:#25d366;font-size:10px;padding:1px 6px;">WhatsApp</span>`;
+          } else if (u.platform === 'telegram') {
+            icon = '<i class="fab fa-telegram-plane"></i>';
+            bg = 'linear-gradient(135deg,#38bdf8,#0284c7)';
+            platBadge = `<span class="chip" style="background:rgba(56,189,248,0.1);color:#38bdf8;font-size:10px;padding:1px 6px;">Telegram</span>`;
+            userLabel = `ID: ${num}`;
+          } else if (u.platform === 'facebook') {
+            icon = '<i class="fab fa-facebook-messenger"></i>';
+            bg = 'linear-gradient(135deg,#0084ff,#0044ff)';
+            platBadge = `<span class="chip" style="background:rgba(0,132,255,0.1);color:#0084ff;font-size:10px;padding:1px 6px;">Facebook</span>`;
+            userLabel = `ID: ${num}`;
+          }
+          
+          return `<div class="number-item"><div class="number-item-left"><div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">${icon}</div><div><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">${userLabel} ${platBadge}</div><div style="font-size:11px;color:var(--text-muted);">آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div></div></div><div style="display:flex;gap:6px;align-items:center;">${isBanned ? `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}')"><i class="fas fa-unlock"></i></button>` : `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}')"><i class="fas fa-ban"></i></button>`}</div></div>`;
         }).join('') + `</div>`;
       }
     } catch(e) { showToast('خطأ في تحميل المستخدمين', 'error'); }
@@ -2158,15 +2207,16 @@
   // =================== BROADCAST ===================
   async function sendBroadcast() {
     const msg = document.getElementById('broadcast-msg').value.trim();
+    const platform = document.getElementById('broadcast-platform').value;
     if (!msg) { showToast('اكتب رسالة أولاً', 'error'); return; }
-    if (!confirm('إرسال هذه الرسالة لجميع المستخدمين؟')) return;
+    if (!confirm('إرسال هذه الرسالة للمستلمين المحددين؟')) return;
     const alert = document.getElementById('broadcast-alert');
     showAlert(alert, 'info', '⏳ جاري الإرسال، يرجى الانتظار...');
     try {
       const res = await fetch('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg })
+        body: JSON.stringify({ message: msg, platform })
       });
       const data = await res.json();
       if (data.ok) {
