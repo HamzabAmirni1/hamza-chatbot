@@ -40,6 +40,7 @@ const {
   getHFVision,
   getObitoAnalyze,
   getStableAIResponse,
+  getBlackboxResponse,
   detectLanguage
 } = require('./lib/ai');
 const {
@@ -81,6 +82,49 @@ global.pairingMode = {};
 global.pairingCodeRequested = {};
 global._activityLog = [];
 global._cmdStats = {};
+global._cmdStatsByPlatform = { whatsapp: {}, telegram: {}, facebook: {} };
+global._activeBots = {};
+
+global.trackCommand = (command, platform) => {
+  if (!global._cmdStats) global._cmdStats = {};
+  if (!global._cmdStatsByPlatform) global._cmdStatsByPlatform = { whatsapp: {}, telegram: {}, facebook: {} };
+  global._cmdStats[command] = (global._cmdStats[command] || 0) + 1;
+  const plat = platform ? platform.toLowerCase() : 'whatsapp';
+  if (!global._cmdStatsByPlatform[plat]) {
+    global._cmdStatsByPlatform[plat] = {};
+  }
+  global._cmdStatsByPlatform[plat][command] = (global._cmdStatsByPlatform[plat][command] || 0) + 1;
+};
+
+// ====== GOOGLE TTS HELPER ======
+async function generateTTS(text, lang = 'ar') {
+  try {
+    const cleanText = text.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '').trim();
+    if (!cleanText) return null;
+    const baseUrl = 'https://www.google.com/speech-api/v2/synthesize';
+    const key = 'AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw';
+    const params = {
+      key,
+      text: cleanText.slice(0, 300),
+      lang: lang === 'en' ? 'en_US' : 'ar',
+      enc: 'mpeg',
+      client: 'chromium',
+      speed: '0.5',
+      pitch: '0.5',
+    };
+    const res = await axios.get(baseUrl, {
+      params,
+      responseType: 'arraybuffer',
+      timeout: 15000,
+    });
+    return Buffer.from(res.data);
+  } catch (err) {
+    console.error('[TTS Generation Error]:', err.message);
+    return null;
+  }
+}
+// ====== END GOOGLE TTS HELPER ======
+
 global._activeUsers = activeUsers;
 global._sysLog = []; // ring buffer for live monitoring
 
@@ -177,7 +221,7 @@ app.get("/", (req, res) => {
   const host = req.headers.host;
   if (host && !host.includes("127.0.0.1") && !host.includes("localhost")) {
     const detectedUrl = `${protocol}://${host}`;
-    if (!config.publicUrl || config.publicUrl.includes("available-karena")) {
+    if (!config.publicUrl || config.publicUrl.includes("available-karena") || config.publicUrl.includes("rolling-cherianne") || config.publicUrl !== detectedUrl) {
       config.publicUrl = detectedUrl;
       console.log(chalk.green(`✨ Auto-Detected Public URL: ${config.publicUrl}`));
       try { fs.writeFileSync(path.join(__dirname, "server_url.json"), JSON.stringify({ url: detectedUrl })); } catch (e) {}
@@ -241,7 +285,21 @@ app.post("/connect-wa", async (req, res) => {
   const cleanPhone = phone.replace(/[^0-9]/g, "");
   console.log(chalk.cyan(`🚀 Starting new WA connection for: ${cleanPhone}`));
   await db.updateWhatsAppAuth(cleanPhone, null);
-  startBot(`session_wa_${cleanPhone}`, cleanPhone);
+  
+  const fName = `session_wa_${cleanPhone}`;
+  if (global._activeBots) {
+    global._activeBots[fName] = false;
+  }
+  const existingClient = (global.clients || []).find(c => c._folderName === fName);
+  if (existingClient) {
+    try {
+      existingClient.ev.removeAllListeners();
+      existingClient.logout();
+    } catch (_) {}
+  }
+  global.clients = (global.clients || []).filter(c => c._folderName !== fName);
+
+  startBot(fName, cleanPhone);
   res.json({ status: "initiated", message: "Bot starting, wait for pairing code in Dashboard." });
 });
 
@@ -327,6 +385,7 @@ app.get('/api/status', async (req, res) => {
       });
     }
     
+    const traffic = getTrafficStats();
     res.json({
       ok: true,
       sessions,
@@ -334,6 +393,8 @@ app.get('/api/status', async (req, res) => {
       facebookPages,
       commandCount: Object.keys(require('./lib/commandMap').ALL_COMMANDS).length || 566,
       apkLimit: config.apkLimit || 5,
+      visits: traffic.visits || 0,
+      impressions: traffic.impressions || 0,
       settings: {
         botName: config.botName, botOwner: config.botOwner, prefix: config.prefix,
         commandMode: config.commandMode, timezone: config.timezone,
@@ -669,14 +730,29 @@ app.post('/api/unban', (req, res) => {
 app.get('/api/cmd-stats', (req, res) => {
   try {
     const { ALL_COMMANDS } = require('./lib/commandMap');
-    const stats = global._cmdStats || {};
+    const platform = req.query.platform || 'all';
+    let stats = {};
+    if (platform === 'all') {
+      stats = global._cmdStats || {};
+    } else {
+      stats = (global._cmdStatsByPlatform || {})[platform] || {};
+    }
     const cmdFiles = [...new Set(Object.values(ALL_COMMANDS))];
     const unusedFiles = cmdFiles.filter(f => {
       const cmdsForFile = Object.entries(ALL_COMMANDS).filter(([,v]) => v === f).map(([k]) => k);
       return !cmdsForFile.some(c => stats[c]);
     });
     const topCommands = Object.entries(stats).sort((a,b) => b[1]-a[1]).slice(0,20).map(([cmd,count]) => ({ cmd, count }));
-    res.json({ ok: true, total: cmdFiles.length, usedCount: cmdFiles.length - unusedFiles.length, unusedCount: unusedFiles.length, unusedFiles, topCommands, stats });
+    res.json({
+      ok: true,
+      total: cmdFiles.length,
+      usedCount: cmdFiles.length - unusedFiles.length,
+      unusedCount: unusedFiles.length,
+      unusedFiles,
+      topCommands,
+      stats,
+      platformStats: global._cmdStatsByPlatform || { whatsapp: {}, telegram: {}, facebook: {} }
+    });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -947,6 +1023,17 @@ app.listen(port, "0.0.0.0", () => {
       // process.exit(1); // Optional: only exit if truly unhealthy
     });
 
+    // Make all active bots show as online
+    if (global.clients && global.clients.length > 0) {
+      global.clients.forEach(sock => {
+        try {
+          if (sock && sock.sendPresenceUpdate) {
+            sock.sendPresenceUpdate("available");
+          }
+        } catch (_) {}
+      });
+    }
+
     // Ping external public URL if set
     if (config.publicUrl) {
       axios.get(config.publicUrl, { timeout: 10000 })
@@ -1021,6 +1108,13 @@ async function sendFBVideo(sock, chatId, videoUrl, apiName, quoted) {
 }
 
 async function startBot(folderName, phoneNumber) {
+  global._activeBots = global._activeBots || {};
+  if (global._activeBots[folderName]) {
+    console.log(chalk.yellow(`⚠️ [startBot] Bot instance for ${folderName} is already starting or running. Skipping duplicate spawn.`));
+    return;
+  }
+  global._activeBots[folderName] = true;
+
   const sessionDir = path.join(__dirname, "sessions", folderName);
   if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
@@ -1146,6 +1240,12 @@ async function startBot(folderName, phoneNumber) {
     if (connection === "close") {
       // Remove from global clients on disconnect
       global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+      try {
+        sock.ev.removeAllListeners();
+      } catch (_) {}
+      if (global._activeBots) {
+        global._activeBots[folderName] = false;
+      }
       const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
@@ -1271,7 +1371,7 @@ async function startBot(folderName, phoneNumber) {
           const reply = msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || msg.message.buttonsResponseMessage?.selectedButtonId || msg.message.templateButtonReplyMessage?.selectedId;
           if (reply) body = reply;
         }
-        if (!body && type !== "imageMessage" && type !== "videoMessage") continue;
+        if (!body && type !== "imageMessage" && type !== "videoMessage" && type !== "audioMessage") continue;
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter") || msg.key.remoteJid.endsWith("@g.us")) continue;
 
         const sender = msg.key.remoteJid;
@@ -1311,6 +1411,27 @@ async function startBot(folderName, phoneNumber) {
         if (body && !msg.key.fromMe) {
           const skipAI = await handleAutoDL(sock, sender, msg, body, processedMessages, { sendFBVideo, sendYTVideo, getYupraVideoByUrl, getOkatsuVideoByUrl });
           if (skipAI) continue;
+        }
+
+        // --- Intercept Audio / Voice Messages for Voice-to-Voice Chatbot ---
+        let isVoiceQuery = false;
+        if (type === "audioMessage") {
+          try {
+            const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
+              msg.message.audioMessage,
+              'audio'
+            );
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            const transcribed = await ai.transcribeAudio(buffer, "audio/ogg");
+            if (transcribed) {
+              body = transcribed;
+              isVoiceQuery = true;
+              console.log(chalk.cyan(`🎙️ Voice query transcribed: "${body}"`));
+            }
+          } catch (err) {
+            console.error('[Voice Transcription Error]:', err.message);
+          }
         }
 
         await sock.readMessages([msg.key]);
@@ -1374,8 +1495,7 @@ async function startBot(folderName, phoneNumber) {
               if (!global._activityLog) global._activityLog = [];
               global._activityLog.unshift({ time: Date.now(), cmd: command, user: sender, chat: sender });
               if (global._activityLog.length > 100) global._activityLog.length = 100;
-              if (!global._cmdStats) global._cmdStats = {};
-              global._cmdStats[command] = (global._cmdStats[command] || 0) + 1;
+              if (global.trackCommand) global.trackCommand(command, 'whatsapp');
               continue;
             } catch (err) { 
               console.error(chalk.red(`[Command Error] .${command}:`), err.message);
@@ -1388,7 +1508,7 @@ async function startBot(folderName, phoneNumber) {
         const ai = require('./lib/ai');
         const isRawImage = type === "imageMessage";
         const isRawVideo = type === "videoMessage";
-        const isMediaMsg = msg.message?.imageMessage || msg.message?.audioMessage || msg.message?.documentMessage;
+        const isMediaMsg = msg.message?.imageMessage || msg.message?.documentMessage;
 
         if (isMediaMsg) {
           // Image/audio/document received → analyze ONLY, skip all NLC/command keyword matching
@@ -1408,8 +1528,6 @@ async function startBot(folderName, phoneNumber) {
               response = await ai.analyzeImage(buffer, msg.message.imageMessage.mimetype || "image/jpeg", userQ);
               // Save context so follow-up questions work
               try { await addToHistory(sender, "user", userQ, { buffer, mime: 'image/jpeg' }); } catch (_) {}
-            } else if (msg.message.audioMessage) {
-              response = await ai.transcribeAudio(buffer, "audio/ogg");
             } else if (msg.message.documentMessage) {
               response = await ai.analyzeDocument(buffer, msg.message.documentMessage.mimetype, body || "Analyze this");
             }
@@ -1544,13 +1662,29 @@ async function startBot(folderName, phoneNumber) {
 
           if (botReplyText) {
              await addToHistory(sender, "assistant", botReplyText);
-             const isAudio = botReplyText.length < 50 && (botReplyText.includes("تفضل") || botReplyText.includes("أوديو"));
-             await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender);
-             const words = botReplyText.split(" ").length;
-             const typingDelay = Math.min(Math.max(words * 200, 1500), 5000); 
-             await new Promise(res => setTimeout(res, typingDelay));
-             await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
-             await sock.sendPresenceUpdate("paused", sender);
+             if (isVoiceQuery) {
+               const audioBuffer = await generateTTS(botReplyText, detectLanguage(body));
+               if (audioBuffer && audioBuffer.length > 0) {
+                 await sock.sendPresenceUpdate("recording", sender);
+                 await new Promise(res => setTimeout(res, 1500));
+                 await sock.sendMessage(sender, {
+                   audio: audioBuffer,
+                   mimetype: 'audio/mp4',
+                   ptt: true
+                 }, { quoted: msg });
+                 await sock.sendPresenceUpdate("paused", sender);
+               } else {
+                 await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+               }
+             } else {
+               const isAudio = botReplyText.length < 50 && (botReplyText.includes("تفضل") || botReplyText.includes("أوديو"));
+              await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender);
+               const words = botReplyText.split(" ").length;
+               const typingDelay = Math.min(Math.max(words * 200, 1500), 5000); 
+               await new Promise(res => setTimeout(res, typingDelay));
+               await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+               await sock.sendPresenceUpdate("paused", sender);
+             }
           } else {
              await addToHistory(sender, "assistant", "[تم تنفيذ الأداة بنجاح]");
           }
@@ -1567,6 +1701,7 @@ async function startBot(folderName, phoneNumber) {
                         await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
                         commandUsage[command] = (commandUsage[command] || 0) + 1;
                         activeUsers.add(sender);
+                        if (global.trackCommand) global.trackCommand(command, 'whatsapp');
                     } catch (err) { console.error("AI Command Execution Error:", err); }
                 }
              }
