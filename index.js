@@ -469,11 +469,27 @@ app.post('/api/pair', async (req, res) => {
     const { number } = req.body;
     if (!number || !/^\d{10,15}$/.test(number)) return res.status(400).json({ success: false, error: 'رقم غير صالح' });
     const cleanNumber = number.replace(/[^0-9]/g, '');
-    delete global.pendingPairingCodes[cleanNumber];
     const folderName = `session_wa_${cleanNumber}`;
+
+    // ✅ Kill any existing socket for this number FIRST (prevents race condition)
+    const existingClient = (global.clients || []).find(c => c._folderName === folderName);
+    if (existingClient) {
+      try { existingClient.end(); } catch (e) {}
+      global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+      await new Promise(r => setTimeout(r, 2000)); // Wait for socket to fully close
+    }
+
+    // Reset pairing code and throttle timer so it's forced fresh
+    delete global.pendingPairingCodes[cleanNumber];
+    if (global.lastPairingRequestTime) delete global.lastPairingRequestTime[folderName];
+
+    // ✅ Mark as pairing-mode (suppress auto-reconnect while waiting)
+    global.pairingMode = global.pairingMode || {};
+    global.pairingMode[folderName] = true;
+
     startBot(folderName, cleanNumber).catch(err => console.error(`[API/Pair] Error:`, err.message));
     let attempts = 0;
-    while (attempts < 50) {
+    while (attempts < 60) {
       await new Promise(r => setTimeout(r, 500));
       if (global.pendingPairingCodes[cleanNumber]) {
         const { code } = global.pendingPairingCodes[cleanNumber];
@@ -935,15 +951,23 @@ async function startBot(folderName, phoneNumber) {
       global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
       const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+      // ✅ Don't reconnect if we're in pairing mode (waiting for user to enter code)
+      const inPairingMode = global.pairingMode && global.pairingMode[folderName];
+
       if (statusCode === 401) {
+        // Logged out — clear session and restart clean
         if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
-        if (num) await db.updateWhatsAppSession(num, null); // Clear corrupted session
-        setTimeout(() => startBot(folderName, phoneNumber), 2000);
-      } else if (shouldReconnect) {
+        if (num) await db.updateWhatsAppSession(num, null);
+        if (!inPairingMode) setTimeout(() => startBot(folderName, phoneNumber), 2000);
+      } else if (shouldReconnect && !inPairingMode) {
         setTimeout(() => startBot(folderName, phoneNumber), 10000);
       }
     } else if (connection === "open") {
       console.log(chalk.green(`✅ [${folderName}] Connected!`));
+      // ✅ Clear pairing mode on successful connection
+      if (global.pairingMode) delete global.pairingMode[folderName];
+      if (num) delete global.pendingPairingCodes[num];
       if (num) await db.updatePairingCode(num, null, 'connected'); // Clear code on success
       
       // Sync credentials to Supabase for the first time
