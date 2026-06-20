@@ -82,6 +82,26 @@ global.pairingCodeRequested = {};
 global._activityLog = [];
 global._cmdStats = {};
 global._activeUsers = activeUsers;
+global._sysLog = []; // ring buffer for live monitoring
+
+// ====== GLOBAL SYSLOG INTERCEPTOR ======
+// Captures all console output into a ring buffer for the dashboard
+(function patchConsole() {
+  const ICONS = { log: '📋', error: '🔴', warn: '🟡', info: '🔵' };
+  const _orig = { log: console.log.bind(console), error: console.error.bind(console), warn: console.warn.bind(console), info: console.info.bind(console) };
+  function strip(s) { return typeof s === 'string' ? s.replace(/\x1B\[[0-9;]*m/g, '') : String(s); }
+  ['log','error','warn','info'].forEach(level => {
+    console[level] = (...args) => {
+      _orig[level](...args);
+      try {
+        const msg = args.map(strip).join(' ');
+        global._sysLog.unshift({ t: Date.now(), level, icon: ICONS[level] || '📋', msg: msg.slice(0, 300) });
+        if (global._sysLog.length > 200) global._sysLog.length = 200;
+      } catch(_) {}
+    };
+  });
+})();
+// ====== END SYSLOG INTERCEPTOR ======
 
 const sessionBaseDir = path.join(__dirname, "sessions");
 if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
@@ -758,6 +778,14 @@ app.get('/api/banned', (req, res) => {
     res.json({ ok: true, banned });
   } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
 });
+
+// GET /api/syslog - return live log ring buffer
+app.get('/api/syslog', (req, res) => {
+  try {
+    res.json({ ok: true, logs: global._sysLog || [] });
+  } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 
 app.post('/api/broadcast', async (req, res) => {
   try {
@@ -1545,7 +1573,9 @@ async function startBot(folderName, phoneNumber) {
           }
         }
       }
-    } catch (e) { }
+    } catch (e) {
+      if (e && e.message) console.error(`[MSG Handler Error]:`, e.message);
+    }
   });
 }
 
