@@ -240,6 +240,9 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => res.status(200).json({ status: "healthy", uptime: getUptime() }));
+app.get("/ping", (req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
+app.get("/", (req, res) => res.status(200).json({ bot: config.botName, status: "running", uptime: getUptime() }));
+
 
 // Enable CORS for Dashboard
 app.use((req, res, next) => {
@@ -1086,14 +1089,15 @@ app.listen(port, "0.0.0.0", () => {
       });
     }
 
-    // Ping external public URL if set
+    // Ping external public URL if set — use /health endpoint to avoid 404 on root
     if (config.publicUrl) {
-      axios.get(config.publicUrl, { timeout: 10000 })
-        .then(() => {
-          // Success - silent or debug log
-        })
+      const pingUrl = config.publicUrl.replace(/\/$/, '') + '/health';
+      axios.get(pingUrl, { timeout: 10000 })
         .catch((err) => {
-          console.error(chalk.yellow(`Keep-Alive Ping Failed: ${err.message}`));
+          // Only log non-404 errors (404 = route missing, others = real network issues)
+          if (!err.response || err.response.status !== 404) {
+            console.error(chalk.yellow(`Keep-Alive Ping Failed: ${err.message}`));
+          }
         });
     }
   }, 30 * 1000); // 30 seconds interval
@@ -1676,8 +1680,8 @@ async function startBot(folderName, phoneNumber) {
         // Note: if the command failed (isCommand=false), fall through to AI response
         if (isCommand) continue;
 
-        // If chatbot is disabled globally, skip AI chat responses
-        if (config.enableChatbot === 'false') continue;
+        // If chatbot is disabled globally, skip AI chat responses (read fresh config every time)
+        if (require('./config').enableChatbot === 'false') continue;
 
         // --- PRIORITY 3: TEXT AI (pure text messages only) ---
         {
