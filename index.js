@@ -356,7 +356,7 @@ app.get('/api/status', async (req, res) => {
     const telegramBots = configs.filter(c => c.bot_type === 'telegram').map(c => ({
       id: c.id,
       name: c.bot_name,
-      connected: !!global.telegramBot && c.bot_token === config.telegramToken,
+      connected: !!(global.telegramBots && global.telegramBots[c.bot_token]) || (c.bot_token === config.telegramToken && !!global.telegramBot),
       token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A'
     }));
     const facebookPages = configs.filter(c => c.bot_type === 'facebook').map(c => {
