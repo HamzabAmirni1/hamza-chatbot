@@ -658,8 +658,16 @@ app.get('/api/users', async (req, res) => {
       if (!u.jid) continue;
       const platform = getPlatformFromJid(u.jid);
       const cleanId = u.jid.replace('tg:', '').replace('fb:', '').split('@')[0];
+      let name = '';
+      if (platform === 'telegram') {
+        name = (global.tgNames && global.tgNames[cleanId]) || '';
+      } else if (platform === 'facebook') {
+        name = (global.fbNames && global.fbNames[cleanId]) || '';
+      }
+
       const userObj = {
         id: cleanId,
+        name,
         platform,
         lastSeen: u.updated_at
       };
@@ -750,6 +758,32 @@ app.post('/api/delete-all-users', async (req, res) => {
       res.json({ ok: true });
     } else {
       res.status(500).json({ ok: false, error: 'فشل حذف المستخدمين' });
+    }
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/delete-user', async (req, res) => {
+  try {
+    const { number, platform } = req.body;
+    if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
+    
+    let jid = '';
+    const cleanNum = number.trim();
+    const plat = platform || 'whatsapp';
+    if (plat === 'telegram') {
+      jid = `tg:${cleanNum}`;
+    } else if (plat === 'facebook') {
+      jid = `fb:${cleanNum}`;
+    } else {
+      jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
+    }
+    
+    const success = await db.deleteUser(jid);
+    if (success) {
+      if (global._activeUsers) global._activeUsers.delete(jid);
+      res.json({ ok: true });
+    } else {
+      res.status(500).json({ ok: false, error: 'فشل حذف المستخدم' });
     }
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -1854,6 +1888,12 @@ async function startBot(folderName, phoneNumber) {
 // --- Multi-Bot Startup via Supabase ---
 (async () => {
   console.log(chalk.cyan("🔄 Initializing bots from Supabase..."));
+  
+  try {
+    global.tgNames = await db.loadUserNames('telegram');
+    global.fbNames = await db.loadUserNames('facebook');
+    console.log(chalk.cyan(`📥 Loaded ${Object.keys(global.tgNames || {}).length} Telegram names and ${Object.keys(global.fbNames || {}).length} Facebook names from Supabase.`));
+  } catch (e) {}
   
   // 1. WhatsApp Bots
   const waBots = await db.getAllWhatsAppAuth();

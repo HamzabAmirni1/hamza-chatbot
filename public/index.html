@@ -1068,6 +1068,33 @@
       #mpanel-ban div[style*="display:flex"] > button {
         width: 100% !important;
       }
+      
+      /* Platform filter tab buttons inside users list card */
+      .platform-tab-btn {
+        padding: 8px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--glass);
+        color: var(--text-muted);
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        font-family: 'Cairo', sans-serif;
+        font-size: 13px;
+      }
+      .platform-tab-btn:hover {
+        background: rgba(255,255,255,0.08);
+        color: var(--text);
+      }
+      .platform-tab-btn.active {
+        background: linear-gradient(135deg, var(--accent), var(--blue));
+        border-color: transparent;
+        color: white;
+        box-shadow: 0 4px 10px rgba(99,179,237,0.15);
+      }
     }
   </style>
 </head>
@@ -1873,6 +1900,15 @@
         <div class="card-icon blue"><i class="fas fa-list"></i></div>
         <div class="card-title">قائمة المستخدمين المسجلين</div>
         <button class="btn btn-secondary" onclick="loadUsers()" style="margin-right:auto;padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;background:rgba(255,255,255,0.01);">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <button class="platform-tab-btn active" id="btn-filter-all" onclick="filterUsersPlatform('all')"><i class="fas fa-users"></i> الكل</button>
+          <button class="platform-tab-btn" id="btn-filter-whatsapp" onclick="filterUsersPlatform('whatsapp')"><i class="fab fa-whatsapp"></i> واتساب</button>
+          <button class="platform-tab-btn" id="btn-filter-telegram" onclick="filterUsersPlatform('telegram')"><i class="fab fa-telegram-plane"></i> تليجرام</button>
+          <button class="platform-tab-btn" id="btn-filter-facebook" onclick="filterUsersPlatform('facebook')"><i class="fab fa-facebook-messenger"></i> فيسبوك</button>
+        </div>
+        <button class="btn btn-danger" onclick="deleteAllUsers()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-trash-alt"></i> حذف الجميع</button>
       </div>
       <div id="users-list"><div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div></div>
     </div>
@@ -3105,6 +3141,10 @@
   }
 
   // =================== USERS ===================
+  let _allUsers = [];
+  let _bannedList = [];
+  let _currentPlatformFilter = 'all';
+
   async function loadUsers() {
     try {
       const res = await fetch('/api/users');
@@ -3142,50 +3182,129 @@
           return `<div class="number-item"><div class="number-item-left"><div class="number-dot" style="background:var(--red);"></div><span style="font-size:13px;font-weight:600;">${prefix}${displayId}</span></div><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${displayId}', '${platform}')"><i class="fas fa-unlock"></i> رفع</button></div>`;
         }).join('');
       }
-      // Users list
-      const usersList = document.getElementById('users-list');
-      if (!data.users || data.users.length === 0) {
-        usersList.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">لا يوجد مستخدمون مسجلون بعد</p>`;
-      } else {
-        usersList.innerHTML = `<div style="display:grid;gap:8px;">` + data.users.map(u => {
-          const num = (u.id || '').split('@')[0];
-          
-          let isBanned = false;
-          if (u.platform === 'whatsapp') {
-            isBanned = (data.banned || []).includes(u.id) || (data.banned || []).includes(`${num}@s.whatsapp.net`);
-          } else if (u.platform === 'telegram') {
-            isBanned = (data.banned || []).includes(`tg:${num}`);
-          } else if (u.platform === 'facebook') {
-            isBanned = (data.banned || []).includes(`fb:${num}`);
-          }
-          
-          const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
-          
-          let icon = '👤';
-          let bg = 'linear-gradient(135deg,var(--accent),var(--blue))';
-          let platBadge = '';
-          let userLabel = `+${num}`;
-          
-          if (u.platform === 'whatsapp') {
-            icon = '<i class="fab fa-whatsapp"></i>';
-            bg = 'linear-gradient(135deg,#25d366,#128c7e)';
-            platBadge = `<span class="chip" style="background:rgba(37,211,102,0.1);color:#25d366;font-size:10px;padding:1px 6px;">WhatsApp</span>`;
-          } else if (u.platform === 'telegram') {
-            icon = '<i class="fab fa-telegram-plane"></i>';
-            bg = 'linear-gradient(135deg,#38bdf8,#0284c7)';
-            platBadge = `<span class="chip" style="background:rgba(56,189,248,0.1);color:#38bdf8;font-size:10px;padding:1px 6px;">Telegram</span>`;
-            userLabel = `تليجرام: ${num}`;
-          } else if (u.platform === 'facebook') {
-            icon = '<i class="fab fa-facebook-messenger"></i>';
-            bg = 'linear-gradient(135deg,#0084ff,#0044ff)';
-            platBadge = `<span class="chip" style="background:rgba(0,132,255,0.1);color:#0084ff;font-size:10px;padding:1px 6px;">Facebook</span>`;
-            userLabel = `فيسبوك: ${num}`;
-          }
-          
-          return `<div class="number-item"><div class="number-item-left"><div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">${icon}</div><div><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">${userLabel} ${platBadge}</div><div style="font-size:11px;color:var(--text-muted);">آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div></div></div><div style="display:flex;gap:6px;align-items:center;">${isBanned ? `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}', '${u.platform}')"><i class="fas fa-unlock"></i></button>` : `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}', '${u.platform}')"><i class="fas fa-ban"></i></button>`}</div></div>`;
-        }).join('') + `</div>`;
-      }
+
+      // Save users globally for instant filtering
+      _allUsers = data.users || [];
+      _bannedList = data.banned || [];
+
+      // Render the users list
+      renderFilteredUsers();
     } catch(e) { showToast('خطأ في تحميل المستخدمين', 'error'); }
+  }
+
+  function renderFilteredUsers() {
+    const usersList = document.getElementById('users-list');
+    const filtered = _allUsers.filter(u => {
+      if (_currentPlatformFilter === 'all') return true;
+      return u.platform === _currentPlatformFilter;
+    });
+
+    if (filtered.length === 0) {
+      usersList.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">لا يوجد مستخدمون في هذه المنصة</p>`;
+      return;
+    }
+
+    usersList.innerHTML = `<div style="display:grid;gap:8px;">` + filtered.map(u => {
+      const num = (u.id || '').split('@')[0];
+      
+      let isBanned = false;
+      if (u.platform === 'whatsapp') {
+        isBanned = _bannedList.includes(u.id) || _bannedList.includes(`${num}@s.whatsapp.net`);
+      } else if (u.platform === 'telegram') {
+        isBanned = _bannedList.includes(`tg:${num}`);
+      } else if (u.platform === 'facebook') {
+        isBanned = _bannedList.includes(`fb:${num}`);
+      }
+      
+      const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
+      
+      let icon = '👤';
+      let bg = 'linear-gradient(135deg,var(--accent),var(--blue))';
+      let platBadge = '';
+      
+      if (u.platform === 'whatsapp') {
+        icon = '<i class="fab fa-whatsapp"></i>';
+        bg = 'linear-gradient(135deg,#25d366,#128c7e)';
+        platBadge = `<span class="chip" style="background:rgba(37,211,102,0.1);color:#25d366;font-size:10px;padding:1px 6px;">WhatsApp</span>`;
+      } else if (u.platform === 'telegram') {
+        icon = '<i class="fab fa-telegram-plane"></i>';
+        bg = 'linear-gradient(135deg,#38bdf8,#0284c7)';
+        platBadge = `<span class="chip" style="background:rgba(56,189,248,0.1);color:#38bdf8;font-size:10px;padding:1px 6px;">Telegram</span>`;
+      } else if (u.platform === 'facebook') {
+        icon = '<i class="fab fa-facebook-messenger"></i>';
+        bg = 'linear-gradient(135deg,#0084ff,#0044ff)';
+        platBadge = `<span class="chip" style="background:rgba(0,132,255,0.1);color:#0084ff;font-size:10px;padding:1px 6px;">Facebook</span>`;
+      }
+
+      // Display name is either profile name or ID (phone/user ID)
+      const displayName = u.name ? u.name : (u.platform === 'whatsapp' ? `+${num}` : num);
+      const subLabel = u.name ? `${u.platform === 'whatsapp' ? '+' : ''}${num}` : '';
+      
+      return `<div class="number-item">
+        <div class="number-item-left">
+          <div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">${icon}</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">${displayName} ${platBadge}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${subLabel ? subLabel + ' · ' : ''}آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${isBanned ? 
+            `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}', '${u.platform}')" title="رفع الحظر"><i class="fas fa-unlock"></i></button>` : 
+            `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}', '${u.platform}')" title="حظر"><i class="fas fa-ban"></i></button>`
+          }
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:11px;background:rgba(252,129,129,0.1);border:1px solid rgba(252,129,129,0.2);color:var(--red);" onclick="deleteUserSingle('${num}', '${u.platform}')" title="حذف من قاعدة البيانات"><i class="fas fa-trash-alt"></i></button>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  function filterUsersPlatform(platform) {
+    _currentPlatformFilter = platform;
+    // Update active tab styling
+    document.querySelectorAll('.platform-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`btn-filter-${platform}`);
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    renderFilteredUsers();
+  }
+
+  async function deleteUserSingle(num, platform) {
+    if (await showConfirm(`⚠️ هل أنت متأكد من حذف هذا المستخدم (${num}) نهائياً من قاعدة البيانات؟`)) {
+      try {
+        const res = await fetch('/api/delete-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number: num, platform })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('✅ تم حذف المستخدم بنجاح', 'success');
+          loadUsers();
+        } else {
+          showToast(data.error || 'فشل حذف المستخدم', 'error');
+        }
+      } catch (e) {
+        showToast('خطأ في الاتصال بالسيرفر', 'error');
+      }
+    }
+  }
+
+  async function deleteAllUsers() {
+    if (await showConfirm('⚠️ هل أنت متأكد تماماً من حذف جميع المستخدمين من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء!')) {
+      try {
+        const res = await fetch('/api/delete-all-users', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('✅ تم حذف جميع المستخدمين بنجاح', 'success');
+          loadUsers();
+        } else {
+          showToast(data.error || 'فشل حذف المستخدمين', 'error');
+        }
+      } catch (e) {
+        showToast('خطأ في الاتصال بالسيرفر', 'error');
+      }
+    }
   }
 
   async function banUser() {
