@@ -177,6 +177,8 @@ setInterval(() => {
 // Filter console logs to suppress Baileys noise
 const originalConsoleError = console.error;
 const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleInfo = console.info;
 
 const silencePatterns = [
   "Bad MAC",
@@ -200,6 +202,12 @@ console.error = (...args) => {
 };
 console.log = (...args) => {
   if (!shouldSilence(args)) originalConsoleLog.apply(console, args);
+};
+console.warn = (...args) => {
+  if (!shouldSilence(args)) originalConsoleWarn.apply(console, args);
+};
+console.info = (...args) => {
+  if (!shouldSilence(args)) originalConsoleInfo.apply(console, args);
 };
 
 const rl = readline.createInterface({
