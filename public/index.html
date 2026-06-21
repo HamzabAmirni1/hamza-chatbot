@@ -285,6 +285,9 @@
     .grid-2 { grid-template-columns: repeat(2, 1fr); }
     .grid-3 { grid-template-columns: repeat(3, 1fr); }
     .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    /* Remove double spacing when .card is inside .grid */
+    .grid > .card { margin-bottom: 0; }
+
 
     /* Stat cards */
     .stat-card {
@@ -2328,8 +2331,8 @@
       </button>
     </div>
 
-    <!-- KPI Cards Row -->
-    <div class="grid grid-4" style="margin-bottom:24px;" id="an-kpi-row">
+    <!-- KPI Cards -->
+    <div class="grid grid-4" style="margin-bottom:24px;">
       <div class="stat-card purple">
         <div class="stat-icon purple"><i class="fas fa-users"></i></div>
         <div class="stat-info">
@@ -2360,18 +2363,15 @@
       </div>
     </div>
 
-    <!-- Platform Split + Donut-style chart -->
-    <div class="grid grid-2" style="margin-bottom:24px;">
-      <!-- Platform breakdown -->
+    <!-- Platform + Activity row -->
+    <div class="grid grid-2" style="margin-bottom:20px;">
       <div class="card">
         <div class="card-header">
           <div class="card-icon purple"><i class="fas fa-layer-group"></i></div>
           <div class="card-title">توزيع المستخدمين حسب المنصة</div>
         </div>
-        <div id="an-platform-chart" style="padding:8px 0;"></div>
+        <div id="an-platform-chart" style="padding:0 0 8px;"></div>
       </div>
-
-      <!-- Activity heatmap strip (last 7 days) -->
       <div class="card">
         <div class="card-header">
           <div class="card-icon blue"><i class="fas fa-calendar-alt"></i></div>
@@ -2381,8 +2381,8 @@
       </div>
     </div>
 
-    <!-- Top Commands chart -->
-    <div class="card" style="margin-bottom:24px;">
+    <!-- Top Commands -->
+    <div class="card">
       <div class="card-header" style="flex-wrap:wrap;gap:8px;">
         <div class="card-icon green"><i class="fas fa-trophy"></i></div>
         <div class="card-title">🏆 أكثر الأوامر استخداماً</div>
@@ -2393,10 +2393,10 @@
           <button id="an-tab-facebook" class="platform-tab-btn" onclick="renderAnCmds('facebook')"><i class="fab fa-facebook-messenger"></i> فيسبوك</button>
         </div>
       </div>
-      <div id="an-cmds-chart" style="padding:8px 0;"></div>
+      <div id="an-cmds-chart" style="padding:0 0 8px;"></div>
     </div>
 
-    <!-- Recent activity feed -->
+    <!-- Live Activity Feed -->
     <div class="card">
       <div class="card-header">
         <div class="card-icon yellow"><i class="fas fa-stream"></i></div>
@@ -2406,6 +2406,7 @@
       <div id="an-activity-feed" style="max-height:340px;overflow-y:auto;"></div>
     </div>
   </div><!-- end page-analytics -->
+
 
 
   <!-- Custom Modal Confirmation Dialog -->
