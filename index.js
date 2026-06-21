@@ -1433,7 +1433,11 @@ async function startBot(folderName, phoneNumber) {
         if (!body && type !== "imageMessage" && type !== "videoMessage" && type !== "audioMessage") continue;
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter")) continue;
 
-        const sender = msg.key.remoteJid;
+        let sender = msg.key.remoteJid;
+        if (sender.endsWith("@lid") && msg.key.senderPn) {
+          sender = msg.key.senderPn;
+          msg.key.remoteJid = sender;
+        }
         const isGroup = sender.endsWith("@g.us");
 
         if (isGroup) {
