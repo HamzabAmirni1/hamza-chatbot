@@ -2341,63 +2341,44 @@
 
   <!-- =================== ANALYTICS PAGE =================== -->
   <div class="page" id="page-analytics">
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-      <div>
-        <h1><i class="fas fa-chart-line" style="color:var(--purple)"></i> Analytics — إحصائيات شاملة</h1>
-        <p>نظرة 360° على أداء البوت عبر جميع المنصات</p>
-      </div>
-      <button onclick="loadAnalytics()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,rgba(159,122,234,0.15),rgba(99,179,237,0.12));border:1px solid rgba(159,122,234,0.3);border-radius:12px;color:var(--purple);font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .3s;white-space:nowrap;">
-        <i class="fas fa-sync-alt" id="an-refresh-icon"></i> تحديث
-      </button>
+    <div class="page-header">
+      <h1><i class="fas fa-chart-line" style="color:var(--purple)"></i> Analytics — إحصائيات شاملة</h1>
+      <p>نظرة 360° على أداء البوت عبر جميع المنصات</p>
     </div>
 
     <!-- KPI Cards -->
     <div class="grid grid-4" style="margin-bottom:24px;">
-      <div class="stat-card purple">
-        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
-        <div class="stat-info">
-          <div class="stat-value" id="an-total-users">—</div>
-          <div class="stat-label">إجمالي المستخدمين</div>
-        </div>
+      <div class="stat-card purple"><div class="stat-icon purple"><i class="fas fa-users"></i></div><div class="stat-info"><div class="stat-value" id="an-total-users">—</div><div class="stat-label">إجمالي المستخدمين</div></div></div>
+      <div class="stat-card blue"><div class="stat-icon blue"><i class="fas fa-comment-dots"></i></div><div class="stat-info"><div class="stat-value" id="an-total-msgs">—</div><div class="stat-label">رسائل مُعالَجة</div></div></div>
+      <div class="stat-card green"><div class="stat-icon green"><i class="fas fa-terminal"></i></div><div class="stat-info"><div class="stat-value" id="an-cmds-used">—</div><div class="stat-label">أوامر مُنفَّذة</div></div></div>
+      <div class="stat-card red"><div class="stat-icon red"><i class="fas fa-fire"></i></div><div class="stat-info"><div class="stat-value" id="an-top-cmd" style="font-size:15px;">—</div><div class="stat-label">الأمر الأكثر استخداماً</div></div></div>
+    </div>
+
+    <!-- Platform breakdown mini cards row -->
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:24px;">
+      <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(37,211,102,0.2);">
+        <i class="fab fa-whatsapp" style="font-size:22px;color:#25d366;flex-shrink:0;"></i>
+        <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="an-wa-count">—</div><div style="font-size:11px;color:var(--text-muted);">مستخدمو واتساب</div></div>
       </div>
-      <div class="stat-card blue">
-        <div class="stat-icon blue"><i class="fas fa-comment-dots"></i></div>
-        <div class="stat-info">
-          <div class="stat-value" id="an-total-msgs">—</div>
-          <div class="stat-label">رسائل مُعالَجة</div>
-        </div>
+      <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(56,189,248,0.2);">
+        <i class="fab fa-telegram-plane" style="font-size:22px;color:#38bdf8;flex-shrink:0;"></i>
+        <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="an-tg-count">—</div><div style="font-size:11px;color:var(--text-muted);">مستخدمو تليجرام</div></div>
       </div>
-      <div class="stat-card green">
-        <div class="stat-icon green"><i class="fas fa-terminal"></i></div>
-        <div class="stat-info">
-          <div class="stat-value" id="an-cmds-used">—</div>
-          <div class="stat-label">أوامر مُنفَّذة</div>
-        </div>
-      </div>
-      <div class="stat-card red">
-        <div class="stat-icon red"><i class="fas fa-fire"></i></div>
-        <div class="stat-info">
-          <div class="stat-value" id="an-top-cmd" style="font-size:15px;">—</div>
-          <div class="stat-label">الأمر الأكثر استخداماً</div>
-        </div>
+      <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(0,132,255,0.2);">
+        <i class="fab fa-facebook-messenger" style="font-size:22px;color:#0084ff;flex-shrink:0;"></i>
+        <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="an-fb-count">—</div><div style="font-size:11px;color:var(--text-muted);">مستخدمو فيسبوك</div></div>
       </div>
     </div>
 
-    <!-- Platform + Activity row -->
-    <div class="grid grid-2" style="margin-bottom:20px;">
+    <!-- Platform bar chart + activity strip -->
+    <div class="grid grid-2">
       <div class="card">
-        <div class="card-header">
-          <div class="card-icon purple"><i class="fas fa-layer-group"></i></div>
-          <div class="card-title">توزيع المستخدمين حسب المنصة</div>
-        </div>
-        <div id="an-platform-chart" style="padding:0 0 8px;"></div>
+        <div class="card-header"><div class="card-icon purple"><i class="fas fa-layer-group"></i></div><div class="card-title">توزيع المستخدمين حسب المنصة</div></div>
+        <div id="an-platform-chart"></div>
       </div>
       <div class="card">
-        <div class="card-header">
-          <div class="card-icon blue"><i class="fas fa-calendar-alt"></i></div>
-          <div class="card-title">نشاط آخر 50 تفاعل</div>
-        </div>
-        <div id="an-activity-strip" style="padding:0;"></div>
+        <div class="card-header"><div class="card-icon blue"><i class="fas fa-calendar-alt"></i></div><div class="card-title">نشاط آخر 50 تفاعل</div></div>
+        <div id="an-activity-strip"></div>
       </div>
     </div>
 
@@ -2413,7 +2394,7 @@
           <button id="an-tab-facebook" class="platform-tab-btn" onclick="renderAnCmds('facebook')"><i class="fab fa-facebook-messenger"></i> فيسبوك</button>
         </div>
       </div>
-      <div id="an-cmds-chart" style="padding:0 0 8px;"></div>
+      <div id="an-cmds-chart"></div>
     </div>
 
     <!-- Live Activity Feed -->
@@ -2421,7 +2402,7 @@
       <div class="card-header">
         <div class="card-icon yellow"><i class="fas fa-stream"></i></div>
         <div class="card-title">📡 آخر التفاعلات (مباشر)</div>
-        <button class="btn btn-secondary" onclick="loadAnalytics()" style="margin-right:auto;padding:6px 14px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        <button class="btn btn-secondary" onclick="loadAnalytics()" style="margin-right:auto;padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt" id="an-refresh-icon"></i> تحديث</button>
       </div>
       <div id="an-activity-feed" style="max-height:340px;overflow-y:auto;"></div>
     </div>
@@ -2429,7 +2410,9 @@
 
 
 
+
   <!-- Custom Modal Confirmation Dialog -->
+
   <div id="custom-confirm-modal" class="custom-modal-overlay hide">
     <div class="custom-modal">
       <div class="custom-modal-header">
@@ -3587,6 +3570,9 @@
       const totalUsers = users.length;
 
       document.getElementById('an-total-users').textContent = totalUsers;
+      const elWa = document.getElementById('an-wa-count'); if (elWa) elWa.textContent = waUsers;
+      const elTg = document.getElementById('an-tg-count'); if (elTg) elTg.textContent = tgUsers;
+      const elFb = document.getElementById('an-fb-count'); if (elFb) elFb.textContent = fbUsers;
 
       // Total messages = sum of all cmd counts across platforms
       const allStats = cmdData.platformStats || { whatsapp:{}, telegram:{}, facebook:{} };
