@@ -1203,6 +1203,9 @@
     <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage">
       <i class="fas fa-sliders-h"></i> <span>إدارة شاملة</span>
     </a>
+    <a class="nav-item" onclick="showPage('analytics'); closeSidebarOnMobile()" id="nav-analytics" style="background:linear-gradient(135deg,rgba(159,122,234,0.06),rgba(99,179,237,0.04));border:1px solid rgba(159,122,234,0.18) !important;">
+      <i class="fas fa-chart-line" style="color:var(--purple);"></i> <span style="color:var(--purple);">Analytics</span>
+    </a>
   </nav>
 
   <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
@@ -2313,6 +2316,98 @@
     </div><!-- end manage-content -->
   </div><!-- end page-manage -->
 
+  <!-- =================== ANALYTICS PAGE =================== -->
+  <div class="page" id="page-analytics">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1><i class="fas fa-chart-line" style="color:var(--purple)"></i> Analytics — إحصائيات شاملة</h1>
+        <p>نظرة 360° على أداء البوت عبر جميع المنصات</p>
+      </div>
+      <button onclick="loadAnalytics()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,rgba(159,122,234,0.15),rgba(99,179,237,0.12));border:1px solid rgba(159,122,234,0.3);border-radius:12px;color:var(--purple);font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .3s;white-space:nowrap;">
+        <i class="fas fa-sync-alt" id="an-refresh-icon"></i> تحديث
+      </button>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="grid grid-4" style="margin-bottom:24px;" id="an-kpi-row">
+      <div class="stat-card purple">
+        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="an-total-users">—</div>
+          <div class="stat-label">إجمالي المستخدمين</div>
+        </div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon blue"><i class="fas fa-comment-dots"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="an-total-msgs">—</div>
+          <div class="stat-label">رسائل مُعالَجة</div>
+        </div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon green"><i class="fas fa-terminal"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="an-cmds-used">—</div>
+          <div class="stat-label">أوامر مُنفَّذة</div>
+        </div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon red"><i class="fas fa-fire"></i></div>
+        <div class="stat-info">
+          <div class="stat-value" id="an-top-cmd" style="font-size:15px;">—</div>
+          <div class="stat-label">الأمر الأكثر استخداماً</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Platform Split + Donut-style chart -->
+    <div class="grid grid-2" style="margin-bottom:24px;">
+      <!-- Platform breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon purple"><i class="fas fa-layer-group"></i></div>
+          <div class="card-title">توزيع المستخدمين حسب المنصة</div>
+        </div>
+        <div id="an-platform-chart" style="padding:8px 0;"></div>
+      </div>
+
+      <!-- Activity heatmap strip (last 7 days) -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue"><i class="fas fa-calendar-alt"></i></div>
+          <div class="card-title">نشاط آخر 50 تفاعل</div>
+        </div>
+        <div id="an-activity-strip" style="padding:0;"></div>
+      </div>
+    </div>
+
+    <!-- Top Commands chart -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px;">
+        <div class="card-icon green"><i class="fas fa-trophy"></i></div>
+        <div class="card-title">🏆 أكثر الأوامر استخداماً</div>
+        <div style="display:flex;gap:6px;margin-right:auto;flex-wrap:wrap;">
+          <button id="an-tab-all" class="platform-tab-btn active" onclick="renderAnCmds('all')"><i class="fas fa-globe"></i> الكل</button>
+          <button id="an-tab-whatsapp" class="platform-tab-btn" onclick="renderAnCmds('whatsapp')"><i class="fab fa-whatsapp"></i> واتساب</button>
+          <button id="an-tab-telegram" class="platform-tab-btn" onclick="renderAnCmds('telegram')"><i class="fab fa-telegram-plane"></i> تليجرام</button>
+          <button id="an-tab-facebook" class="platform-tab-btn" onclick="renderAnCmds('facebook')"><i class="fab fa-facebook-messenger"></i> فيسبوك</button>
+        </div>
+      </div>
+      <div id="an-cmds-chart" style="padding:8px 0;"></div>
+    </div>
+
+    <!-- Recent activity feed -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow"><i class="fas fa-stream"></i></div>
+        <div class="card-title">📡 آخر التفاعلات (مباشر)</div>
+        <button class="btn btn-secondary" onclick="loadAnalytics()" style="margin-right:auto;padding:6px 14px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div id="an-activity-feed" style="max-height:340px;overflow-y:auto;"></div>
+    </div>
+  </div><!-- end page-analytics -->
+
+
   <!-- Custom Modal Confirmation Dialog -->
   <div id="custom-confirm-modal" class="custom-modal-overlay hide">
     <div class="custom-modal">
@@ -2537,6 +2632,7 @@
     else if (page === 'activity') await loadActivity();
     else if (page === 'broadcast') await loadUsers();
     else if (page === 'manage') await loadManagePage();
+    else if (page === 'analytics') await loadAnalytics();
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -2568,6 +2664,7 @@
       else if (activePage === 'activity') await loadActivity();
       else if (activePage === 'broadcast') await loadUsers();
       else if (activePage === 'manage') await loadManagePage();
+      else if (activePage === 'analytics') await loadAnalytics();
       
       showToast('✅ تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
@@ -3440,7 +3537,208 @@
     }
   }
 
+  // =================== ANALYTICS ===================
+  let _anCmdData = null; // cache cmd-stats response
+
+  async function loadAnalytics() {
+    const icon = document.getElementById('an-refresh-icon');
+    if (icon) icon.classList.add('fa-spin');
+    try {
+      // Fetch in parallel
+      const [usersRes, cmdRes, actRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/cmd-stats'),
+        fetch('/api/activity')
+      ]);
+      const usersData = await usersRes.json();
+      const cmdData   = await cmdRes.json();
+      const actData   = await actRes.json();
+
+      _anCmdData = cmdData; // cache for platform tab switching
+
+      const users = usersData.users || [];
+      const log   = actData.log   || [];
+
+      // ---- KPI Cards ----
+      const waUsers = users.filter(u => u.platform === 'whatsapp').length;
+      const tgUsers = users.filter(u => u.platform === 'telegram').length;
+      const fbUsers = users.filter(u => u.platform === 'facebook').length;
+      const totalUsers = users.length;
+
+      document.getElementById('an-total-users').textContent = totalUsers;
+
+      // Total messages = sum of all cmd counts across platforms
+      const allStats = cmdData.platformStats || { whatsapp:{}, telegram:{}, facebook:{} };
+      const totalMsgs = Object.values(allStats).reduce((sum, pl) =>
+        sum + Object.values(pl).reduce((s, v) => s + v, 0), 0);
+      document.getElementById('an-total-msgs').textContent = totalMsgs > 0 ? totalMsgs.toLocaleString('ar') : log.length;
+
+      const topCmds = (cmdData.topCommands || []);
+      const usedUniqueCommands = Object.keys(cmdData.stats || {}).length;
+      document.getElementById('an-cmds-used').textContent = usedUniqueCommands;
+      document.getElementById('an-top-cmd').textContent = topCmds[0] ? '.' + topCmds[0].cmd + ' ×' + topCmds[0].count : '—';
+
+      // ---- Platform chart ----
+      renderAnPlatformChart(waUsers, tgUsers, fbUsers, totalUsers);
+
+      // ---- Activity strip ----
+      renderAnActivityStrip(log);
+
+      // ---- Top commands chart ----
+      renderAnCmds('all');
+
+      // ---- Activity feed ----
+      renderAnActivityFeed(log);
+
+    } catch(e) {
+      console.error('[Analytics]', e);
+      showToast('❌ خطأ في تحميل Analytics', 'error');
+    } finally {
+      if (icon) icon.classList.remove('fa-spin');
+    }
+  }
+
+  function renderAnPlatformChart(wa, tg, fb, total) {
+    const el = document.getElementById('an-platform-chart');
+    if (!el) return;
+    const items = [
+      { label: 'WhatsApp', count: wa, color: '#25d366', icon: 'fab fa-whatsapp' },
+      { label: 'Telegram', count: tg, color: '#38bdf8', icon: 'fab fa-telegram-plane' },
+      { label: 'Facebook', count: fb, color: '#0084ff', icon: 'fab fa-facebook-messenger' },
+    ];
+    const max = Math.max(wa, tg, fb, 1);
+    el.innerHTML = items.map(item => {
+      const pct = Math.round((item.count / max) * 100);
+      const share = total > 0 ? Math.round((item.count / total) * 100) : 0;
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);">
+          <div style="width:36px;height:36px;border-radius:10px;background:${item.color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="${item.icon}" style="color:${item.color};font-size:18px;"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-weight:700;font-size:13px;">${item.label}</span>
+              <span style="font-weight:800;font-size:14px;color:${item.color};">${item.count} <small style="font-size:11px;color:var(--text-muted);">(${share}%)</small></span>
+            </div>
+            <div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:${item.color};border-radius:6px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);"></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderAnActivityStrip(log) {
+    const el = document.getElementById('an-activity-strip');
+    if (!el) return;
+    if (!log.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">لا يوجد نشاط</div>'; return; }
+
+    // Group by day (last 7 unique days)
+    const byDay = {};
+    log.forEach(e => {
+      const d = new Date(e.time).toLocaleDateString('ar-MA', { month:'short', day:'numeric' });
+      byDay[d] = (byDay[d] || 0) + 1;
+    });
+    const days = Object.entries(byDay).slice(0, 7);
+    const maxDay = Math.max(...days.map(([,c]) => c), 1);
+
+    const platformColors = { whatsapp:'#25d366', telegram:'#38bdf8', facebook:'#0084ff' };
+    const recent = log.slice(0, 7);
+
+    el.innerHTML = `
+      <div style="padding:12px 16px;">
+        <div style="display:flex;align-items:flex-end;gap:6px;height:72px;margin-bottom:6px;">
+          ${days.map(([day, count]) => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div title="${count} تفاعل" style="width:100%;background:linear-gradient(135deg,var(--purple),var(--blue));border-radius:4px 4px 0 0;height:${Math.max(6, Math.round((count/maxDay)*60))}px;transition:height 0.6s;"></div>
+              <div style="font-size:9px;color:var(--text-muted);white-space:nowrap;">${day}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding:10px 16px;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;">
+        ${recent.map(e => `
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${platformColors[e.platform]||'#ccc'};flex-shrink:0;"></div>
+            <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">${new Date(e.time).toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'})}</span>
+            <span style="font-size:12px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.message}</span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function renderAnCmds(platform) {
+    // Update active tab
+    ['all','whatsapp','telegram','facebook'].forEach(p => {
+      const btn = document.getElementById('an-tab-'+p);
+      if (btn) btn.classList.toggle('active', p === platform);
+    });
+
+    const el = document.getElementById('an-cmds-chart');
+    if (!el || !_anCmdData) { if(el) el.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">لا توجد بيانات</div>'; return; }
+
+    let stats = {};
+    if (platform === 'all') {
+      stats = _anCmdData.stats || {};
+    } else {
+      stats = (_anCmdData.platformStats || {})[platform] || {};
+    }
+
+    const top = Object.entries(stats).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    if (!top.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">لا توجد أوامر مستخدمة بعد</div>'; return; }
+
+    const colors = { all:'var(--purple)', whatsapp:'#25d366', telegram:'#38bdf8', facebook:'#0084ff' };
+    const color = colors[platform] || 'var(--purple)';
+    const maxCount = top[0][1];
+
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;padding:10px 16px;">` +
+      top.map(([cmd, count], i) => {
+        const pct = Math.round((count / maxCount) * 100);
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span style="font-size:12px;color:var(--text-muted);">#${i+1}</span>`;
+        return `
+          <div style="background:var(--bg);border-radius:12px;padding:12px 14px;border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                ${medal}
+                <span style="font-size:13px;font-weight:700;color:var(--text);">.${cmd}</span>
+              </div>
+              <span style="font-size:14px;font-weight:800;color:${color};">${count}x</span>
+            </div>
+            <div style="background:var(--surface);border-radius:6px;height:6px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:${color};border-radius:6px;transition:width 0.7s ease;"></div>
+            </div>
+          </div>`;
+      }).join('') + `</div>`;
+  }
+
+  function renderAnActivityFeed(log) {
+    const el = document.getElementById('an-activity-feed');
+    if (!el) return;
+    if (!log.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">لا يوجد نشاط مسجّل بعد</div>'; return; }
+
+    const icons = { whatsapp:{ icon:'fab fa-whatsapp', color:'#25d366'}, telegram:{ icon:'fab fa-telegram-plane', color:'#38bdf8'}, facebook:{ icon:'fab fa-facebook-messenger', color:'#0084ff'} };
+
+    el.innerHTML = log.map(e => {
+      const pi = icons[e.platform] || { icon:'fas fa-circle', color:'var(--text-muted)'};
+      const ts = new Date(e.time).toLocaleString('ar-MA', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      const isCmd = e.cmd && e.cmd.length > 0;
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background=''">
+          <div style="width:34px;height:34px;border-radius:10px;background:${pi.color}18;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="${pi.icon}" style="color:${pi.color};font-size:16px;"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <span style="font-weight:700;font-size:12px;color:var(--text);">${e.user || '—'}</span>
+              ${isCmd ? `<span style="font-size:10px;background:${pi.color}22;color:${pi.color};border-radius:6px;padding:1px 7px;font-weight:700;">.${e.cmd}</span>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.message || '—'}</div>
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);flex-shrink:0;">${ts}</div>
+        </div>`;
+    }).join('');
+  }
+
   // =================== BROADCAST ===================
+
   async function sendBroadcast() {
     const msg = document.getElementById('broadcast-msg').value.trim();
     const platform = document.getElementById('broadcast-platform').value;
