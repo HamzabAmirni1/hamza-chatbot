@@ -999,6 +999,76 @@
       transform: translateY(-2px);
       box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3);
     }
+
+    /* Styled Nav Item for Comprehensive Settings */
+    #nav-manage {
+      background: linear-gradient(135deg, rgba(159,122,234,0.08), rgba(99,179,237,0.05));
+      border: 1px solid rgba(159,122,234,0.2) !important;
+    }
+    #nav-manage i, #nav-manage span {
+      color: var(--purple) !important;
+    }
+    #nav-manage.active {
+      background: linear-gradient(135deg, rgba(159,122,234,0.2), rgba(99,179,237,0.15)) !important;
+      border: 1px solid rgba(159,122,234,0.45) !important;
+    }
+    #nav-manage.active i, #nav-manage.active span {
+      color: #b794f4 !important; /* brighter purple */
+    }
+
+    /* Responsive fixes for page-manage and card headers */
+    @media (max-width: 900px) {
+      /* Grid for summary cards inside page-manage on tablet/mobile */
+      #page-manage #manage-content > div[style*="display:grid"] {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+      }
+    }
+    @media (max-width: 600px) {
+      .card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .card-header input,
+      .card-header select,
+      .card-header button,
+      .card-header .btn {
+        width: 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        margin-top: 8px;
+        min-width: 0 !important;
+      }
+      /* Specifically, the container for select and clear logs button on live monitor */
+      .card-header div[style*="margin-right:auto"] {
+        width: 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .card-header div[style*="margin-right:auto"] > * {
+        flex: 1 1 auto;
+        width: auto !important;
+        margin-top: 0 !important;
+      }
+      
+      /* Grid container fixes for NLC and commands lists to prevent overflow */
+      #commands-list > div > div[style*="display:grid"],
+      #nlc-list {
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) !important;
+      }
+      
+      /* Ban panel form group inner flex container */
+      #mpanel-ban div[style*="display:flex"] {
+        flex-direction: column;
+        gap: 8px !important;
+      }
+      #mpanel-ban div[style*="display:flex"] > button {
+        width: 100% !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1099,8 +1169,8 @@
     <a class="nav-item" onclick="showPage('activity'); closeSidebarOnMobile()" id="nav-activity">
       <i class="fas fa-history"></i> سجل النشاط
     </a>
-    <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage" style="background:linear-gradient(135deg,rgba(159,122,234,0.15),rgba(99,179,237,0.15));border:1px solid rgba(159,122,234,0.3);">
-      <i class="fas fa-sliders-h" style="color:var(--purple);"></i> <span style="color:var(--purple);font-weight:700;">إدارة شاملة</span>
+    <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage">
+      <i class="fas fa-sliders-h"></i> <span>إدارة شاملة</span>
     </a>
   </nav>
 
