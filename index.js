@@ -221,6 +221,7 @@ const app = express();
 const port = process.env.PORT || 8000;
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/media', express.static(path.join(__dirname, 'media')));
 
 // 🚀 Serve Dashboard or JSON status
 app.get("/", (req, res) => {

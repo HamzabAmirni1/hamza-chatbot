@@ -1023,7 +1023,38 @@
         grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
       }
     }
+    /* Platform filter tab buttons inside users list card */
+    .platform-tab-btn {
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+    }
+    .platform-tab-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+    .platform-tab-btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      border-color: transparent;
+      color: white;
+      box-shadow: 0 4px 10px rgba(99,179,237,0.15);
+    }
+
     @media (max-width: 600px) {
+      .platform-tab-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
       .card-header {
         flex-wrap: wrap;
         gap: 10px;
@@ -1068,33 +1099,6 @@
       #mpanel-ban div[style*="display:flex"] > button {
         width: 100% !important;
       }
-      
-      /* Platform filter tab buttons inside users list card */
-      .platform-tab-btn {
-        padding: 8px 16px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: var(--glass);
-        color: var(--text-muted);
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.2s;
-        font-family: 'Cairo', sans-serif;
-        font-size: 13px;
-      }
-      .platform-tab-btn:hover {
-        background: rgba(255,255,255,0.08);
-        color: var(--text);
-      }
-      .platform-tab-btn.active {
-        background: linear-gradient(135deg, var(--accent), var(--blue));
-        border-color: transparent;
-        color: white;
-        box-shadow: 0 4px 10px rgba(99,179,237,0.15);
-      }
     }
   </style>
 </head>
@@ -1102,7 +1106,7 @@
 
 <!-- Loading screen -->
 <div id="loading-overlay">
-  <div class="loading-logo">🤖</div>
+  <div class="loading-logo"><img src="/media/hamza.jpg" alt="Logo" style="width: 80px; height: 80px; object-fit: cover; border-radius: 22px; box-shadow: var(--glow); border: 2px solid var(--accent);"></div>
   <div class="loading-text">جاري تحميل لوحة التحكم...</div>
   <div class="loading-bar"><div class="loading-bar-inner"></div></div>
 </div>
@@ -1111,7 +1115,7 @@
 <div id="login-overlay" class="hide">
   <div class="login-card">
     <div class="login-header">
-      <div class="login-logo">🤖</div>
+      <div class="login-logo"><img src="/media/hamza.jpg" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:20px;"></div>
       <h2 class="login-title">تسجيل الدخول للوحة التحكم</h2>
       <p class="login-subtitle">يرجى إدخال اسم المستخدم وكلمة المرور للمتابعة</p>
     </div>
@@ -1154,7 +1158,7 @@
       transition:all 0.2s;" title="إغلاق">
       <i class="fas fa-times"></i>
     </button>
-    <div class="sidebar-logo">🤖</div>
+    <div class="sidebar-logo"><img src="/media/hamza.jpg" alt="Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 18px;"></div>
     <div class="sidebar-title">حمزة اعمرني</div>
     <div class="sidebar-subtitle">⚡ لوحة تحكم البوت</div>
   </div>
