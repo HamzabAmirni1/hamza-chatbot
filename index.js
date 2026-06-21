@@ -1849,8 +1849,22 @@ async function startBot(folderName, phoneNumber) {
   
   // 1. WhatsApp Bots
   const waBots = await db.getAllWhatsAppAuth();
+  const uniqueBots = [];
   if (waBots && waBots.length > 0) {
-    waBots.forEach((bot, index) => {
+    const seenNumbers = new Set();
+    for (const bot of waBots) {
+      if (!bot.phone_number) continue;
+      const cleanNum = bot.phone_number.replace(/[^0-9]/g, '');
+      if (cleanNum && !seenNumbers.has(cleanNum)) {
+        seenNumbers.add(cleanNum);
+        bot.phone_number = cleanNum;
+        uniqueBots.push(bot);
+      }
+    }
+  }
+
+  if (uniqueBots.length > 0) {
+    uniqueBots.forEach((bot, index) => {
       setTimeout(() => startBot(`session_wa_${bot.phone_number}`, bot.phone_number), 5000 * index);
     });
   } else {
