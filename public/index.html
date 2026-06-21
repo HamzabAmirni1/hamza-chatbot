@@ -1102,6 +1102,27 @@
       #mpanel-ban div[style*="display:flex"] > button {
         width: 100% !important;
       }
+
+      /* Analytics page: tab buttons should stay compact inline, not full-width */
+      #page-analytics .card-header button.platform-tab-btn {
+        width: auto !important;
+        margin-top: 0 !important;
+        flex: 1 1 auto;
+        min-width: 60px;
+        padding: 5px 10px;
+        font-size: 11px;
+        justify-content: center;
+      }
+      #page-analytics .card-header div[style*="margin-right:auto"] {
+        width: 100% !important;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      /* Analytics KPI cards: show 2 per row on small phones */
+      #page-analytics .grid-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
     }
   </style>
 </head>
