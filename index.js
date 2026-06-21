@@ -1124,8 +1124,8 @@ app.listen(port, "0.0.0.0", () => {
     if (global.clients && global.clients.length > 0) {
       global.clients.forEach(sock => {
         try {
-          if (sock && sock.sendPresenceUpdate) {
-            sock.sendPresenceUpdate("available");
+          if (sock && sock.user && sock.sendPresenceUpdate) {
+            sock.sendPresenceUpdate("available").catch(() => {});
           }
         } catch (_) {}
       });
@@ -1946,12 +1946,12 @@ async function startBot(folderName, phoneNumber) {
 process.on('unhandledRejection', (reason) => {
   const msg = reason?.message || String(reason);
   if (msg.includes('Connection Closed') || msg.includes('Bad MAC') || msg.includes('Stream Errored')) return;
-  console.error(chalk.red('[Process] Unhandled Rejection:'), msg);
+  console.error(chalk.red('[Process] Unhandled Rejection:'), reason?.stack || reason);
 });
 
 process.on('uncaughtException', (err) => {
   const msg = err.message || '';
   if (msg.includes('Connection Closed')) return;
-  console.error(chalk.red('[Process] Uncaught Exception:'), msg);
+  console.error(chalk.red('[Process] Uncaught Exception:'), err?.stack || err);
   if (msg.includes('EBADF') || msg.includes('ENOMEM')) process.exit(1);
 });
