@@ -25,12 +25,13 @@
       --glow: 0 0 30px rgba(37,211,102,0.15);
     }
 
-    .tab-btns { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
     .tab-btn {
-      flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--border);
+      flex: 1 1 auto; padding: 12px; border-radius: 12px; border: 1px solid var(--border);
       background: var(--card); color: var(--text-muted); font-weight: 600; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;
       font-family: 'Cairo', sans-serif;
+      min-width: 120px;
     }
     .tab-btn:hover { background: var(--card2); color: var(--text); }
     .tab-btn.active {
@@ -1998,7 +1999,7 @@
       </div>
 
       <!-- platform row -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+      <div class="grid grid-3" style="gap:12px;margin-bottom:20px;">
         <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;">
           <i class="fab fa-whatsapp" style="font-size:22px;color:#25d366;"></i>
           <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="um-wa">—</div><div style="font-size:11px;color:var(--text-muted);">واتساب</div></div>
@@ -2066,7 +2067,7 @@
 
       <!-- Ban Panel -->
       <div class="manage-panel" id="mpanel-ban" style="display:none;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="grid grid-2" style="gap:16px;">
           <div class="card">
             <div class="card-header">
               <div class="card-icon red"><i class="fas fa-user-slash"></i></div>

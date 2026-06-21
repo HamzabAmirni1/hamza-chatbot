@@ -1518,9 +1518,9 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        await sock.readMessages([msg.key]);
-        await sock.sendPresenceUpdate("available", sender);
-        await sock.sendPresenceUpdate("composing", sender);
+        try { await sock.readMessages([msg.key]); } catch (_) {}
+        try { await sock.sendPresenceUpdate("available", sender); } catch (_) {}
+        try { await sock.sendPresenceUpdate("composing", sender); } catch (_) {}
         const delayPromise = new Promise((resolve) => setTimeout(resolve, 500));
 
         let reply;
@@ -1604,7 +1604,7 @@ async function startBot(folderName, phoneNumber) {
             let buffer = Buffer.from([]);
             for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
 
-            await sock.sendPresenceUpdate('composing', sender);
+            try { await sock.sendPresenceUpdate('composing', sender); } catch (_) {}
             let response = "";
 
             if (msg.message.imageMessage) {
@@ -1618,7 +1618,11 @@ async function startBot(folderName, phoneNumber) {
 
             if (response) {
               try { await addToHistory(sender, "assistant", response); } catch (_) {}
-              await sock.sendMessage(sender, { text: `🤖 *حمزة اعمرني AI:*\n\n${response}` }, { quoted: msg });
+              try {
+                await sock.sendMessage(sender, { text: `🤖 *مساعد حمزة اعمرني:*\\n\\n${response}` }, { quoted: msg });
+              } catch (msgErr) {
+                await sock.sendMessage(sender, { text: `🤖 *مساعد حمزة اعمرني:*\\n\\n${response}` });
+              }
             }
           } catch (mediaErr) {
             const isConnClosed = mediaErr?.output?.statusCode === 428 || mediaErr?.message?.includes('Connection Closed');
@@ -1762,25 +1766,41 @@ async function startBot(folderName, phoneNumber) {
              if (isVoiceQuery) {
                const audioBuffer = await generateTTS(botReplyText, detectLanguage(body));
                if (audioBuffer && audioBuffer.length > 0) {
-                 await sock.sendPresenceUpdate("recording", sender);
+                 try { await sock.sendPresenceUpdate("recording", sender); } catch (_) {}
                  await new Promise(res => setTimeout(res, 1500));
-                 await sock.sendMessage(sender, {
-                   audio: audioBuffer,
-                   mimetype: 'audio/mp4',
-                   ptt: true
-                 }, { quoted: msg });
-                 await sock.sendPresenceUpdate("paused", sender);
+                 try {
+                   await sock.sendMessage(sender, {
+                     audio: audioBuffer,
+                     mimetype: 'audio/mp4',
+                     ptt: true
+                   }, { quoted: msg });
+                 } catch (msgErr) {
+                   await sock.sendMessage(sender, {
+                     audio: audioBuffer,
+                     mimetype: 'audio/mp4',
+                     ptt: true
+                   });
+                 }
+                 try { await sock.sendPresenceUpdate("paused", sender); } catch (_) {}
                } else {
-                 await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+                 try {
+                   await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+                 } catch (msgErr) {
+                   await sock.sendMessage(sender, { text: botReplyText });
+                 }
                }
              } else {
                const isAudio = botReplyText.length < 50 && (botReplyText.includes("تفضل") || botReplyText.includes("أوديو"));
-              await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender);
+               try { await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender); } catch (_) {}
                const words = botReplyText.split(" ").length;
                const typingDelay = Math.min(Math.max(words * 200, 1500), 5000); 
                await new Promise(res => setTimeout(res, typingDelay));
-               await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
-               await sock.sendPresenceUpdate("paused", sender);
+               try {
+                 await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+               } catch (msgErr) {
+                 await sock.sendMessage(sender, { text: botReplyText });
+               }
+               try { await sock.sendPresenceUpdate("paused", sender); } catch (_) {}
              }
           } else {
              await addToHistory(sender, "assistant", "[تم تنفيذ الأداة بنجاح]");
@@ -1806,7 +1826,7 @@ async function startBot(folderName, phoneNumber) {
         }
       }
     } catch (e) {
-      if (e && e.message) console.error(`[MSG Handler Error]:`, e.message);
+      console.error(`[MSG Handler Error]:`, e);
     }
   });
 }
