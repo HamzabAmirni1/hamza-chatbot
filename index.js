@@ -1433,6 +1433,7 @@ async function startBot(folderName, phoneNumber) {
         if (!body && type !== "imageMessage" && type !== "videoMessage" && type !== "audioMessage") continue;
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter")) continue;
 
+        // Normalize incoming WhatsApp JID from @lid to real phone JID (@s.whatsapp.net) for routing reliability
         let sender = msg.key.remoteJid;
         if (sender.endsWith("@lid") && msg.key.senderPn) {
           sender = msg.key.senderPn;
