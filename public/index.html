@@ -310,10 +310,12 @@
       height: 2px;
     }
 
-    .stat-card.green::before { background: linear-gradient(90deg, var(--accent), transparent); }
-    .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
-    .stat-card.purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
-    .stat-card.red::before { background: linear-gradient(90deg, var(--red), transparent); }
+    .stat-card.green::before { background: linear-gradient(270deg, var(--accent), transparent); }
+    .stat-card.blue::before { background: linear-gradient(270deg, var(--blue), transparent); }
+    .stat-card.purple::before { background: linear-gradient(270deg, var(--purple), transparent); }
+    .stat-card.red::before { background: linear-gradient(270deg, var(--red), transparent); }
+    .stat-card.yellow::before { background: linear-gradient(270deg, var(--yellow), transparent); }
+
 
     .stat-card:hover { transform: translateY(-2px); border-color: rgba(99,179,237,0.3); }
 
@@ -1119,10 +1121,7 @@
         flex-wrap: wrap;
         gap: 6px;
       }
-      /* Analytics KPI cards: show 2 per row on small phones */
-      #page-analytics .grid-4 {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
+      /* Analytics KPI cards on mobile: same as all pages — 1 col (removed 2-col override) */
     }
   </style>
 </head>
