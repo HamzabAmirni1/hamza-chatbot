@@ -1923,11 +1923,13 @@ async function startBot(folderName, phoneNumber) {
 
   // 2. Telegram/Facebook Bots from configs
   const botConfigs = await db.getBotConfigs();
+  const dbTgTokens = new Set();
   if (botConfigs && botConfigs.length > 0) {
     botConfigs.forEach(conf => {
       if (conf.bot_type === 'telegram') {
         console.log(chalk.green(`✅ Starting Telegram Bot: ${conf.bot_name || 'Bot'}`));
         startTelegramBot(conf.bot_token);
+        dbTgTokens.add(conf.bot_token);
       }
       if (conf.bot_type === 'facebook') {
         global.fbPageTokens = global.fbPageTokens || {};
@@ -1937,9 +1939,10 @@ async function startBot(folderName, phoneNumber) {
         console.log(chalk.green(`✅ Registered Facebook Page Token for Page ID: ${pageId} (${parts[0]})`));
       }
     });
-  } else {
-    // Fallback to local config
-    startTelegramBot();
+  }
+  // Also start local config Telegram token if not already started from DB
+  if (config.telegramToken && !dbTgTokens.has(config.telegramToken)) {
+    startTelegramBot(); // guard inside will skip if already running
   }
 })();
 
