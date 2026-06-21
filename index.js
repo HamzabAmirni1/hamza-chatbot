@@ -1411,6 +1411,8 @@ async function startBot(folderName, phoneNumber) {
         const type = Object.keys(msg.message)[0];
         let body = type === "conversation" ? msg.message.conversation : type === "extendedTextMessage" ? msg.message.extendedTextMessage.text : type === "imageMessage" ? msg.message.imageMessage.caption : type === "videoMessage" ? msg.message.videoMessage.caption : "";
         console.log(chalk.magenta(`[WA MSG] from: ${msg.key.remoteJid} | type: ${type} | body: ${body ? body.substring(0,40) : '[no text]'}`));
+        console.log(chalk.gray(`[WA MSG Key]: ${JSON.stringify(msg.key)}`));
+        console.log(chalk.gray(`[WA MSG Full]: ${JSON.stringify(msg)}`));
 
         if (type === 'interactiveResponseMessage') {
           const response = msg.message.interactiveResponseMessage;
@@ -1783,24 +1785,30 @@ async function startBot(folderName, phoneNumber) {
                  }
                  try { await sock.sendPresenceUpdate("paused", sender); } catch (_) {}
                } else {
-                 try {
-                   await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
-                 } catch (msgErr) {
-                   await sock.sendMessage(sender, { text: botReplyText });
-                 }
-               }
+                  let sentRes;
+                  try {
+                    sentRes = await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+                  } catch (msgErr) {
+                    console.warn(`[WA Warn] Failed voice fallback JID send: ${msgErr.message}`);
+                    sentRes = await sock.sendMessage(sender, { text: botReplyText });
+                  }
+                  console.log(chalk.green(`[WA Sent Voice Fallback] JID: ${sender} | Result: ${JSON.stringify(sentRes?.key)}`));
+                }
              } else {
                const isAudio = botReplyText.length < 50 && (botReplyText.includes("تفضل") || botReplyText.includes("أوديو"));
                try { await sock.sendPresenceUpdate(isAudio ? "recording" : "composing", sender); } catch (_) {}
                const words = botReplyText.split(" ").length;
                const typingDelay = Math.min(Math.max(words * 200, 1500), 5000); 
                await new Promise(res => setTimeout(res, typingDelay));
-               try {
-                 await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
-               } catch (msgErr) {
-                 await sock.sendMessage(sender, { text: botReplyText });
-               }
-               try { await sock.sendPresenceUpdate("paused", sender); } catch (_) {}
+               let sentRes;
+                try {
+                  sentRes = await sock.sendMessage(sender, { text: botReplyText }, { quoted: msg });
+                } catch (msgErr) {
+                  console.warn(`[WA Warn] Failed text JID send: ${msgErr.message}`);
+                  sentRes = await sock.sendMessage(sender, { text: botReplyText });
+                }
+                console.log(chalk.green(`[WA Sent Text] JID: ${sender} | Result: ${JSON.stringify(sentRes?.key)}`));
+                try { await sock.sendPresenceUpdate("paused", sender); } catch (_) {}
              }
           } else {
              await addToHistory(sender, "assistant", "[تم تنفيذ الأداة بنجاح]");
