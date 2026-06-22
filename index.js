@@ -789,6 +789,50 @@ app.post('/api/delete-user', async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+app.post('/api/send-message', async (req, res) => {
+  try {
+    const { number, platform, message } = req.body;
+    if (!number) return res.status(400).json({ ok: false, error: 'الرقم أو المعرف مطلوب' });
+    if (!message) return res.status(400).json({ ok: false, error: 'الرسالة مطلوبة' });
+
+    const plat = (platform || 'whatsapp').toLowerCase();
+    const cleanNum = number.trim();
+
+    if (plat === 'whatsapp') {
+      const clients = global.clients || [];
+      const sock = clients.find(c => c?.user) || clients[0];
+      if (!sock) return res.status(500).json({ ok: false, error: 'لا يوجد جلسة واتساب نشطة حالياً' });
+
+      const jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
+      await sock.sendMessage(jid, { text: message });
+      return res.json({ ok: true });
+    } else if (plat === 'telegram') {
+      const { sendTelegramPrayerReminder } = require('./lib/telegram');
+      if (global.telegramBot) {
+        await global.telegramBot.sendMessage(cleanNum, message);
+      } else if (config.telegramToken) {
+        await sendTelegramPrayerReminder(cleanNum, message);
+      } else {
+        return res.status(500).json({ ok: false, error: 'بوت تليجرام غير مفعّل' });
+      }
+      return res.json({ ok: true });
+    } else if (plat === 'facebook') {
+      if (config.fbPageAccessToken) {
+        const { sendFacebookMessage } = require('./lib/facebook');
+        await sendFacebookMessage(cleanNum, message, config.fbPageAccessToken);
+        return res.json({ ok: true });
+      } else {
+        return res.status(500).json({ ok: false, error: 'حساب فيسبوك غير مفعّل' });
+      }
+    } else {
+      return res.status(400).json({ ok: false, error: 'منصة غير معروفة' });
+    }
+  } catch (e) {
+    console.error('[Send Message API] Error:', e);
+    res.status(500).json({ ok: false, error: e.message || 'فشل إرسال الرسالة' });
+  }
+});
+
 app.post('/api/clear-activity', async (req, res) => {
   try {
     const success = await db.clearAllActivity();

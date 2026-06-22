@@ -2441,13 +2441,7 @@
       </div>
       <div id="an-activity-feed" style="max-height:340px;overflow-y:auto;"></div>
     </div>
-  </div><!-- end page-analytics -->
-
-
-
-
-  <!-- Custom Modal Confirmation Dialog -->
-
+  </div><!-- end page-analytics -->  <!-- Custom Modal Confirmation Dialog -->
   <div id="custom-confirm-modal" class="custom-modal-overlay hide">
     <div class="custom-modal">
       <div class="custom-modal-header">
@@ -2460,6 +2454,25 @@
       <div class="custom-modal-footer">
         <button id="custom-confirm-cancel" class="custom-modal-btn btn-cancel">إلغاء</button>
         <button id="custom-confirm-ok" class="custom-modal-btn btn-ok">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direct Message Modal -->
+  <div id="direct-message-modal" class="custom-modal-overlay hide">
+    <div class="custom-modal" style="max-width: 450px;">
+      <div class="custom-modal-header">
+        <i class="fas fa-paper-plane custom-modal-icon" style="color: var(--blue);"></i>
+        <span class="custom-modal-title">إرسال رسالة مباشرة</span>
+      </div>
+      <div class="custom-modal-body">
+        <div style="font-size:13px; margin-bottom: 10px;">إرسال إلى: <span id="dm-recipient-name" style="font-weight: 700; color: var(--accent);"></span> (<span id="dm-recipient-phone" style="font-family: monospace;"></span>)</div>
+        <textarea id="dm-message-text" class="form-input" rows="4" placeholder="اكتب رسالتك هنا..." style="resize:vertical; width:100%; box-sizing:border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: 'Cairo', sans-serif; font-size:14px; outline:none;"></textarea>
+        <div id="dm-alert" class="alert" style="margin-top: 10px; display: none;"></div>
+      </div>
+      <div class="custom-modal-footer">
+        <button class="custom-modal-btn btn-cancel" onclick="closeDirectMessageModal()">إلغاء</button>
+        <button class="custom-modal-btn btn-ok" id="dm-send-btn" onclick="submitDirectMessage()" style="background: linear-gradient(135deg, var(--accent), var(--blue)); border: none; color: white;">إرسال</button>
       </div>
     </div>
   </div>
@@ -3389,6 +3402,7 @@
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <button class="btn btn-primary" style="padding:5px 10px;font-size:11px;background:rgba(99,179,237,0.1);border:1px solid rgba(99,179,237,0.2);color:var(--blue);" onclick="openDirectMessageModal('${num}', '${u.platform}', '${displayName.replace(/'/g, "\\'")}')" title="إرسال رسالة مباشرة"><i class="fas fa-paper-plane"></i></button>
           ${isBanned ? 
             `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}', '${u.platform}')" title="رفع الحظر"><i class="fas fa-unlock"></i></button>` : 
             `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}', '${u.platform}')" title="حظر"><i class="fas fa-ban"></i></button>`
@@ -3480,6 +3494,85 @@
     const data = await res.json();
     if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); loadUsers(); }
     else showToast(data.error || 'فشل', 'error');
+  }
+
+  let _dmTargetNumber = '';
+  let _dmTargetPlatform = '';
+
+  function openDirectMessageModal(num, platform, name) {
+    _dmTargetNumber = num;
+    _dmTargetPlatform = platform;
+    
+    document.getElementById('dm-recipient-name').textContent = name || 'مستخدم';
+    document.getElementById('dm-recipient-phone').textContent = num;
+    document.getElementById('dm-message-text').value = '';
+    
+    const alertEl = document.getElementById('dm-alert');
+    alertEl.style.display = 'none';
+    alertEl.className = 'alert';
+    
+    const sendBtn = document.getElementById('dm-send-btn');
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'إرسال';
+    
+    const modal = document.getElementById('direct-message-modal');
+    modal.classList.remove('hide');
+    modal.classList.add('show');
+  }
+
+  function closeDirectMessageModal() {
+    const modal = document.getElementById('direct-message-modal');
+    modal.classList.remove('show');
+    modal.classList.add('hide');
+  }
+
+  async function submitDirectMessage() {
+    const message = document.getElementById('dm-message-text').value.trim();
+    const alertEl = document.getElementById('dm-alert');
+    const sendBtn = document.getElementById('dm-send-btn');
+    
+    if (!message) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert alert-error';
+      alertEl.textContent = '⚠️ يرجى كتابة الرسالة أولاً';
+      return;
+    }
+    
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'جاري الإرسال...';
+    alertEl.style.display = 'none';
+    
+    try {
+      const res = await fetch('/api/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          number: _dmTargetNumber,
+          platform: _dmTargetPlatform,
+          message: message
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alertEl.style.display = 'block';
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = '✅ تم إرسال الرسالة بنجاح!';
+        showToast('✅ تم إرسال الرسالة', 'success');
+        setTimeout(closeDirectMessageModal, 1500);
+      } else {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'إرسال';
+        alertEl.style.display = 'block';
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = `❌ ${data.error || 'فشل إرسال الرسالة'}`;
+      }
+    } catch (e) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'إرسال';
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert alert-error';
+      alertEl.textContent = '❌ حدث خطأ في الاتصال بالسيرفر';
+    }
   }
 
   // =================== CMD STATS ===================
