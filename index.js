@@ -1041,20 +1041,6 @@ app.get('/api/syslog', (req, res) => {
 // --- PYTHON SCRIPTS MANAGEMENT API ---
 const { spawn, exec } = require('child_process');
 
-// Auto pre-install python dependencies on node server start
-try {
-  console.log("📦 Installing Python dependencies in background (pyTelegramBotAPI, beautifulsoup4, requests)...");
-  exec('pip install pyTelegramBotAPI beautifulsoup4 requests', (err, stdout, stderr) => {
-    if (err) {
-      console.error("❌ Failed to pre-install Python dependencies:", err.message);
-    } else {
-      console.log("✅ Python dependencies installed successfully:\n", stdout);
-    }
-  });
-} catch (e) {
-  console.error("❌ Error pre-installing Python dependencies:", e.message);
-}
-
 // Global process and log containers
 global.tempEmailProcess = global.tempEmailProcess || null;
 global.tempEmailLogs = global.tempEmailLogs || [];

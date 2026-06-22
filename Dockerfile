@@ -9,7 +9,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     webp \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# Pre-install Python libraries for custom scripts
+RUN pip3 install --no-cache-dir requests pyTelegramBotAPI beautifulsoup4
 
 COPY package*.json ./
 
