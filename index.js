@@ -1231,6 +1231,8 @@ app.get('/api/scripts/logs', (req, res) => {
 // Global process and log containers for Instagram Hunter
 global.instaHunterProcess = global.instaHunterProcess || null;
 global.instaHunterLogs = global.instaHunterLogs || [];
+global.instaHunterHits = global.instaHunterHits || [];
+global.instaHunterSendTelegram = global.instaHunterSendTelegram !== undefined ? global.instaHunterSendTelegram : true;
 
 app.get('/api/insta/status', (req, res) => {
   try {
@@ -1239,6 +1241,8 @@ app.get('/api/insta/status', (req, res) => {
       ok: true,
       running: isRunning,
       pid: isRunning ? global.instaHunterProcess.pid : null,
+      sendTelegram: global.instaHunterSendTelegram,
+      hits: global.instaHunterHits,
       config: {
         token: process.env.INSTA_HUNTER_TELEGRAM_TOKEN || '',
         ownerId: process.env.INSTA_HUNTER_TELEGRAM_OWNER_ID || ''
@@ -1249,9 +1253,18 @@ app.get('/api/insta/status', (req, res) => {
   }
 });
 
+app.get('/api/insta/hits', (req, res) => {
+  res.json({ ok: true, hits: global.instaHunterHits || [] });
+});
+
+app.post('/api/insta/hits/clear', (req, res) => {
+  global.instaHunterHits = [];
+  res.json({ ok: true });
+});
+
 app.post('/api/insta/toggle', async (req, res) => {
   try {
-    const { action, token, ownerId } = req.body;
+    const { action, token, ownerId, sendTelegram } = req.body;
     const isRunning = !!(global.instaHunterProcess && global.instaHunterProcess.pid && !global.instaHunterProcess.killed);
 
     if (action === 'start') {
@@ -1264,13 +1277,15 @@ app.post('/api/insta/toggle', async (req, res) => {
         return res.status(404).json({ ok: false, error: 'Script file not found.' });
       }
 
+      global.instaHunterSendTelegram = sendTelegram !== undefined ? sendTelegram : true;
       global.instaHunterLogs = [];
       global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 🚀 Starting Instagram Hunter process...`);
 
       const env = {
         ...process.env,
         INSTA_HUNTER_TELEGRAM_TOKEN: token || '',
-        INSTA_HUNTER_TELEGRAM_OWNER_ID: ownerId || ''
+        INSTA_HUNTER_TELEGRAM_OWNER_ID: ownerId || '',
+        SEND_TELEGRAM: global.instaHunterSendTelegram ? 'true' : 'false'
       };
 
       const startProcess = (cmd) => {
@@ -1284,7 +1299,22 @@ app.post('/api/insta/toggle', async (req, res) => {
           lines.forEach(line => {
             const trimmed = line.trim();
             if (trimmed) {
-              if (trimmed.includes('━━━') || trimmed.includes('┃ ✦')) {
+              if (trimmed.startsWith('__HIT__|')) {
+                // Parse hit details: __HIT__|username|email|followers|posts|link|full_name
+                const parts = trimmed.split('|');
+                const hitObj = {
+                  username: parts[1] || '',
+                  email: parts[2] || '',
+                  followers: parts[3] || 'None',
+                  posts: parts[4] || '0',
+                  link: parts[5] || '',
+                  fullName: parts[6] || 'None',
+                  timestamp: new Date().toISOString()
+                };
+                global.instaHunterHits = global.instaHunterHits || [];
+                global.instaHunterHits.unshift(hitObj);
+                if (global.instaHunterHits.length > 200) global.instaHunterHits.pop();
+              } else if (trimmed.includes('━━━') || trimmed.includes('┃ ✦')) {
                 // Strip redundant drawing boxes but keep stats lines formatted nicely
                 global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 📊 ${trimmed.replace(/┃ ✦ /g, '').replace(/┃/g, '')}`);
               } else {

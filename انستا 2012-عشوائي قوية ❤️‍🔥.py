@@ -395,10 +395,16 @@ def bot(token, id_, gmail, usr, email):
 ╰━━━〔 ✦ 𝐃𝐄𝐕 : @greatemperorrr ✦ 〕━━━╯
 
 '''
-        response = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage?chat_id={id_}&text={info_text}",
-            timeout=20
-        )
+        # Structured output for our panel web dashboard
+        import sys
+        print(f"__HIT__|{username}|{username}@{domain}|{followers}|{posts}|{rest(username)}|{full_name}")
+        sys.stdout.flush()
+
+        if os.environ.get("SEND_TELEGRAM", "true").lower() == "true":
+            response = requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage?chat_id={id_}&text={info_text}",
+                timeout=20
+            )
 
     except Exception:
         with open('hamodihits.txt', 'a') as a:

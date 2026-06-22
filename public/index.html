@@ -2683,14 +2683,23 @@
           <span id="insta-status-badge" class="chip chip-red" style="font-size: 12px; padding: 4px 10px; font-weight: 700;">متوقف</span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label"><i class="fab fa-telegram-plane"></i> توكن بوت التليجرام لإرسال الصيد</label>
-          <input type="password" id="insta-telegramToken" class="form-input" placeholder="Telegram Bot Token" />
+        <div class="form-group" style="margin-top: 14px; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+          <input type="checkbox" id="insta-sendTelegram" checked style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleInstaTelegramFields(this.checked)" />
+          <label for="insta-sendTelegram" style="font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-primary); user-select: none;">
+            إرسال الصيد إلى تليجرام كخيار إضافي
+          </label>
         </div>
 
-        <div class="form-group">
-          <label class="form-label"><i class="fas fa-user-shield"></i> معرّف التليجرام الخاص بك (Chat ID)</label>
-          <input type="text" id="insta-ownerId" class="form-input" placeholder="Telegram Chat ID" />
+        <div id="insta-telegram-config-group">
+          <div class="form-group">
+            <label class="form-label"><i class="fab fa-telegram-plane"></i> توكن بوت التليجرام لإرسال الصيد</label>
+            <input type="password" id="insta-telegramToken" class="form-input" placeholder="Telegram Bot Token" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-user-shield"></i> معرّف التليجرام الخاص بك (Chat ID)</label>
+            <input type="text" id="insta-ownerId" class="form-input" placeholder="Telegram Chat ID" />
+          </div>
         </div>
 
         <div style="display:flex; gap:12px; margin-top:24px;">
@@ -2716,6 +2725,25 @@
         <div id="insta-logs-container" style="background:#05070f; border:1px solid var(--border); border-radius:12px; padding:12px; font-family:monospace; font-size:11px; height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; direction:ltr; text-align:left; color:#a0aec0; line-height:1.4;">
           <div style="color:var(--text-muted); text-align:center; padding:30px; font-family:Cairo,sans-serif;">لا توجد سجلات حالية للعملية. قم بالتشغيل لبدء المراقبة.</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Found Hits Section -->
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="card-icon green" style="background:rgba(225,48,108,0.15);color:#e1306c;"><i class="fab fa-instagram"></i></div>
+          <div class="card-title">🎯 الحسابات المصطادة (Hits)</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" onclick="fetchInstaHits()" style="padding:6px 12px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+          <button class="btn btn-danger" onclick="clearInstaHits()" style="padding:6px 12px;font-size:12px;background:rgba(252,129,129,0.1);border:1px solid rgba(252,129,129,0.2);color:var(--red);"><i class="fas fa-trash-alt"></i> مسح القائمة</button>
+        </div>
+      </div>
+
+      <!-- Hits list container -->
+      <div id="insta-hits-container" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-top:10px;">
+        <div style="text-align:center;padding:40px;color:var(--text-muted);">بانتظار بدء الصيد للعثور على حسابات...</div>
       </div>
     </div>
   </div><!-- end page-insta-hunter -->
@@ -5063,6 +5091,8 @@
   // =================== INSTAGRAM HUNTER JS ===================
   let isInstaLogsPolling = false;
   let instaLogsInterval = null;
+  let isInstaHitsPolling = false;
+  let instaHitsInterval = null;
 
   async function loadInstaPage() {
     try {
@@ -5073,6 +5103,13 @@
       }
     } catch(e) {
       showToast('خطأ في تحميل حالة سكريبت الصيد', 'error');
+    }
+  }
+
+  function toggleInstaTelegramFields(enabled) {
+    const group = document.getElementById('insta-telegram-config-group');
+    if (group) {
+      group.style.display = enabled ? 'block' : 'none';
     }
   }
 
@@ -5091,33 +5128,47 @@
       }
     }
 
+    if (data.sendTelegram !== undefined) {
+      document.getElementById('insta-sendTelegram').checked = data.sendTelegram;
+      toggleInstaTelegramFields(data.sendTelegram);
+    }
+
+    if (data.hits) {
+      renderInstaHits(data.hits);
+    }
+
     if (data.running) {
       badge.textContent = 'نشط (PID: ' + data.pid + ')';
       badge.className = 'chip chip-green';
       startBtn.style.display = 'none';
       stopBtn.style.display = 'flex';
       startInstaLogsPolling();
+      startInstaHitsPolling();
     } else {
       badge.textContent = 'متوقف';
       badge.className = 'chip chip-red';
       startBtn.style.display = 'flex';
       stopBtn.style.display = 'none';
       stopInstaLogsPolling();
+      stopInstaHitsPolling();
     }
   }
 
   async function toggleInstaHunter(action) {
+    const sendTelegram = document.getElementById('insta-sendTelegram').checked;
     const token = document.getElementById('insta-telegramToken').value.trim();
     const ownerId = document.getElementById('insta-ownerId').value.trim();
 
     if (action === 'start') {
-      if (!token) {
-        showToast('يرجى إدخال توكن البوت أولاً', 'error');
-        return;
-      }
-      if (!ownerId) {
-        showToast('يرجى إدخال معرف المالك أولاً', 'error');
-        return;
+      if (sendTelegram) {
+        if (!token) {
+          showToast('يرجى إدخال توكن البوت أولاً', 'error');
+          return;
+        }
+        if (!ownerId) {
+          showToast('يرجى إدخال معرف المالك أولاً', 'error');
+          return;
+        }
       }
     }
 
@@ -5125,13 +5176,14 @@
       const res = await fetch('/api/insta/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, token, ownerId })
+        body: JSON.stringify({ action, token, ownerId, sendTelegram })
       });
       const data = await res.json();
       if (data && data.ok) {
         showToast(action === 'start' ? '🚀 تم بدء عملية الصيد بنجاح' : '🛑 تم إيقاف عملية الصيد', 'success');
         updateInstaStatusUI(data);
         fetchInstaLogs();
+        fetchInstaHits();
       } else {
         showToast(data.error || 'فشل تنفيذ الإجراء', 'error');
       }
@@ -5185,6 +5237,85 @@
 
   function clearLocalInstaLogs() {
     document.getElementById('insta-logs-container').innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">تم مسح الشاشة. بانتظار سجلات جديدة...</div>`;
+  }
+
+  async function fetchInstaHits() {
+    try {
+      const res = await fetch('/api/insta/status');
+      const data = await res.json();
+      if (data && data.ok && data.hits) {
+        renderInstaHits(data.hits);
+      }
+    } catch(e) {
+      console.error('Error fetching hits:', e);
+    }
+  }
+
+  function renderInstaHits(hits) {
+    const container = document.getElementById('insta-hits-container');
+    if (!container) return;
+    if (hits.length === 0) {
+      container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);">بانتظار بدء الصيد للعثور على حسابات...</div>`;
+      return;
+    }
+
+    container.innerHTML = hits.map(hit => {
+      const textToCopy = `يوزر: ${hit.username}\nايميل: ${hit.email}\nرابط: https://www.instagram.com/${hit.username}\nمتابعين: ${hit.followers}\nبوستات: ${hit.posts}`;
+      const safeCopyText = textToCopy.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+      return `
+        <div class="card" style="padding:14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;margin-bottom:0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div style="flex:1;min-width:200px;text-align:right;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-direction:row-reverse;justify-content:flex-end;">
+              <span style="font-size:14px;font-weight:700;color:var(--accent);">@${hit.username}</span>
+              <span style="font-size:11px;color:var(--text-muted);">${new Date(hit.timestamp).toLocaleTimeString('ar-MA')}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-primary);margin-bottom:4px;">📧 بريد الربط المتاح: <strong style="color:var(--blue);direction:ltr;display:inline-block;">${hit.email}</strong></div>
+            <div style="font-size:11px;color:var(--text-muted);display:flex;gap:10px;flex-direction:row-reverse;justify-content:flex-end;">
+              <span>👤 الاسم: ${hit.fullName}</span>
+              <span>📸 بوستات: ${hit.posts}</span>
+              <span>👥 متابعين: ${hit.followers}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <a href="https://www.instagram.com/${hit.username}" target="_blank" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;display:flex;align-items:center;gap:4px;">
+              <i class="fas fa-external-link-alt"></i> فتح الرابط
+            </a>
+            <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeCopyText}').then(()=>showToast('✅ تم نسخ معلومات الحساب','success'))" style="padding:6px 12px;font-size:11px;display:flex;align-items:center;gap:4px;">
+              <i class="fas fa-copy"></i> نسخ البيانات
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function clearInstaHits() {
+    if (!await showConfirm('هل أنت متأكد من مسح قائمة الحسابات المصطادة بالكامل؟')) return;
+    try {
+      const res = await fetch('/api/insta/hits/clear', { method: 'POST' });
+      const data = await res.json();
+      if (data && data.ok) {
+        showToast('✅ تم مسح قائمة الحسابات المصطادة', 'success');
+        fetchInstaHits();
+      }
+    } catch(e) {
+      showToast('❌ فشل مسح القائمة', 'error');
+    }
+  }
+
+  function startInstaHitsPolling() {
+    if (isInstaHitsPolling) return;
+    isInstaHitsPolling = true;
+    fetchInstaHits();
+    instaHitsInterval = setInterval(fetchInstaHits, 4000);
+  }
+
+  function stopInstaHitsPolling() {
+    isInstaHitsPolling = false;
+    if (instaHitsInterval) {
+      clearInterval(instaHitsInterval);
+      instaHitsInterval = null;
+    }
   }
 
   // =================== CONTACTS PAGE ===================
