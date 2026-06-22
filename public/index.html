@@ -736,6 +736,8 @@
     @media (max-width: 600px) {
       .main { padding: 15px; padding-top: 80px; }
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .card { padding: 16px; border-radius: 16px; margin-bottom: 16px; }
+      .stat-card { padding: 16px; gap: 12px; }
     }
 
     /* Steps */
@@ -2097,7 +2099,7 @@
       <div class="stat-card red"><div class="stat-icon red"><i class="fas fa-times"></i></div><div class="stat-info"><div class="stat-value" id="cs-unused">—</div><div class="stat-label">غير مستخدمة</div></div></div>
       <div class="stat-card purple"><div class="stat-icon purple"><i class="fas fa-fire"></i></div><div class="stat-info"><div class="stat-value" id="cs-top" style="font-size:16px;">—</div><div class="stat-label">الأكثر استخداماً</div></div></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:24px;">
+    <div class="grid grid-3" style="gap:12px;margin-bottom:24px;">
       <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(37,211,102,0.2);">
         <i class="fab fa-whatsapp" style="font-size:22px;color:#25d366;"></i>
         <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="cs-wa-total">—</div><div style="font-size:11px;color:var(--text-muted);">أوامر واتساب</div></div>
@@ -2511,7 +2513,7 @@
     </div>
 
     <!-- Platform breakdown mini cards row -->
-    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:24px;">
+    <div class="grid grid-3" style="gap:12px;margin-bottom:24px;">
       <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;border:1px solid rgba(37,211,102,0.2);">
         <i class="fab fa-whatsapp" style="font-size:22px;color:#25d366;flex-shrink:0;"></i>
         <div><div style="font-size:20px;font-weight:800;color:var(--text);" id="an-wa-count">—</div><div style="font-size:11px;color:var(--text-muted);">مستخدمو واتساب</div></div>
