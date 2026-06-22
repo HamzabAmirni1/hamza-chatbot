@@ -5319,26 +5319,66 @@
       const textToCopy = `يوزر: ${hit.username}\nايميل: ${hit.email}\nرابط: https://www.instagram.com/${hit.username}\nمتابعين: ${hit.followers}\nبوستات: ${hit.posts}`;
       const safeCopyText = textToCopy.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
       return `
-        <div class="card" style="padding:14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;margin-bottom:0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-          <div style="flex:1;min-width:200px;text-align:right;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-direction:row-reverse;justify-content:flex-end;">
-              <span style="font-size:14px;font-weight:700;color:var(--accent);">@${hit.username}</span>
+        <div class="card" style="padding:16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;margin-bottom:0;display:flex;flex-direction:column;gap:12px;text-align:right;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;width:100%;">
+            <!-- Meta Stats & Actions -->
+            <div style="display:flex;align-items:center;gap:8px;flex-direction:row-reverse;justify-content:flex-end;">
+              <span style="font-size:15px;font-weight:700;color:var(--accent);">@${hit.username}</span>
               <span style="font-size:11px;color:var(--text-muted);">${new Date(hit.timestamp).toLocaleTimeString('ar-MA')}</span>
             </div>
-            <div style="font-size:12px;color:var(--text-primary);margin-bottom:4px;">📧 بريد الربط المتاح: <strong style="color:var(--blue);direction:ltr;display:inline-block;">${hit.email}</strong></div>
-            <div style="font-size:11px;color:var(--text-muted);display:flex;gap:10px;flex-direction:row-reverse;justify-content:flex-end;">
-              <span>👤 الاسم: ${hit.fullName}</span>
-              <span>📸 بوستات: ${hit.posts}</span>
-              <span>👥 متابعين: ${hit.followers}</span>
+            
+            <div style="display:flex;gap:8px;align-items:center;">
+              <a href="https://www.instagram.com/${hit.username}" target="_blank" class="btn btn-secondary" style="padding:5px 10px;font-size:11px;display:flex;align-items:center;gap:4px;">
+                <i class="fas fa-external-link-alt"></i> فتح الرابط
+              </a>
+              <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeCopyText}').then(()=>showToast('✅ تم نسخ جميع البيانات للذاكرة','success'))" style="padding:5px 10px;font-size:11px;display:flex;align-items:center;gap:4px;">
+                <i class="fas fa-copy"></i> نسخ التقرير كاملاً
+              </button>
             </div>
           </div>
-          <div style="display:flex;gap:8px;">
-            <a href="https://www.instagram.com/${hit.username}" target="_blank" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;display:flex;align-items:center;gap:4px;">
-              <i class="fas fa-external-link-alt"></i> فتح الرابط
-            </a>
-            <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeCopyText}').then(()=>showToast('✅ تم نسخ معلومات الحساب','success'))" style="padding:6px 12px;font-size:11px;display:flex;align-items:center;gap:4px;">
-              <i class="fas fa-copy"></i> نسخ البيانات
-            </button>
+
+          <!-- Basic Info Badge -->
+          <div style="font-size:11px;color:var(--text-muted);display:flex;gap:15px;flex-direction:row-reverse;justify-content:flex-end;margin-top:-4px;">
+            <span>👤 الاسم: ${hit.fullName}</span>
+            <span>📸 بوستات: ${hit.posts}</span>
+            <span>👥 متابعين: ${hit.followers}</span>
+          </div>
+
+          <!-- Copyable Input Fields -->
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+            <!-- Combined user:email -->
+            <div style="display:flex; align-items:center; gap:10px; direction:rtl;">
+              <span style="font-size:12px; color:var(--text-primary); width:95px; flex-shrink:0; text-align:right;">اليوزر والإيميل:</span>
+              <div style="display:flex; flex:1; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+                <input type="text" readonly value="${hit.username}:${hit.email}" style="background:transparent; border:none; color:#f472b6; font-size:12px; padding:6px 10px; flex:1; text-align:left; font-family:monospace; outline:none;" onclick="this.select()" />
+                <button class="btn btn-secondary" onclick="navigator.clipboard.writeText('${hit.username}:${hit.email}').then(()=>showToast('✅ تم نسخ اليوزر والإيميل','success'))" style="border:none; border-radius:0; padding:6px 12px; background:rgba(255,255,255,0.05); font-size:11px; border-right:1px solid var(--border);">
+                  <i class="fas fa-copy"></i> نسخ
+                </button>
+              </div>
+            </div>
+
+            <!-- Username & Email fields side-by-side -->
+            <div style="display:flex; gap:12px; flex-wrap:wrap; width:100%;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px; direction:rtl;">
+                <span style="font-size:12px; color:var(--text-primary); width:95px; flex-shrink:0; text-align:right;">اليوزر فقط:</span>
+                <div style="display:flex; flex:1; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+                  <input type="text" readonly value="${hit.username}" style="background:transparent; border:none; color:var(--accent); font-size:12px; padding:6px 10px; flex:1; text-align:left; font-family:monospace; outline:none;" onclick="this.select()" />
+                  <button class="btn btn-secondary" onclick="navigator.clipboard.writeText('${hit.username}').then(()=>showToast('✅ تم نسخ اليوزر','success'))" style="border:none; border-radius:0; padding:6px 10px; background:rgba(255,255,255,0.05); font-size:11px; border-right:1px solid var(--border);">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px; direction:rtl;">
+                <span style="font-size:12px; color:var(--text-primary); width:95px; flex-shrink:0; text-align:right;">الإيميل فقط:</span>
+                <div style="display:flex; flex:1; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+                  <input type="text" readonly value="${hit.email}" style="background:transparent; border:none; color:var(--blue); font-size:12px; padding:6px 10px; flex:1; text-align:left; font-family:monospace; outline:none;" onclick="this.select()" />
+                  <button class="btn btn-secondary" onclick="navigator.clipboard.writeText('${hit.email}').then(()=>showToast('✅ تم نسخ الإيميل','success'))" style="border:none; border-radius:0; padding:6px 10px; background:rgba(255,255,255,0.05); font-size:11px; border-right:1px solid var(--border);">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       `;
