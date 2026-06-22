@@ -1041,6 +1041,43 @@ app.get('/api/syslog', (req, res) => {
 // --- PYTHON SCRIPTS MANAGEMENT API ---
 const { spawn, exec } = require('child_process');
 
+// --- TEMPORARY EMAIL PROXY API ---
+app.get('/api/tempmail/generate', (req, res) => {
+  try {
+    const domains = ['1secmail.com', '1secmail.org', '1secmail.net'];
+    const username = Math.random().toString(36).substring(2, 10);
+    const domain = domains[Math.floor(Math.random() * domains.length)];
+    res.json({ ok: true, email: `${username}@${domain}` });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/tempmail/messages', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email || !email.includes('@')) return res.status(400).json({ ok: false, error: 'بريد غير صالح' });
+    const [login, domain] = email.split('@');
+    const response = await axios.get(`https://www.1secmail.com/api/v1/?action=getMessages&login=${login}&domain=${domain}`);
+    res.json({ ok: true, messages: response.data || [] });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/tempmail/message', async (req, res) => {
+  try {
+    const { email, id } = req.query;
+    if (!email || !email.includes('@')) return res.status(400).json({ ok: false, error: 'بريد غير صالح' });
+    if (!id) return res.status(400).json({ ok: false, error: 'معرف الرسالة مطلوب' });
+    const [login, domain] = email.split('@');
+    const response = await axios.get(`https://www.1secmail.com/api/v1/?action=readMessage&login=${login}&domain=${domain}&id=${id}`);
+    res.json({ ok: true, message: response.data || null });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Global process and log containers
 global.tempEmailProcess = global.tempEmailProcess || null;
 global.tempEmailLogs = global.tempEmailLogs || [];

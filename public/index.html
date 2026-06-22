@@ -1158,6 +1158,54 @@
         margin-top: 0 !important;
       }
     }
+
+    /* Web Temp Mail UI Styling */
+    .tempmail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: right;
+    }
+    .tempmail-item:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--accent);
+    }
+    .tempmail-item.active {
+      background: rgba(99,179,237,0.1);
+      border-color: var(--blue);
+    }
+    .tempmail-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      direction: rtl;
+    }
+    .tempmail-item-from {
+      font-weight: 700;
+      color: var(--accent);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 70%;
+    }
+    .tempmail-item-subject {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: right;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -2484,20 +2532,60 @@
   <!-- =================== PYTHON SCRIPTS PAGE =================== -->
   <div class="page" id="page-scripts">
     <div class="page-header">
-      <h1><i class="fab fa-python" style="color:#ffd43b"></i> إدارة السكريبتات الإضافية</h1>
-      <p>تشغيل وإدارة سكريبتات البوت والتحكم في تشغيلها ومراقبة السجلات مباشرة</p>
+      <h1><i class="fas fa-envelope-open-text" style="color:#ffd43b"></i> بوابة البريد والسكريبتات الإضافية</h1>
+      <p>توليد البريد المؤقت وقراءة الرسائل مباشرة، بالإضافة إلى تشغيل السكريبتات الملحقة</p>
     </div>
 
+    <!-- Web Temp Mail Client Card -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header" style="flex-wrap: wrap; gap: 12px; align-items: center;">
+        <div class="card-icon blue"><i class="fas fa-envelope"></i></div>
+        <div class="card-title">مولد علبة البريد المؤقت (Web Temp Mail Client)</div>
+      </div>
+      
+      <!-- Top controls for generating and copying -->
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-top:12px; background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; border:1px solid var(--border);">
+        <div style="display:flex; gap:8px; flex:1; min-width:280px; align-items:center;">
+          <label style="font-size:12px; color:var(--text-muted); font-weight:700; white-space:nowrap;">📧 البريد الحالي:</label>
+          <input type="text" id="web-tempmail-address" class="form-input" placeholder="اضغط على بريد جديد لإنشاء بريد" readonly style="font-family:monospace; background:rgba(0,0,0,0.3); font-weight:700; color:var(--accent); direction:ltr; text-align:left; flex:1;" />
+          <button class="btn btn-primary" onclick="copyWebTempMail()" style="padding:10px 14px;" title="نسخ البريد"><i class="fas fa-copy"></i></button>
+        </div>
+        <div style="display:flex; gap:8px;" class="mobile-actions-w100">
+          <button class="btn btn-primary" onclick="generateWebTempMail()" style="background:linear-gradient(135deg, var(--accent), var(--blue)); border:none; padding:10px 16px;"><i class="fas fa-plus"></i> بريد جديد</button>
+          <button class="btn btn-secondary" onclick="checkWebTempMailInbox()" style="padding:10px 16px;"><i class="fas fa-sync-alt"></i> تحديث الرسائل</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:20px; gap:20px;">
+        <!-- Left Pane: Inbox messages list -->
+        <div style="border-left: 1px solid var(--border); padding-left:12px; min-height:250px; display:flex; flex-direction:column; overflow:hidden;" class="inbox-column">
+          <h4 style="font-size:13px; margin-bottom:10px; color:var(--text-main); font-weight:700; text-align:right;"><i class="fas fa-inbox"></i> علبة الرسائل الواردة (Inbox)</h4>
+          <div id="web-tempmail-inbox-list" style="overflow-y:auto; flex:1; max-height:280px; display:flex; flex-direction:column; gap:8px; padding-left:4px;">
+            <div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">📭 لا توجد رسائل واردة حالياً.</div>
+          </div>
+        </div>
+
+        <!-- Right Pane: Viewer details -->
+        <div style="min-height:250px; display:flex; flex-direction:column; overflow:hidden;" class="viewer-column">
+          <h4 style="font-size:13px; margin-bottom:10px; color:var(--text-main); font-weight:700; text-align:right;"><i class="fas fa-envelope-open"></i> تفاصيل الرسالة المحددة</h4>
+          <div id="web-tempmail-viewer" style="background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:12px; padding:16px; flex:1; max-height:280px; overflow-y:auto; direction:rtl; text-align:right;">
+            <div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">اختر رسالة من القائمة لعرض تفاصيلها هنا.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Python Script Runner Card (Original script controller for Telebot) -->
     <div class="grid grid-2">
       <!-- Configuration and Status Card -->
       <div class="card">
         <div class="card-header">
           <div class="card-icon green"><i class="fas fa-server"></i></div>
-          <div class="card-title">سكريبت بوت الإيميلات المؤقتة</div>
+          <div class="card-title">تشغيل سكريبت بوت التليجرام (اختياري)</div>
         </div>
         
         <div style="margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-size: 13px; color: var(--text-muted);">حالة التشغيل الحالية:</span>
+          <span style="font-size: 13px; color: var(--text-muted);">حالة تشغيل البوت:</span>
           <span id="script-status-badge" class="chip chip-red" style="font-size: 12px; padding: 4px 10px; font-weight: 700;">متوقف</span>
         </div>
 
@@ -2513,53 +2601,27 @@
 
         <div style="display:flex; gap:12px; margin-top:24px;">
           <button id="btn-start-script" class="btn btn-primary" onclick="toggleScript('start')" style="flex:1; justify-content:center; background: linear-gradient(135deg, #10b981, #059669); border:none; box-shadow:0 4px 12px rgba(16,185,129,0.2);">
-            <i class="fas fa-play"></i> تشغيل
+            <i class="fas fa-play"></i> تشغيل البوت
           </button>
           <button id="btn-stop-script" class="btn btn-danger" onclick="toggleScript('stop')" style="flex:1; justify-content:center; display:none;">
-            <i class="fas fa-stop"></i> إيقاف
+            <i class="fas fa-stop"></i> إيقاف البوت
           </button>
         </div>
       </div>
 
-      <!-- Help & Explanation Card -->
+      <!-- Live logs / Events terminal -->
       <div class="card">
-        <div class="card-header">
-          <div class="card-icon blue"><i class="fas fa-info-circle"></i></div>
-          <div class="card-title">حول سكريبت الإيميلات المؤقتة</div>
-        </div>
-        <div class="steps" style="margin-top:0;">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div class="step-text">يقوم هذا السكريبت بتشغيل بوت تليجرام منفصل لإنشاء صناديق بريد إلكتروني مؤقتة لاستلام كود التفعيل أو الرسائل بشكل فوري.</div>
-          </div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <div class="step-text">يمكنك تخصيص التوكن الخاص بالبوت ومعرف المستخدم ليتصل السكريبت بحسابك ويرسل لك رسائل البريد فور وصولها.</div>
-          </div>
-          <div class="step">
-            <div class="step-num">3</div>
-            <div class="step-text">يتم تشغيل السكريبت كعملية منفصلة (Child Process) في الخلفية على خادم Koyeb مع إمكانية عرض السجلات الحية.</div>
+        <div class="card-header" style="flex-wrap: wrap; gap: 8px;">
+          <div class="card-icon purple"><i class="fas fa-terminal"></i></div>
+          <div class="card-title" style="margin-left: 12px;">🖥️ شاشة المراقبة وسجل الأحداث للعملية (Logs)</div>
+          <div style="display:flex; gap:6px; margin-right:auto;">
+            <button class="btn btn-secondary" onclick="fetchScriptLogs()" style="padding:4px 8px; font-size:10px; font-family:Cairo,sans-serif;"><i class="fas fa-sync-alt"></i></button>
+            <button class="btn btn-danger" onclick="clearLocalScriptLogs()" style="padding:4px 8px; font-size:10px; font-family:Cairo,sans-serif; background:rgba(252,129,129,0.1); border:1px solid rgba(252,129,129,0.2); color:var(--red);"><i class="fas fa-trash-alt"></i></button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Console Log Terminal Card -->
-    <div class="card" style="margin-top: 24px;">
-      <div class="card-header" style="flex-wrap: wrap; gap: 8px;">
-        <div class="card-icon purple"><i class="fas fa-terminal"></i></div>
-        <div class="card-title" style="margin-left: 12px;">🖥️ شاشة المراقبة وسجل الأحداث (Logs)</div>
-        <div style="display:flex; gap:8px; margin-right:auto;">
-          <button class="btn btn-secondary" onclick="fetchScriptLogs()" style="padding:6px 12px; font-size:11px; font-family:Cairo,sans-serif;">
-            <i class="fas fa-sync-alt"></i> تحديث السجل
-          </button>
-          <button class="btn btn-danger" onclick="clearLocalScriptLogs()" style="padding:6px 12px; font-size:11px; font-family:Cairo,sans-serif; background:rgba(252,129,129,0.1); border:1px solid rgba(252,129,129,0.2); color:var(--red);">
-            <i class="fas fa-trash-alt"></i> مسح الشاشة
-          </button>
+        <div id="script-logs-container" style="background:#05070f; border:1px solid var(--border); border-radius:12px; padding:12px; font-family:monospace; font-size:11px; height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; direction:ltr; text-align:left; color:#a0aec0; line-height:1.4;">
+          <div style="color:var(--text-muted); text-align:center; padding:30px; font-family:Cairo,sans-serif;">لا توجد سجلات حالية للبوت.</div>
         </div>
-      </div>
-      <div id="script-logs-container" style="background:#05070f; border:1px solid var(--border); border-radius:12px; padding:14px; font-family:monospace; font-size:12px; height:350px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; direction:ltr; text-align:left; color:#a0aec0; line-height:1.5;">
-        <div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">لا توجد سجلات حالية. قم بتشغيل السكريبت لبدء المراقبة.</div>
       </div>
     </div>
   </div><!-- end page-scripts -->
@@ -4433,8 +4495,18 @@
   // =================== PYTHON SCRIPTS PAGE JS ===================
   let scriptLogsInterval = null;
   let isScriptLogsPolling = false;
+  let activeWebTempEmail = localStorage.getItem('web_tempmail_address') || '';
 
   async function loadScriptsPage() {
+    // Restore cached email address
+    const cachedAddress = localStorage.getItem('web_tempmail_address');
+    if (cachedAddress) {
+      activeWebTempEmail = cachedAddress;
+      const input = document.getElementById('web-tempmail-address');
+      if (input) input.value = activeWebTempEmail;
+      checkWebTempMailInbox();
+    }
+
     try {
       const res = await fetch('/api/scripts/status');
       const data = await res.json();
@@ -4444,6 +4516,124 @@
     } catch(e) {
       showToast('خطأ في تحميل حالة السكريبت', 'error');
     }
+  }
+
+  // =================== WEB TEMP MAIL CLIENT JS ===================
+  async function generateWebTempMail() {
+    try {
+      const res = await fetch('/api/tempmail/generate');
+      const data = await res.json();
+      if (data && data.ok) {
+        activeWebTempEmail = data.email;
+        localStorage.setItem('web_tempmail_address', activeWebTempEmail);
+        document.getElementById('web-tempmail-address').value = activeWebTempEmail;
+        showToast('📧 تم توليد البريد الإلكتروني الجديد', 'success');
+        
+        // Reset viewer and check inbox
+        document.getElementById('web-tempmail-viewer').innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">اختر رسالة من القائمة لعرض تفاصيلها هنا.</div>`;
+        checkWebTempMailInbox();
+      } else {
+        showToast('فشل في توليد البريد', 'error');
+      }
+    } catch(e) {
+      showToast('خطأ في الاتصال بالخادم', 'error');
+    }
+  }
+
+  function copyWebTempMail() {
+    const address = document.getElementById('web-tempmail-address').value;
+    if (!address) {
+      showToast('⚠️ لا يوجد بريد إلكتروني لنسخه', 'error');
+      return;
+    }
+    
+    navigator.clipboard.writeText(address)
+      .then(() => showToast('📋 تم نسخ البريد بنجاح!'))
+      .catch(() => showToast('فشل النسخ', 'error'));
+  }
+
+  async function checkWebTempMailInbox() {
+    const emailInput = document.getElementById('web-tempmail-address');
+    const address = emailInput ? emailInput.value.trim() : activeWebTempEmail;
+    
+    if (!address) {
+      showToast('⚠️ يرجى إنشاء بريد جديد أولاً', 'error');
+      return;
+    }
+
+    const inboxList = document.getElementById('web-tempmail-inbox-list');
+    inboxList.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:40px; font-family:Cairo,sans-serif;"><i class="fas fa-spinner fa-spin"></i> جاري تحديث الرسائل...</div>`;
+
+    try {
+      const res = await fetch(`/api/tempmail/messages?email=${encodeURIComponent(address)}`);
+      const data = await res.json();
+      if (data && data.ok) {
+        const messages = data.messages || [];
+        if (messages.length === 0) {
+          inboxList.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:40px; font-family:Cairo,sans-serif;">📭 علبة الوارد فارغة. بانتظار رسائل جديدة...</div>`;
+        } else {
+          inboxList.innerHTML = messages.map(msg => {
+            return `
+              <div class="tempmail-item" onclick="showWebTempMailMessage('${msg.id}', this)">
+                <div class="tempmail-item-header">
+                  <span class="tempmail-item-from">${escapeHtml(msg.from)}</span>
+                  <span>ID: ${msg.id}</span>
+                </div>
+                <div class="tempmail-item-subject">${escapeHtml(msg.subject || 'بدون موضوع')}</div>
+              </div>
+            `;
+          }).join('');
+        }
+      } else {
+        inboxList.innerHTML = `<div style="color:var(--red); text-align:center; padding:40px; font-family:Cairo,sans-serif;">❌ فشل تحديث الرسائل.</div>`;
+      }
+    } catch(e) {
+      inboxList.innerHTML = `<div style="color:var(--red); text-align:center; padding:40px; font-family:Cairo,sans-serif;">❌ خطأ في الاتصال بالخادم.</div>`;
+    }
+  }
+
+  async function showWebTempMailMessage(msgId, element) {
+    document.querySelectorAll('.tempmail-item').forEach(item => item.classList.remove('active'));
+    if (element) element.classList.add('active');
+
+    const viewer = document.getElementById('web-tempmail-viewer');
+    viewer.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:40px; font-family:Cairo,sans-serif;"><i class="fas fa-spinner fa-spin"></i> جاري تحميل الرسالة...</div>`;
+
+    try {
+      const address = document.getElementById('web-tempmail-address').value;
+      const res = await fetch(`/api/tempmail/message?email=${encodeURIComponent(address)}&id=${msgId}`);
+      const data = await res.json();
+      
+      if (data && data.ok && data.message) {
+        const msg = data.message;
+        const cleanedBody = msg.textBody || msg.body || 'لا توجد تفاصيل';
+        
+        viewer.innerHTML = `
+          <div style="border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:12px; direction:rtl; text-align:right;">
+            <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+              <span><strong>من:</strong> ${escapeHtml(msg.from)}</span>
+              <span><strong>التاريخ:</strong> ${escapeHtml(msg.date)}</span>
+            </div>
+            <div style="font-size:13px; font-weight:700; color:var(--accent); margin-top:6px;"><strong>الموضوع:</strong> ${escapeHtml(msg.subject || 'بدون موضوع')}</div>
+          </div>
+          <div style="font-size:12px; color:var(--text); white-space:pre-wrap; direction:ltr; text-align:left; background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; font-family:monospace; max-height:180px; overflow-y:auto; line-height:1.5;">${escapeHtml(cleanedBody)}</div>
+        `;
+      } else {
+        viewer.innerHTML = `<div style="color:var(--red); text-align:center; padding:40px; font-family:Cairo,sans-serif;">❌ فشل تحميل محتوى الرسالة.</div>`;
+      }
+    } catch(e) {
+      viewer.innerHTML = `<div style="color:var(--red); text-align:center; padding:40px; font-family:Cairo,sans-serif;">❌ خطأ في الاتصال بالخادم.</div>`;
+    }
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   function updateScriptStatusUI(data) {
