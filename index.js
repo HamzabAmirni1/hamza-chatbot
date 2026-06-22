@@ -1235,118 +1235,132 @@ app.post('/api/broadcast', async (req, res) => {
     const targetPlatform = platform || 'all';
     let results = { whatsapp: { sent: 0, failed: 0 }, telegram: { sent: 0, failed: 0 }, facebook: { sent: 0, failed: 0 } };
     
-    // Format broadcast message with developer header (as requested by user)
+    // Format broadcast message with developer header
     const formattedMessage = `\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557\n\u2551   \uD83D\uDCE2 \u0631\u0633\u0627\u0644\u0629 \u0645\u0646 \u0645\u0637\u0648\u0631 \u0627\u0644\u0628\u0648\u062a\n\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\n\n${message}\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u2694\uFE0F *\u062d\u0645\u0632\u0629 \u0627\u0639\u0645\u0631\u0646\u064a*`;
     
     // Fetch all users from Supabase to construct target lists
     let waUsers = [], tgUsers = [], fbUsers = [];
     try {
       const rows = await db.getAllUsers();
-      // Deduplicate using Sets to prevent double-sending
-      const waSet = new Set();
-      const tgSet = new Set();
-      const fbSet = new Set();
+      const waSet = new Set(); const tgSet = new Set(); const fbSet = new Set();
       for (const u of rows) {
         if (!u.jid) continue;
         const plat = getPlatformFromJid(u.jid);
         const cleanId = u.jid.replace('tg:', '').replace('fb:', '');
-        if (plat === 'whatsapp' && !waSet.has(u.jid)) {
-          waSet.add(u.jid);
-          waUsers.push(u.jid);
-        } else if (plat === 'telegram' && !tgSet.has(cleanId)) {
-          tgSet.add(cleanId);
-          tgUsers.push(cleanId);
-        } else if (plat === 'facebook' && !fbSet.has(cleanId)) {
-          fbSet.add(cleanId);
-          fbUsers.push({ id: cleanId });
-        }
+        if (plat === 'whatsapp' && !waSet.has(u.jid)) { waSet.add(u.jid); waUsers.push(u.jid); }
+        else if (plat === 'telegram' && !tgSet.has(cleanId)) { tgSet.add(cleanId); tgUsers.push(cleanId); }
+        else if (plat === 'facebook' && !fbSet.has(cleanId)) { fbSet.add(cleanId); fbUsers.push({ id: cleanId }); }
       }
     } catch (e) {
-      console.error('[Broadcast API] Failed to fetch users from Supabase, falling back to local files:', e.message);
+      console.error('[Broadcast API] Failed to fetch users from Supabase:', e.message);
       try { waUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/users.json'), 'utf-8') || '[]'); } catch (_) {}
       try { tgUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/tg_users.json'), 'utf-8') || '[]'); } catch (_) {}
       try { fbUsers = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/fb_users.json'), 'utf-8') || '[]'); } catch (_) {}
     }
-    
-    // 1. WhatsApp Broadcast
-    if (targetPlatform === 'all' || targetPlatform === 'whatsapp') {
-      const clients = global.clients || [];
-      if (waUsers.length > 0) {
-        if (clients.length > 0) {
+
+    const totalUsers = (
+      (targetPlatform === 'all' || targetPlatform === 'whatsapp' ? waUsers.length : 0) +
+      (targetPlatform === 'all' || targetPlatform === 'telegram' ? tgUsers.length : 0) +
+      (targetPlatform === 'all' || targetPlatform === 'facebook' ? fbUsers.length : 0)
+    );
+
+    // Initialize global progress tracker
+    global.broadcastProgress = {
+      running: true,
+      total: totalUsers,
+      done: 0,
+      sent: 0,
+      failed: 0,
+      log: [],
+      startedAt: new Date().toISOString()
+    };
+
+    const pushLog = (icon, name, platform, ok) => {
+      global.broadcastProgress.done++;
+      if (ok) global.broadcastProgress.sent++;
+      else global.broadcastProgress.failed++;
+      global.broadcastProgress.log.unshift({ icon, name, platform, ok, time: new Date().toLocaleTimeString('ar-MA', { hour12: false }) });
+      if (global.broadcastProgress.log.length > 60) global.broadcastProgress.log.length = 60;
+    };
+
+    // Respond immediately — broadcast runs in background
+    res.json({ ok: true, started: true, total: totalUsers });
+
+    // === BACKGROUND BROADCAST ===
+    (async () => {
+      try {
+        // 1. WhatsApp
+        if (targetPlatform === 'all' || targetPlatform === 'whatsapp') {
+          const clients = global.clients || [];
           const sock = clients.find(c => c?.user) || clients[0];
           for (const user of waUsers) {
+            const jid = typeof user === 'string' ? user : (user.id || user.jid);
+            const name = global.waNames?.[jid?.split('@')[0]] || jid?.split('@')[0] || 'WA';
+            if (!jid || jid === 'test@s.whatsapp.net') continue;
+            let ok = false;
             try {
-              const jid = typeof user === 'string' ? user : (user.id || user.jid);
-              if (!jid || jid === 'test@s.whatsapp.net') continue;
-              await sock.sendMessage(jid, { text: formattedMessage });
-              results.whatsapp.sent++;
-              await new Promise(r => setTimeout(r, 500));
-            } catch (e) { results.whatsapp.failed++; }
+              if (sock) { await sock.sendMessage(jid, { text: formattedMessage }); ok = true; }
+            } catch (_) {}
+            pushLog('📱', name, 'WhatsApp', ok);
+            await new Promise(r => setTimeout(r, 500));
           }
-        } else {
-          results.whatsapp.failed += waUsers.length;
         }
-      }
-    }
-    
-    // 2. Telegram Broadcast — try ALL active bots so any user can receive regardless of which bot they used
-    if (targetPlatform === 'all' || targetPlatform === 'telegram') {
-      if (tgUsers.length > 0) {
-        const allBots = Object.values(global.telegramBots || {});
-        if (global.telegramBot && !allBots.includes(global.telegramBot)) allBots.unshift(global.telegramBot);
-        if (allBots.length > 0) {
+
+        // 2. Telegram
+        if (targetPlatform === 'all' || targetPlatform === 'telegram') {
+          const allBots = Object.values(global.telegramBots || {});
+          if (global.telegramBot && !allBots.includes(global.telegramBot)) allBots.unshift(global.telegramBot);
           for (const chatId of tgUsers) {
+            const name = global.tgNames?.[chatId] || chatId;
             let sent = false;
             for (const botInstance of allBots) {
               try {
                 await botInstance.sendMessage(chatId, formattedMessage, { parse_mode: 'Markdown' });
-                sent = true;
-                break; // Stop trying other bots once one succeeds
-              } catch (e) {
-                // 403/404 = this bot can't reach user, try next bot
-              }
+                sent = true; break;
+              } catch (_) {}
             }
-            if (sent) { results.telegram.sent++; } else { results.telegram.failed++; }
+            pushLog('✈️', name, 'Telegram', sent);
             await new Promise(r => setTimeout(r, 300));
           }
-        } else {
-          results.telegram.failed += tgUsers.length;
         }
-      }
-    }
-    
-    // 3. Facebook Broadcast
-    if (targetPlatform === 'all' || targetPlatform === 'facebook') {
-      if (fbUsers.length > 0) {
-        if (config.fbPageAccessToken) {
-          const { sendFacebookMessage } = require('./lib/facebook');
-          for (const user of fbUsers) {
-            try {
+
+        // 3. Facebook
+        if (targetPlatform === 'all' || targetPlatform === 'facebook') {
+          if (config.fbPageAccessToken) {
+            const { sendFacebookMessage } = require('./lib/facebook');
+            for (const user of fbUsers) {
               const recipientId = typeof user === 'string' ? user : user.id;
+              const name = global.fbNames?.[recipientId] || recipientId;
               const pageId = typeof user === 'object' ? user.pageId : null;
-              await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
-              results.facebook.sent++;
+              let ok = false;
+              try {
+                await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
+                ok = true;
+              } catch (_) {}
+              pushLog('🔵', name, 'Facebook', ok);
               await new Promise(r => setTimeout(r, 500));
-            } catch (e) { results.facebook.failed++; }
+            }
+          } else {
+            fbUsers.forEach(u => pushLog('🔵', u.id || u, 'Facebook', false));
           }
-        } else {
-          results.facebook.failed += fbUsers.length;
         }
+      } catch (bgErr) {
+        console.error('[Broadcast BG Error]:', bgErr.message);
+      } finally {
+        if (global.broadcastProgress) global.broadcastProgress.running = false;
       }
-    }
-    
-    const totalSent = results.whatsapp.sent + results.telegram.sent + results.facebook.sent;
-    const totalFailed = results.whatsapp.failed + results.telegram.failed + results.facebook.failed;
-    
-    res.json({
-      ok: true,
-      sent: totalSent,
-      failed: totalFailed,
-      total: totalSent + totalFailed,
-      details: results
-    });
+    })();
+
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
+
+// Broadcast Progress — Live polling endpoint
+app.get('/api/broadcast/progress', (req, res) => {
+  res.json(global.broadcastProgress || { running: false, total: 0, done: 0, sent: 0, failed: 0, log: [] });
+});
+
+
+
 
 // Error Logs API — Returns recent command errors from Supabase error_logs table
 app.get('/api/errors', async (req, res) => {

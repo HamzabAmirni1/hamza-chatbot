@@ -4163,8 +4163,19 @@
     const platform = document.getElementById('broadcast-platform').value;
     if (!msg) { showToast('اكتب رسالة أولاً', 'error'); return; }
     if (!await showConfirm('إرسال هذه الرسالة للمستلمين المحددين؟')) return;
+
     const alert = document.getElementById('broadcast-alert');
-    showAlert(alert, 'info', '⏳ جاري الإرسال، يرجى الانتظار...');
+    showAlert(alert, 'info', '⏳ جاري بدء الإرسال...');
+
+    // Show live progress panel
+    let progressPanel = document.getElementById('bc-progress-panel');
+    if (!progressPanel) {
+      progressPanel = document.createElement('div');
+      progressPanel.id = 'bc-progress-panel';
+      progressPanel.style.cssText = 'margin-top:16px;padding:16px;background:rgba(0,0,0,0.25);border-radius:14px;border:1px solid rgba(255,255,255,0.07);';
+      document.getElementById('broadcast-alert').parentNode.insertBefore(progressPanel, document.getElementById('broadcast-alert').nextSibling);
+    }
+
     try {
       const res = await fetch('/api/broadcast', {
         method: 'POST',
@@ -4172,13 +4183,55 @@
         body: JSON.stringify({ message: msg, platform })
       });
       const data = await res.json();
-      if (data.ok) {
-        showAlert(alert, 'success', `✅ تم الإرسال: ${data.sent} بنجاح، ${data.failed} فشل من أصل ${data.total}`);
-        document.getElementById('broadcast-last').textContent = new Date().toLocaleTimeString('ar-MA');
-        document.getElementById('broadcast-msg').value = '';
-      } else {
+
+      if (!data.ok) {
         showAlert(alert, 'error', data.error || 'فشل الإرسال');
+        return;
       }
+
+      // Start polling progress
+      showAlert(alert, 'info', `📡 البث يعمل في الخلفية... (${data.total} مستخدم)`);
+      document.getElementById('broadcast-msg').value = '';
+      document.getElementById('broadcast-last').textContent = new Date().toLocaleTimeString('ar-MA');
+
+      let pollInterval = setInterval(async () => {
+        try {
+          const pr = await fetch('/api/broadcast/progress');
+          const p = await pr.json();
+
+          const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+          const barColor = p.running ? '#6ee7b7' : (p.failed > 0 ? '#f87171' : '#34d399');
+
+          progressPanel.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span style="font-size:13px;font-weight:700;color:var(--text);">
+                ${p.running ? '📡 جاري الإرسال...' : '✅ اكتمل البث'}
+              </span>
+              <span style="font-size:13px;color:var(--text-muted);">${p.done}/${p.total} — ✅ ${p.sent} ❌ ${p.failed}</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:12px;">
+              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.4s ease;"></div>
+            </div>
+            <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+              ${(p.log || []).map(entry => `
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:8px;">
+                  <span>${entry.icon || '📨'}</span>
+                  <span style="flex:1;color:${entry.ok ? 'var(--text)' : '#f87171'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.name}</span>
+                  <span style="color:var(--text-muted);font-size:11px;">${entry.platform}</span>
+                  <span style="${entry.ok ? 'color:#34d399' : 'color:#f87171'};">${entry.ok ? '✅' : '❌'}</span>
+                  <span style="color:var(--text-muted);font-size:10px;white-space:nowrap;">${entry.time}</span>
+                </div>
+              `).join('')}
+            </div>`;
+
+          if (!p.running) {
+            clearInterval(pollInterval);
+            const statusColor = p.failed === 0 ? 'success' : 'warning';
+            showAlert(alert, statusColor, `✅ اكتمل البث: ${p.sent} وصلت، ${p.failed} فشلت من ${p.total}`);
+          }
+        } catch (_) {}
+      }, 800);
+
     } catch(e) { showAlert(alert, 'error', 'خطأ في الاتصال'); }
   }
 
