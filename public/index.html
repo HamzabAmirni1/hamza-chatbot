@@ -2119,6 +2119,30 @@
         <div id="unused-commands-list" style="max-height:420px;overflow-y:auto;"><div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div></div>
       </div>
     </div>
+
+    <!-- Error Logs Card -->
+    <div class="card" style="margin-top:24px;">
+      <div class="card-header" style="display:flex;align-items:center;gap:12px;">
+        <div class="card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="card-title">⚠️ الأوامر التي تحتوي على أخطاء (سجل الأعطال)</div>
+        <button onclick="loadCmdErrors()" class="btn btn-secondary" style="margin-right:auto;padding:5px 12px;font-size:12px;font-family:Cairo,sans-serif;">🔄 تحديث</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;" id="errors-table">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الأمر</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">رسالة الخطأ</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الوقت والتاريخ</th>
+            </tr>
+          </thead>
+          <tbody id="errors-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- =================== BROADCAST PAGE =================== -->
@@ -2868,7 +2892,7 @@
     if (page === 'sessions') await loadSessions();
     else if (page === 'settings') await loadSettings();
     else if (page === 'users') await loadUsers();
-    else if (page === 'cmdstats') await loadCmdStats();
+    else if (page === 'cmdstats') { await loadCmdStats(); await loadCmdErrors(); }
     else if (page === 'activity') await loadActivity();
     else if (page === 'broadcast') await loadUsers();
     else if (page === 'manage') await loadManagePage();
@@ -3814,6 +3838,35 @@
         }).join('');
       }
     } catch(e) { showToast('خطأ في تحميل الإحصائيات', 'error'); }
+  }
+
+  async function loadCmdErrors() {
+    const tbody = document.getElementById('errors-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>';
+    try {
+      const res = await fetch('/api/errors');
+      const data = await res.json();
+      if (!data.ok || !data.errors || data.errors.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--accent);">✅ لا توجد أخطاء مسجلة</td></tr>';
+        return;
+      }
+      const platformIcons = { whatsapp: '📱', telegram: '✈️', facebook: '🔵', wa: '📱', tg: '✈️', fb: '🔵', WA: '📱', TG: '✈️', FB: '🔵' };
+      tbody.innerHTML = data.errors.map(err => {
+        const icon = platformIcons[err.platform] || '🤖';
+        const date = err.created_at ? new Date(err.created_at).toLocaleString('ar-MA', { hour12: false }) : '—';
+        const errMsg = (err.error_message || err.message || '—').substring(0, 120);
+        const cmd = err.command || err.cmd || '—';
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;" onmouseover="this.style.background='rgba(252,129,129,0.06)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:10px 14px;font-weight:700;color:var(--accent);">${cmd}</td>
+          <td style="padding:10px 14px;color:var(--text-muted);max-width:300px;word-break:break-word;">${errMsg}</td>
+          <td style="padding:10px 14px;">${icon} ${err.platform || '—'}</td>
+          <td style="padding:10px 14px;color:var(--text-muted);font-size:12px;white-space:nowrap;">${date}</td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات</td></tr>';
+    }
   }
 
   function renderTopCommands(platform) {

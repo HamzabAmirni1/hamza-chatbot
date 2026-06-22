@@ -655,16 +655,37 @@ app.get('/api/users', async (req, res) => {
     const mappedWa = [];
     const mappedTg = [];
     const mappedFb = [];
+    // Track seen IDs to deduplicate (rows with and without tg:/fb: prefix)
+    const seenWa = new Set();
+    const seenTg = new Set();
+    const seenFb = new Set();
 
-    for (const u of rows) {
+    // Sort rows so prefixed JIDs (tg:, fb:) are processed first — they are canonical
+    const sortedRows = [...rows].sort((a, b) => {
+      const aHasPrefix = (a.jid || '').startsWith('tg:') || (a.jid || '').startsWith('fb:') ? 0 : 1;
+      const bHasPrefix = (b.jid || '').startsWith('tg:') || (b.jid || '').startsWith('fb:') ? 0 : 1;
+      return aHasPrefix - bHasPrefix;
+    });
+
+    for (const u of sortedRows) {
       if (!u.jid) continue;
+      // Skip internal rows (names cache, etc.)
+      if (u.jid.startsWith('names:') || u.jid.startsWith('cache:')) continue;
       const platform = getPlatformFromJid(u.jid);
       const cleanId = u.jid.replace('tg:', '').replace('fb:', '').split('@')[0];
       let name = '';
       if (platform === 'telegram') {
+        if (seenTg.has(cleanId)) continue; // skip duplicate
+        seenTg.add(cleanId);
         name = (global.tgNames && global.tgNames[cleanId]) || '';
       } else if (platform === 'facebook') {
+        if (seenFb.has(cleanId)) continue; // skip duplicate
+        seenFb.add(cleanId);
         name = (global.fbNames && global.fbNames[cleanId]) || '';
+      } else if (platform === 'whatsapp') {
+        const waKey = u.jid.split('@')[0];
+        if (seenWa.has(waKey)) continue; // skip duplicate
+        seenWa.add(waKey);
       }
 
       const userObj = {
@@ -1214,19 +1235,29 @@ app.post('/api/broadcast', async (req, res) => {
     const targetPlatform = platform || 'all';
     let results = { whatsapp: { sent: 0, failed: 0 }, telegram: { sent: 0, failed: 0 }, facebook: { sent: 0, failed: 0 } };
     
+    // Format broadcast message with developer header (as requested by user)
+    const formattedMessage = `\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557\n\u2551   \uD83D\uDCE2 \u0631\u0633\u0627\u0644\u0629 \u0645\u0646 \u0645\u0637\u0648\u0631 \u0627\u0644\u0628\u0648\u062a\n\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\n\n${message}\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u2694\uFE0F *\u062d\u0645\u0632\u0629 \u0627\u0639\u0645\u0631\u0646\u064a*`;
+    
     // Fetch all users from Supabase to construct target lists
     let waUsers = [], tgUsers = [], fbUsers = [];
     try {
       const rows = await db.getAllUsers();
+      // Deduplicate using Sets to prevent double-sending
+      const waSet = new Set();
+      const tgSet = new Set();
+      const fbSet = new Set();
       for (const u of rows) {
         if (!u.jid) continue;
         const plat = getPlatformFromJid(u.jid);
         const cleanId = u.jid.replace('tg:', '').replace('fb:', '');
-        if (plat === 'whatsapp') {
+        if (plat === 'whatsapp' && !waSet.has(u.jid)) {
+          waSet.add(u.jid);
           waUsers.push(u.jid);
-        } else if (plat === 'telegram') {
+        } else if (plat === 'telegram' && !tgSet.has(cleanId)) {
+          tgSet.add(cleanId);
           tgUsers.push(cleanId);
-        } else if (plat === 'facebook') {
+        } else if (plat === 'facebook' && !fbSet.has(cleanId)) {
+          fbSet.add(cleanId);
           fbUsers.push({ id: cleanId });
         }
       }
@@ -1247,7 +1278,7 @@ app.post('/api/broadcast', async (req, res) => {
             try {
               const jid = typeof user === 'string' ? user : (user.id || user.jid);
               if (!jid || jid === 'test@s.whatsapp.net') continue;
-              await sock.sendMessage(jid, { text: message });
+              await sock.sendMessage(jid, { text: formattedMessage });
               results.whatsapp.sent++;
               await new Promise(r => setTimeout(r, 500));
             } catch (e) { results.whatsapp.failed++; }
@@ -1258,21 +1289,25 @@ app.post('/api/broadcast', async (req, res) => {
       }
     }
     
-    // 2. Telegram Broadcast
+    // 2. Telegram Broadcast — try ALL active bots so any user can receive regardless of which bot they used
     if (targetPlatform === 'all' || targetPlatform === 'telegram') {
       if (tgUsers.length > 0) {
-        if (config.telegramToken) {
-          const { sendTelegramPrayerReminder } = require('./lib/telegram');
+        const allBots = Object.values(global.telegramBots || {});
+        if (global.telegramBot && !allBots.includes(global.telegramBot)) allBots.unshift(global.telegramBot);
+        if (allBots.length > 0) {
           for (const chatId of tgUsers) {
-            try {
-              if (global.telegramBot) {
-                await global.telegramBot.sendMessage(chatId, message);
-              } else {
-                await sendTelegramPrayerReminder(chatId, message);
+            let sent = false;
+            for (const botInstance of allBots) {
+              try {
+                await botInstance.sendMessage(chatId, formattedMessage, { parse_mode: 'Markdown' });
+                sent = true;
+                break; // Stop trying other bots once one succeeds
+              } catch (e) {
+                // 403/404 = this bot can't reach user, try next bot
               }
-              results.telegram.sent++;
-              await new Promise(r => setTimeout(r, 500));
-            } catch (e) { results.telegram.failed++; }
+            }
+            if (sent) { results.telegram.sent++; } else { results.telegram.failed++; }
+            await new Promise(r => setTimeout(r, 300));
           }
         } else {
           results.telegram.failed += tgUsers.length;
@@ -1289,7 +1324,7 @@ app.post('/api/broadcast', async (req, res) => {
             try {
               const recipientId = typeof user === 'string' ? user : user.id;
               const pageId = typeof user === 'object' ? user.pageId : null;
-              await sendFacebookMessage(recipientId, message, pageId || config.fbPageAccessToken);
+              await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
               results.facebook.sent++;
               await new Promise(r => setTimeout(r, 500));
             } catch (e) { results.facebook.failed++; }
@@ -1311,6 +1346,16 @@ app.post('/api/broadcast', async (req, res) => {
       details: results
     });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// Error Logs API — Returns recent command errors from Supabase error_logs table
+app.get('/api/errors', async (req, res) => {
+  try {
+    const errors = await db.getRecentErrors(30);
+    res.json({ ok: true, errors });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // Facebook Webhook Authentication
