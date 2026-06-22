@@ -525,7 +525,8 @@ app.post('/api/settings', (req, res) => {
       'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
       'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
-      'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot'
+      'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
+      'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL'
     ];
     const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls'];
     for (const key of strFields) {
@@ -1642,8 +1643,10 @@ async function startBot(folderName, phoneNumber) {
         }
 
         if (body && !msg.key.fromMe) {
-          const skipAI = await handleAutoDL(sock, sender, msg, body, processedMessages, { sendFBVideo, sendYTVideo, getYupraVideoByUrl, getOkatsuVideoByUrl });
-          if (skipAI) continue;
+          if (require('./config').enableAutoDL !== 'false') {
+            const skipAI = await handleAutoDL(sock, sender, msg, body, processedMessages, { sendFBVideo, sendYTVideo, getYupraVideoByUrl, getOkatsuVideoByUrl });
+            if (skipAI) continue;
+          }
         }
 
         // --- Intercept Audio / Voice Messages for Voice-to-Voice Chatbot ---

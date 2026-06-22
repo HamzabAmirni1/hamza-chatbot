@@ -98,6 +98,11 @@ const settings = {
     enableTrafficBooster: 'true',
     trafficIntervalMinutes: '5',
     trafficUrls: ['https://hamzaamirni.netlify.app'],
+    enablePrayerScheduler: 'true',
+    enableDuasScheduler: 'true',
+    enableRamadanScheduler: 'true',
+    enableGithubAutoPoster: 'true',
+    enableAutoDL: 'true',
 };
 
 module.exports = settings;

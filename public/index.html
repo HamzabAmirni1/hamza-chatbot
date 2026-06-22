@@ -1696,6 +1696,41 @@
         </div>
         <label class="toggle"><input type="checkbox" id="s-enableGroupChatbot" /><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">تفعيل أوقات الصلاة والتنبيهات</div>
+          <div class="toggle-desc">تنبيه المستخدمين تلقائياً عند دخول وقت الصلاة بالمسجد الحرام/المدينة المحددة</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enablePrayerScheduler" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">أذكار وأدعية تلقائية</div>
+          <div class="toggle-desc">نشر أذكار اليوم وأدعية الصباح/المساء والنوم تلقائياً للمشتركين</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableDuasScheduler" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">تفعيل مجدول رمضان</div>
+          <div class="toggle-desc">تنبيهات السحور، الإفطار، الختمة الرمضانية اليومية وأدعية رمضان</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableRamadanScheduler" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">نشر مشاريع GitHub الشائعة</div>
+          <div class="toggle-desc">نشر تلقائي لأشهر المشاريع الشائعة (Trending) على فيسبوك وتليجرام</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableGithubAutoPoster" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">التحميل التلقائي لميديا الروابط (AutoDL)</div>
+          <div class="toggle-desc">تحميل الفيديوهات تلقائياً عند إرسال روابط فيسبوك/إنستا/يوتيوب للخاص</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableAutoDL" /><span class="toggle-slider"></span></label>
+      </div>
     </div>
 
     <!-- Traffic Booster Settings -->
@@ -3087,6 +3122,11 @@
       document.getElementById('s-enableGroupChatbot').checked = data.enableGroupChatbot === 'true';
       document.getElementById('s-enableTrafficBooster').checked = data.enableTrafficBooster === 'true';
       document.getElementById('s-trafficIntervalMinutes').value = data.trafficIntervalMinutes || '5';
+      document.getElementById('s-enablePrayerScheduler').checked = data.enablePrayerScheduler !== 'false';
+      document.getElementById('s-enableDuasScheduler').checked = data.enableDuasScheduler !== 'false';
+      document.getElementById('s-enableRamadanScheduler').checked = data.enableRamadanScheduler !== 'false';
+      document.getElementById('s-enableGithubAutoPoster').checked = data.enableGithubAutoPoster !== 'false';
+      document.getElementById('s-enableAutoDL').checked = data.enableAutoDL !== 'false';
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
 
       // Stickers & Newsletters
@@ -3202,6 +3242,11 @@
       enableGroupChatbot: document.getElementById('s-enableGroupChatbot').checked ? 'true' : 'false',
       enableTrafficBooster: document.getElementById('s-enableTrafficBooster').checked ? 'true' : 'false',
       trafficIntervalMinutes: document.getElementById('s-trafficIntervalMinutes').value || '5',
+      enablePrayerScheduler: document.getElementById('s-enablePrayerScheduler').checked ? 'true' : 'false',
+      enableDuasScheduler: document.getElementById('s-enableDuasScheduler').checked ? 'true' : 'false',
+      enableRamadanScheduler: document.getElementById('s-enableRamadanScheduler').checked ? 'true' : 'false',
+      enableGithubAutoPoster: document.getElementById('s-enableGithubAutoPoster').checked ? 'true' : 'false',
+      enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
 
       packname: document.getElementById('s-packname').value,
