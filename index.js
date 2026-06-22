@@ -1358,6 +1358,54 @@ app.get('/api/errors', async (req, res) => {
   }
 });
 
+// Refresh Names API — Bulk-fetch Facebook profile names for all registered FB users
+app.post('/api/refresh-names', async (req, res) => {
+  try {
+    const { fetchFbProfileName } = require('./lib/facebook');
+    const rows = await db.getAllUsers();
+    global.fbNames = global.fbNames || {};
+
+    // Get page tokens from active FB configs
+    const botConfigs = await db.getBotConfigs();
+    const fbTokens = botConfigs
+      .filter(c => c.platform === 'facebook' && c.token)
+      .map(c => c.token);
+    // Also include the config-level token as fallback
+    if (config.fbPageAccessToken) fbTokens.push(config.fbPageAccessToken);
+    const uniqueTokens = [...new Set(fbTokens)];
+
+    const fbUsers = rows.filter(u => u.jid && u.jid.startsWith('fb:'));
+    let fetched = 0;
+    let failed = 0;
+
+    for (const u of fbUsers) {
+      const cleanId = u.jid.replace('fb:', '');
+      if (global.fbNames[cleanId]) continue; // already have name, skip
+      let name = null;
+      for (const token of uniqueTokens) {
+        name = await fetchFbProfileName(cleanId, token);
+        if (name) break;
+      }
+      if (name) {
+        global.fbNames[cleanId] = name;
+        fetched++;
+      } else {
+        failed++;
+      }
+      await new Promise(r => setTimeout(r, 200)); // avoid rate-limiting
+    }
+
+    // Persist updated names map to Supabase
+    if (fetched > 0) {
+      await db.saveUserNames('facebook', global.fbNames).catch(() => {});
+    }
+
+    res.json({ ok: true, fetched, failed, total: fbUsers.length });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Facebook Webhook Authentication
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
