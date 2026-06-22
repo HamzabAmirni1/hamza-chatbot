@@ -2051,7 +2051,7 @@
         <div class="card-icon blue"><i class="fas fa-list"></i></div>
         <div class="card-title">قائمة المستخدمين المسجلين</div>
         <div style="margin-right:auto;display:flex;gap:8px;">
-          <button class="btn btn-secondary" onclick="refreshUserNames()" id="btn-refresh-names" style="padding:8px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:#fbbf24;" title="جلب أسماء الملف الشخصي من Facebook">
+          <button class="btn btn-secondary" onclick="refreshUserNames()" id="btn-refresh-names" style="padding:8px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:#fbbf24;" title="جلب أسماء الملفات الشخصية لفيسبوك وتليجرام">
             <i class="fas fa-id-badge"></i> جلب الأسماء
           </button>
           <button class="btn btn-secondary" onclick="loadUsers()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
@@ -3662,7 +3662,16 @@
       const res = await fetch('/api/refresh-names', { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        showToast(`✅ تم جلب ${data.fetched} اسم (${data.failed} فشل من ${data.total} مستخدم فيسبوك)`, 'success');
+        let msg = `✅ تم التحديث:`;
+        let parts = [];
+        if (data.facebook && data.facebook.total > 0) {
+          parts.push(`فيسبوك (${data.facebook.fetched} تم جلبهم، ${data.facebook.failed} فشل)`);
+        }
+        if (data.telegram && data.telegram.total > 0) {
+          parts.push(`تليجرام (${data.telegram.fetched} تم جلبهم، ${data.telegram.failed} فشل)`);
+        }
+        msg += ' ' + (parts.join(' و ') || 'لا توجد بيانات جديدة');
+        showToast(msg, 'success');
         // Reload users to show the new names
         await loadUsers();
       } else {

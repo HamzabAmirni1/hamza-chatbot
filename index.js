@@ -686,6 +686,7 @@ app.get('/api/users', async (req, res) => {
         const waKey = u.jid.split('@')[0];
         if (seenWa.has(waKey)) continue; // skip duplicate
         seenWa.add(waKey);
+        name = (global.waNames && global.waNames[waKey]) || '';
       }
 
       const userObj = {
@@ -1372,25 +1373,24 @@ app.get('/api/errors', async (req, res) => {
   }
 });
 
-// Refresh Names API — Bulk-fetch Facebook profile names for all registered FB users
+// Refresh Names API — Bulk-fetch profile names for registered Telegram and Facebook users
 app.post('/api/refresh-names', async (req, res) => {
   try {
     const { fetchFbProfileName } = require('./lib/facebook');
     const rows = await db.getAllUsers();
+    
+    // 1. Facebook Names
     global.fbNames = global.fbNames || {};
-
-    // Get page tokens from active FB configs
     const botConfigs = await db.getBotConfigs();
     const fbTokens = botConfigs
       .filter(c => c.platform === 'facebook' && c.token)
       .map(c => c.token);
-    // Also include the config-level token as fallback
     if (config.fbPageAccessToken) fbTokens.push(config.fbPageAccessToken);
     const uniqueTokens = [...new Set(fbTokens)];
 
     const fbUsers = rows.filter(u => u.jid && u.jid.startsWith('fb:'));
-    let fetched = 0;
-    let failed = 0;
+    let fbFetched = 0;
+    let fbFailed = 0;
 
     for (const u of fbUsers) {
       const cleanId = u.jid.replace('fb:', '');
@@ -1402,19 +1402,60 @@ app.post('/api/refresh-names', async (req, res) => {
       }
       if (name) {
         global.fbNames[cleanId] = name;
-        fetched++;
+        fbFetched++;
       } else {
-        failed++;
+        fbFailed++;
       }
       await new Promise(r => setTimeout(r, 200)); // avoid rate-limiting
     }
 
-    // Persist updated names map to Supabase
-    if (fetched > 0) {
+    if (fbFetched > 0) {
       await db.saveUserNames('facebook', global.fbNames).catch(() => {});
     }
 
-    res.json({ ok: true, fetched, failed, total: fbUsers.length });
+    // 2. Telegram Names
+    const tgUsers = rows.filter(u => u.jid && u.jid.startsWith('tg:'));
+    global.tgNames = global.tgNames || {};
+    let tgFetched = 0;
+    let tgFailed = 0;
+
+    const allBots = Object.values(global.telegramBots || {});
+    if (global.telegramBot && !allBots.includes(global.telegramBot)) allBots.unshift(global.telegramBot);
+
+    if (allBots.length > 0) {
+      for (const u of tgUsers) {
+        const cleanId = u.jid.replace('tg:', '');
+        if (global.tgNames[cleanId]) continue; // already have name, skip
+        
+        let name = null;
+        for (const botInstance of allBots) {
+          try {
+            const chat = await botInstance.getChat(cleanId);
+            if (chat) {
+              name = `${chat.first_name || ''} ${chat.last_name || ''}`.trim() || chat.title || chat.username || null;
+              if (name) break;
+            }
+          } catch (_) {}
+        }
+        
+        if (name) {
+          global.tgNames[cleanId] = name;
+          tgFetched++;
+        } else {
+          tgFailed++;
+        }
+        await new Promise(r => setTimeout(r, 150)); // avoid rate-limiting
+      }
+      if (tgFetched > 0) {
+        await db.saveUserNames('telegram', global.tgNames).catch(() => {});
+      }
+    }
+
+    res.json({
+      ok: true,
+      facebook: { fetched: fbFetched, failed: fbFailed, total: fbUsers.length },
+      telegram: { fetched: tgFetched, failed: tgFailed, total: tgUsers.length }
+    });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -1885,6 +1926,15 @@ async function startBot(folderName, phoneNumber) {
 
         logUser(sender);
 
+        if (msg.pushName) {
+          global.waNames = global.waNames || {};
+          const cleanId = sender.split('@')[0];
+          if (global.waNames[cleanId] !== msg.pushName) {
+            global.waNames[cleanId] = msg.pushName;
+            db.saveUserNames('whatsapp', global.waNames).catch(() => {});
+          }
+        }
+
         // Activity log for dashboard
         try {
           global._activityLog = global._activityLog || [];
@@ -2270,7 +2320,8 @@ async function startBot(folderName, phoneNumber) {
   try {
     global.tgNames = await db.loadUserNames('telegram');
     global.fbNames = await db.loadUserNames('facebook');
-    console.log(chalk.cyan(`📥 Loaded ${Object.keys(global.tgNames || {}).length} Telegram names and ${Object.keys(global.fbNames || {}).length} Facebook names from Supabase.`));
+    global.waNames = await db.loadUserNames('whatsapp');
+    console.log(chalk.cyan(`📥 Loaded ${Object.keys(global.tgNames || {}).length} Telegram names, ${Object.keys(global.fbNames || {}).length} Facebook names, and ${Object.keys(global.waNames || {}).length} WhatsApp names from Supabase.`));
   } catch (e) {}
   
   // 1. WhatsApp Bots
