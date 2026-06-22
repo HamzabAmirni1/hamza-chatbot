@@ -676,6 +676,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
     }
 
     .number-dot {
@@ -1122,6 +1123,40 @@
         gap: 6px;
       }
       /* Analytics KPI cards on mobile: same as all pages — 1 col (removed 2-col override) */
+
+      /* Users page mobile styling */
+      #page-users #users-list .number-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px 14px;
+      }
+      #page-users #users-list .number-item-left {
+        width: 100%;
+      }
+      #page-users #users-list .number-item > div:last-child {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 10px;
+        margin-top: 4px;
+      }
+      #users-toolbar {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 12px;
+      }
+      #users-toolbar > div {
+        justify-content: center;
+        width: 100%;
+      }
+      #users-toolbar button.btn-danger {
+        width: 100% !important;
+        justify-content: center;
+        margin-top: 0 !important;
+      }
     }
   </style>
 </head>
@@ -1902,7 +1937,7 @@
         <div class="card-header"><div class="card-icon blue"><i class="fas fa-user-edit"></i></div><div class="card-title">حظر / رفع حظر مستخدم</div></div>
         <div class="form-group">
           <label class="form-label">المنصة</label>
-          <select id="ban-platform" class="form-input" style="background:var(--card-bg);color:var(--text-main);border:1px solid var(--border);border-radius:8px;padding:10px;width:100%;box-sizing:border-box;margin-bottom:12px;">
+          <select id="ban-platform" class="form-input" style="margin-bottom:12px;">
             <option value="whatsapp">WhatsApp</option>
             <option value="telegram">Telegram</option>
             <option value="facebook">Facebook</option>
@@ -1910,7 +1945,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">معرف المستخدم / رقم الهاتف</label>
-          <input type="text" id="ban-number" class="form-input" placeholder="212XXXXXXXXX أو معرف تليجرام/فيسبوك" style="box-sizing:border-box;" />
+          <input type="text" id="ban-number" class="form-input" placeholder="212XXXXXXXXX أو معرف تليجرام/فيسبوك" style="margin-bottom:12px;" />
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-danger" onclick="banUser()" style="flex:1;justify-content:center;"><i class="fas fa-ban"></i> حظر</button>
@@ -1931,7 +1966,7 @@
         <div class="card-title">قائمة المستخدمين المسجلين</div>
         <button class="btn btn-secondary" onclick="loadUsers()" style="margin-right:auto;padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
       </div>
-      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;background:rgba(255,255,255,0.01);">
+      <div id="users-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;background:rgba(255,255,255,0.01);">
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
           <button class="platform-tab-btn active" id="btn-filter-all" onclick="filterUsersPlatform('all')"><i class="fas fa-users"></i> الكل</button>
           <button class="platform-tab-btn" id="btn-filter-whatsapp" onclick="filterUsersPlatform('whatsapp')"><i class="fab fa-whatsapp"></i> واتساب</button>
@@ -3284,7 +3319,7 @@
             displayId = jid.replace('fb:', '');
             prefix = 'فيسبوك: ';
           }
-          return `<div class="number-item"><div class="number-item-left"><div class="number-dot" style="background:var(--red);"></div><span style="font-size:13px;font-weight:600;">${prefix}${displayId}</span></div><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${displayId}', '${platform}')"><i class="fas fa-unlock"></i> رفع</button></div>`;
+          return `<div class="number-item"><div class="number-item-left" style="min-width:0;"><div class="number-dot" style="background:var(--red);flex-shrink:0;"></div><span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${prefix}${displayId}</span></div><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;flex-shrink:0;" onclick="quickUnban('${displayId}', '${platform}')"><i class="fas fa-unlock"></i> رفع</button></div>`;
         }).join('');
       }
 
@@ -3346,14 +3381,14 @@
       const subLabel = u.name ? `${u.platform === 'whatsapp' ? '+' : ''}${num}` : '';
       
       return `<div class="number-item">
-        <div class="number-item-left">
-          <div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">${icon}</div>
-          <div>
-            <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">${displayName} ${platBadge}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${subLabel ? subLabel + ' · ' : ''}آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div>
+        <div class="number-item-left" style="min-width:0;">
+          <div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:14px;color:white;flex-shrink:0;">${icon}</div>
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayName} ${platBadge}</div>
+            <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${subLabel ? subLabel + ' · ' : ''}آخر ظهور: ${lastSeen}${u.language ? ' · ' + u.language : ''}</div>
           </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;">
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
           ${isBanned ? 
             `<span class="chip chip-red">محظور</span><button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickUnban('${num}', '${u.platform}')" title="رفع الحظر"><i class="fas fa-unlock"></i></button>` : 
             `<span class="chip chip-green">نشط</span><button class="btn btn-danger" style="padding:5px 10px;font-size:11px;" onclick="quickBan('${num}', '${u.platform}')" title="حظر"><i class="fas fa-ban"></i></button>`
