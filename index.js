@@ -807,19 +807,75 @@ app.post('/api/send-message', async (req, res) => {
       await sock.sendMessage(jid, { text: message });
       return res.json({ ok: true });
     } else if (plat === 'telegram') {
-      const { sendTelegramPrayerReminder } = require('./lib/telegram');
-      if (global.telegramBot) {
-        await global.telegramBot.sendMessage(cleanNum, message);
-      } else if (config.telegramToken) {
-        await sendTelegramPrayerReminder(cleanNum, message);
+      const botTokens = Object.keys(global.telegramBots || {});
+      if (config.telegramToken && !botTokens.includes(config.telegramToken)) {
+        botTokens.push(config.telegramToken);
+      }
+
+      if (botTokens.length > 0) {
+        let sent = false;
+        let lastError = null;
+
+        for (const token of botTokens) {
+          const botInstance = global.telegramBots ? global.telegramBots[token] : null;
+          try {
+            if (botInstance) {
+              await botInstance.sendMessage(cleanNum, message);
+            } else {
+              // Direct API call
+              await require('axios').post(
+                `https://api.telegram.org/bot${token}/sendMessage`,
+                {
+                  chat_id: cleanNum,
+                  text: message.replace(/\*/g, '').replace(/_/g, ''),
+                  parse_mode: 'HTML'
+                },
+                { timeout: 10000 }
+              );
+            }
+            sent = true;
+            break; // Stop on first success
+          } catch (e) {
+            lastError = e;
+            console.warn(`[Send Message API] Failed to send using bot token ${token.substring(0,8)}...:`, e.message);
+          }
+        }
+
+        if (!sent) {
+          // If it fails for all, return the last error message or a friendly message
+          const errorMsg = lastError ? (lastError.response?.data?.description || lastError.message) : 'Forbidden: bot can\'t initiate conversation with a user';
+          return res.status(500).json({ ok: false, error: errorMsg });
+        }
+        return res.json({ ok: true });
       } else {
         return res.status(500).json({ ok: false, error: 'بوت تليجرام غير مفعّل' });
       }
-      return res.json({ ok: true });
     } else if (plat === 'facebook') {
-      if (config.fbPageAccessToken) {
+      const pageTokens = Object.values(global.fbPageTokens || {});
+      if (config.fbPageAccessToken && !pageTokens.includes(config.fbPageAccessToken)) {
+        pageTokens.push(config.fbPageAccessToken);
+      }
+
+      if (pageTokens.length > 0) {
+        let sent = false;
+        let lastError = null;
         const { sendFacebookMessage } = require('./lib/facebook');
-        await sendFacebookMessage(cleanNum, message, config.fbPageAccessToken);
+
+        for (const pageToken of pageTokens) {
+          try {
+            await sendFacebookMessage(cleanNum, message, pageToken);
+            sent = true;
+            break;
+          } catch (e) {
+            lastError = e;
+            console.warn(`[Send Message API] Failed to send to Facebook using token ${pageToken.substring(0,8)}...:`, e.message);
+          }
+        }
+
+        if (!sent) {
+          const errorMsg = lastError ? (lastError.response?.data?.error?.message || lastError.message) : 'فشل الإرسال من جميع الصفحات النشطة';
+          return res.status(500).json({ ok: false, error: errorMsg });
+        }
         return res.json({ ok: true });
       } else {
         return res.status(500).json({ ok: false, error: 'حساب فيسبوك غير مفعّل' });
