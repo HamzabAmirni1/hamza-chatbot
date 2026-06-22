@@ -61,13 +61,19 @@ import os
 
 id_ = os.environ.get("INSTA_HUNTER_TELEGRAM_OWNER_ID")
 if not id_:
-    id_ = input(f"{fg_lavender}{bold}✤ أدخل معرف التيليجرام (ID)➤ {reset}")
-    print('')
+    if sys.stdin.isatty():
+        id_ = input(f"{fg_lavender}{bold}✤ أدخل معرف التيليجرام (ID)➤ {reset}")
+        print('')
+    else:
+        id_ = ""
 
 token = os.environ.get("INSTA_HUNTER_TELEGRAM_TOKEN")
 if not token:
-    token = input(f"{fg_mint}{bold}✤ أدخل توكن البوت ➤ (TOKEN) {reset}")
-    print('')
+    if sys.stdin.isatty():
+        token = input(f"{fg_mint}{bold}✤ أدخل توكن البوت ➤ (TOKEN) {reset}")
+        print('')
+    else:
+        token = ""
 
 
 animation = [
@@ -400,7 +406,7 @@ def bot(token, id_, gmail, usr, email):
         print(f"__HIT__|{username}|{username}@{domain}|{followers}|{posts}|{rest(username)}|{full_name}")
         sys.stdout.flush()
 
-        if os.environ.get("SEND_TELEGRAM", "true").lower() == "true":
+        if os.environ.get("SEND_TELEGRAM", "true").lower() == "true" and token and id_:
             response = requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage?chat_id={id_}&text={info_text}",
                 timeout=20
