@@ -183,8 +183,9 @@ def get_tl():
             tl = json.loads(response.text[5:])[0][0][4].split("TL:")[1]
             with open("google.txt", "w") as w:
                 w.write(tl)
+            time.sleep(300)
         except Exception:
-            pass
+            time.sleep(15)
 
 Thread(target=get_tl, daemon=True).start()
 
@@ -232,8 +233,18 @@ def lookup(email):
 def check_gmail(email):
     global hits, taken
     usr = email.split("@")[0]
-    with open("google.txt", "r") as ys:
-        tl = ys.read().strip()
+    if not os.path.exists("google.txt"):
+        print("⚠️ Warning: google.txt is missing. Still waiting for Google token verification...")
+        sys.stdout.flush()
+        return
+
+    try:
+        with open("google.txt", "r") as ys:
+            tl = ys.read().strip()
+        if not tl:
+            return
+    except Exception:
+        return
 
     url = "https://accounts.google.com/_/signup/usernameavailability"
     params = {
