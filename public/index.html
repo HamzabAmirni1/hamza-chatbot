@@ -1318,6 +1318,9 @@
     <a class="nav-item" onclick="showPage('insta-hunter'); closeSidebarOnMobile()" id="nav-insta-hunter">
       <i class="fab fa-instagram" style="color:#e1306c;"></i> <span>صيد انستقرام</span>
     </a>
+    <a class="nav-item" onclick="showPage('contacts'); closeSidebarOnMobile()" id="nav-contacts">
+      <i class="fas fa-address-book" style="color:#a78bfa;"></i> <span>جهات الاتصال</span>
+    </a>
   </nav>
 
   <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
@@ -2715,6 +2718,79 @@
     </div>
   </div><!-- end page-insta-hunter -->
 
+  <!-- =================== CONTACTS PAGE =================== -->
+  <div class="page" id="page-contacts">
+    <div class="page-header">
+      <h1><i class="fas fa-address-book" style="color:#a78bfa"></i> جهات الاتصال</h1>
+      <p>عرض جميع المستخدمين المسجلين مع أسمائهم الحقيقية عبر كل المنصات</p>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-4" style="margin-bottom:20px;">
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:var(--accent)" id="cnt-total">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">إجمالي جهات الاتصال</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#25d366" id="cnt-wa">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><i class="fab fa-whatsapp"></i> واتساب</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#38bdf8" id="cnt-tg">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><i class="fab fa-telegram-plane"></i> تليجرام</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#0084ff" id="cnt-fb">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><i class="fab fa-facebook-messenger"></i> فيسبوك</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- Toolbar -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <!-- Search -->
+        <div style="position:relative;flex:1;min-width:180px;">
+          <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;"></i>
+          <input id="contacts-search" type="text" placeholder="ابحث بالاسم أو الرقم..." oninput="renderContacts()"
+            style="width:100%;padding:9px 12px 9px 36px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:Cairo,sans-serif;font-size:13px;box-sizing:border-box;" />
+        </div>
+        <!-- Platform filter -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button id="cbtn-all"      class="btn btn-primary contacts-filter-btn active" onclick="setContactFilter('all')"      style="padding:7px 14px;font-size:12px;">الكل</button>
+          <button id="cbtn-whatsapp" class="btn btn-secondary contacts-filter-btn" onclick="setContactFilter('whatsapp')" style="padding:7px 14px;font-size:12px;color:#25d366;"><i class="fab fa-whatsapp"></i></button>
+          <button id="cbtn-telegram" class="btn btn-secondary contacts-filter-btn" onclick="setContactFilter('telegram')" style="padding:7px 14px;font-size:12px;color:#38bdf8;"><i class="fab fa-telegram-plane"></i></button>
+          <button id="cbtn-facebook" class="btn btn-secondary contacts-filter-btn" onclick="setContactFilter('facebook')" style="padding:7px 14px;font-size:12px;color:#0084ff;"><i class="fab fa-facebook-messenger"></i></button>
+        </div>
+        <!-- Sort -->
+        <select id="contacts-sort" onchange="renderContacts()" style="padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:Cairo,sans-serif;font-size:12px;">
+          <option value="name">ترتيب: الاسم</option>
+          <option value="platform">ترتيب: المنصة</option>
+          <option value="date">ترتيب: آخر ظهور</option>
+        </select>
+        <!-- Refresh names button -->
+        <button class="btn btn-primary" onclick="contactsRefreshNames()" id="btn-contacts-refresh"
+          style="padding:8px 16px;font-size:12px;background:linear-gradient(135deg,rgba(167,139,250,0.15),rgba(99,179,237,0.1));border:1px solid rgba(167,139,250,0.3);color:#a78bfa;">
+          <i class="fas fa-id-badge"></i> جلب الأسماء
+        </button>
+      </div>
+
+      <!-- Cards Grid -->
+      <div id="contacts-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;">
+        <div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:12px;display:block;"></i>
+          جاري تحميل جهات الاتصال...
+        </div>
+      </div>
+
+      <!-- Empty state (hidden by default) -->
+      <div id="contacts-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);">
+        <i class="fas fa-user-slash" style="font-size:40px;margin-bottom:16px;display:block;opacity:0.3;"></i>
+        <div style="font-size:15px;font-weight:600;">لا توجد نتائج</div>
+        <div style="font-size:12px;margin-top:6px;">جرّب تغيير كلمة البحث أو الفلتر</div>
+      </div>
+    </div>
+  </div><!-- end page-contacts -->
+
   <!-- Custom Modal Confirmation Dialog -->
   <div id="custom-confirm-modal" class="custom-modal-overlay hide">
     <div class="custom-modal">
@@ -2967,6 +3043,7 @@
     else if (page === 'analytics') await loadAnalytics();
     else if (page === 'scripts') await loadScriptsPage();
     else if (page === 'insta-hunter') await loadInstaPage();
+    else if (page === 'contacts') await loadContacts();
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -3001,6 +3078,7 @@
       else if (activePage === 'analytics') await loadAnalytics();
       else if (activePage === 'scripts') await loadScriptsPage();
       else if (activePage === 'insta-hunter') await loadInstaPage();
+      else if (activePage === 'contacts') await loadContacts();
       
       showToast('✅ تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
@@ -5105,6 +5183,137 @@
 
   function clearLocalInstaLogs() {
     document.getElementById('insta-logs-container').innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">تم مسح الشاشة. بانتظار سجلات جديدة...</div>`;
+  }
+
+  // =================== CONTACTS PAGE ===================
+  let _contacts = [];        // all contacts loaded from API
+  let _contactFilter = 'all'; // current platform filter
+
+  async function loadContacts() {
+    const grid = document.getElementById('contacts-grid');
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:12px;display:block;"></i>جاري التحميل...</div>`;
+    document.getElementById('contacts-empty').style.display = 'none';
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Error');
+      _contacts = data.users || [];
+      // Update stat counters
+      document.getElementById('cnt-total').textContent = data.total || 0;
+      document.getElementById('cnt-wa').textContent    = data.waCount || 0;
+      document.getElementById('cnt-tg').textContent    = data.tgCount || 0;
+      document.getElementById('cnt-fb').textContent    = data.fbCount || 0;
+      renderContacts();
+    } catch(e) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--red);"><i class="fas fa-exclamation-circle" style="font-size:28px;margin-bottom:10px;display:block;"></i>خطأ في تحميل جهات الاتصال</div>`;
+    }
+  }
+
+  function setContactFilter(platform) {
+    _contactFilter = platform;
+    document.querySelectorAll('.contacts-filter-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('cbtn-' + platform);
+    if (btn) btn.classList.add('active');
+    renderContacts();
+  }
+
+  function renderContacts() {
+    const grid    = document.getElementById('contacts-grid');
+    const empty   = document.getElementById('contacts-empty');
+    const query   = (document.getElementById('contacts-search')?.value || '').toLowerCase().trim();
+    const sortBy  = document.getElementById('contacts-sort')?.value || 'name';
+
+    let list = _contacts.filter(u => {
+      if (_contactFilter !== 'all' && u.platform !== _contactFilter) return false;
+      if (query) {
+        const haystack = ((u.name || '') + ' ' + (u.id || '')).toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return true;
+    });
+
+    // Sort
+    if (sortBy === 'name') {
+      list.sort((a, b) => (a.name || a.id || '').localeCompare(b.name || b.id || '', 'ar'));
+    } else if (sortBy === 'platform') {
+      list.sort((a, b) => (a.platform || '').localeCompare(b.platform || ''));
+    } else if (sortBy === 'date') {
+      list.sort((a, b) => new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0));
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    const platMeta = {
+      whatsapp: { color: '#25d366', icon: 'fab fa-whatsapp',           bg: 'linear-gradient(135deg,#25d366,#128c7e)', label: 'WA'  },
+      telegram: { color: '#38bdf8', icon: 'fab fa-telegram-plane',      bg: 'linear-gradient(135deg,#38bdf8,#0284c7)', label: 'TG'  },
+      facebook: { color: '#0084ff', icon: 'fab fa-facebook-messenger',  bg: 'linear-gradient(135deg,#0084ff,#0044ff)', label: 'FB'  },
+    };
+
+    grid.innerHTML = list.map(u => {
+      const meta        = platMeta[u.platform] || { color:'var(--accent)', icon:'fas fa-user', bg:'var(--accent)', label:'??' };
+      const displayName = u.name || (u.platform === 'whatsapp' ? '+' + u.id : u.id);
+      const subId       = u.name ? (u.platform === 'whatsapp' ? '+' : '') + u.id : '';
+      const initials    = (u.name || u.id || '?').slice(0, 2).toUpperCase();
+      const lastSeen    = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
+      const safeId      = (u.id || '').replace(/'/g, "\\'");
+      const safeName    = displayName.replace(/'/g, "\\'").replace(/`/g, '\\`');
+
+      return `
+      <div class="card" style="padding:0;overflow:hidden;transition:transform .18s,box-shadow .18s;cursor:default;"
+           onmouseenter="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.25)';"
+           onmouseleave="this.style.transform='';this.style.boxShadow='';">
+        <!-- Gradient banner -->
+        <div style="height:56px;background:${meta.bg};opacity:0.85;"></div>
+        <!-- Avatar -->
+        <div style="display:flex;justify-content:center;margin-top:-28px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:${meta.bg};border:3px solid var(--bg-primary);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+            ${u.name ? initials : `<i class="${meta.icon}"></i>`}
+          </div>
+        </div>
+        <!-- Info -->
+        <div style="padding:10px 14px 14px;text-align:center;">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${displayName}">${displayName}</div>
+          ${subId ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;direction:ltr;">${subId}</div>` : ''}
+          <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(${meta.color === '#25d366' ? '37,211,102' : meta.color === '#38bdf8' ? '56,189,248' : '0,132,255'},.12);color:${meta.color};">${meta.label}</span>
+            <span style="font-size:10px;color:var(--text-muted);">آخر ظهور: ${lastSeen}</span>
+          </div>
+          <!-- Actions -->
+          <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;">
+            <button class="btn btn-primary" title="نسخ المعرف" onclick="navigator.clipboard.writeText('${safeId}').then(()=>showToast('✅ تم نسخ المعرف','success'))" style="flex:1;padding:6px;font-size:11px;background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.2);color:var(--blue);">
+              <i class="fas fa-copy"></i> نسخ
+            </button>
+            <button class="btn btn-primary" title="إرسال رسالة مباشرة" onclick="openDirectMessageModal('${safeId}','${u.platform}','${safeName}')" style="flex:1;padding:6px;font-size:11px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);color:var(--accent);">
+              <i class="fas fa-paper-plane"></i> رسالة
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function contactsRefreshNames() {
+    const btn = document.getElementById('btn-contacts-refresh');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الجلب...'; }
+    try {
+      const res = await fetch('/api/refresh-names', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ تم تحديث الأسماء بنجاح', 'success');
+        await loadContacts();
+      } else {
+        showToast('❌ فشل جلب الأسماء: ' + (data.error || ''), 'error');
+      }
+    } catch(e) {
+      showToast('❌ خطأ في الاتصال بالسيرفر', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-id-badge"></i> جلب الأسماء'; }
+    }
   }
 
 </script>
