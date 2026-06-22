@@ -1533,7 +1533,8 @@ app.get('/api/broadcast/progress', (req, res) => {
 // Error Logs API — Returns recent command errors from Supabase error_logs table
 app.get('/api/errors', async (req, res) => {
   try {
-    const errors = await db.getRecentErrors(30);
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const errors = await db.getRecentErrors(limit);
     res.json({ ok: true, errors });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

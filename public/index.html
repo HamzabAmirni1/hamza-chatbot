@@ -1367,11 +1367,11 @@
 
 
     <div class="grid grid-4" style="margin-bottom:24px;">
-      <div class="stat-card green">
-        <div class="stat-icon green"><i class="fab fa-whatsapp"></i></div>
+      <div class="stat-card green" id="stat-card-connections" style="cursor:pointer;" onclick="showPage('sessions')">
+        <div class="stat-icon green"><i class="fas fa-plug"></i></div>
         <div class="stat-info">
           <div class="stat-value" id="stat-sessions">0</div>
-          <div class="stat-label">جلسات نشطة</div>
+          <div class="stat-label" id="stat-sessions-label">اتصالات نشطة</div>
         </div>
       </div>
       <div class="stat-card blue">
@@ -2146,12 +2146,13 @@
             <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الأمر</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">رسالة الخطأ</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الوقت والتاريخ</th>
             </tr>
           </thead>
           <tbody id="errors-tbody">
-            <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>
+            <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>
           </tbody>
         </table>
       </div>
@@ -3128,13 +3129,38 @@
       const res = await fetch('/api/status');
       const data = await res.json();
       
-      // Status badge
-      const connected = data.sessions?.some(s => s.connected);
-      document.getElementById('global-status-dot').style.background = connected ? 'var(--accent)' : 'var(--red)';
-      document.getElementById('global-status-text').textContent = connected ? 'متصل ✓' : 'غير متصل';
+      // Compute per-platform connection
+      const waConnected   = data.sessions?.filter(s => s.connected).length || 0;
+      const tgConnected   = data.telegramBots?.filter(b => b.connected).length || 0;
+      const fbConnected   = data.facebookPages?.filter(p => p.connected).length || 0;
+      const totalConnected = waConnected + tgConnected + fbConnected;
 
-      // Stats
-      document.getElementById('stat-sessions').textContent = data.sessions?.filter(s => s.connected).length || 0;
+      // Status badge — green if ANY platform is connected
+      const anyConnected = totalConnected > 0;
+      document.getElementById('global-status-dot').style.background = anyConnected ? 'var(--accent)' : 'var(--red)';
+
+      // Build status text showing which platforms are active
+      let statusParts = [];
+      if (waConnected > 0)  statusParts.push(`📱 WA(${waConnected})`);
+      if (tgConnected > 0)  statusParts.push(`✈️ TG(${tgConnected})`);
+      if (fbConnected > 0)  statusParts.push(`🔵 FB(${fbConnected})`);
+      document.getElementById('global-status-text').textContent = anyConnected
+        ? 'متصل ✓ ' + statusParts.join(' ')
+        : 'غير متصل';
+
+      // KPI card — total connections across all platforms
+      document.getElementById('stat-sessions').textContent = totalConnected;
+      // Update card label to show per-platform dots
+      const labelEl = document.getElementById('stat-sessions-label');
+      if (labelEl) {
+        const dotStyle = (color) => `display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin:0 2px;vertical-align:middle;`;
+        labelEl.innerHTML =
+          `<span style="${dotStyle(waConnected>0?'#25d366':'rgba(255,255,255,0.2)')}"></span> WA&nbsp;
+           <span style="${dotStyle(tgConnected>0?'#38bdf8':'rgba(255,255,255,0.2)')}"></span> TG&nbsp;
+           <span style="${dotStyle(fbConnected>0?'#0084ff':'rgba(255,255,255,0.2)')}"></span> FB`;
+      }
+
+      // Other stats
       document.getElementById('stat-commands').textContent = data.commandCount || '566';
       document.getElementById('stat-apk-limit').textContent = data.apkLimit || 5;
 
@@ -3151,8 +3177,8 @@
 
       // Bot info
       const info = data.settings || {};
-      const activeTg = data.telegramBots?.filter(b => b.connected).length || 0;
-      const activeFb = data.facebookPages?.filter(p => p.connected).length || 0;
+      const dot = (connected, color) =>
+        `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${connected>0?color:'rgba(255,255,255,0.2)'};margin-left:4px;vertical-align:middle;"></span>`;
       
       document.getElementById('bot-info-list').innerHTML = `
         ${infoRow('🤖', 'اسم البوت', info.botName || '—')}
@@ -3160,8 +3186,9 @@
         ${infoRow('🔑', 'البادئة', info.prefix || '.')}
         ${infoRow('⚙️', 'وضع الأوامر', info.commandMode || '—')}
         ${infoRow('🔢', 'الرقم الرئيسي', info.pairingNumber || '—')}
-        ${infoRow('✈️', 'بوتات تليجرام النشطة', activeTg)}
-        ${infoRow('🔵', 'صفحات فيسبوك المرتبطة', activeFb)}
+        ${infoRow('📱' + dot(waConnected,'#25d366'), 'واتساب', waConnected > 0 ? `${waConnected} جلسة نشطة` : '<span style="color:var(--red)">غير متصل</span>')}
+        ${infoRow('✈️' + dot(tgConnected,'#38bdf8'), 'تليجرام', tgConnected > 0 ? `${tgConnected} بوت نشط` : '<span style="color:var(--red)">غير متصل</span>')}
+        ${infoRow('🔵' + dot(fbConnected,'#0084ff'), 'فيسبوك', fbConnected > 0 ? `${fbConnected} صفحة مربوطة` : '<span style="color:var(--red)">غير متصل</span>')}
         ${infoRow('🌍', 'المنطقة الزمنية', info.timezone || '—')}
         ${infoRow('📦', 'الإصدار', info.version || '—')}
       `;
@@ -4056,30 +4083,59 @@
   async function loadCmdErrors() {
     const tbody = document.getElementById('errors-tbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</td></tr>';
     try {
-      const res = await fetch('/api/errors');
+      const res = await fetch('/api/errors?limit=100');
       const data = await res.json();
       if (!data.ok || !data.errors || data.errors.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--accent);">✅ لا توجد أخطاء مسجلة</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--accent);">✅ لا توجد أخطاء مسجلة</td></tr>';
         return;
       }
-      const platformIcons = { whatsapp: '📱', telegram: '✈️', facebook: '🔵', wa: '📱', tg: '✈️', fb: '🔵', WA: '📱', TG: '✈️', FB: '🔵' };
-      tbody.innerHTML = data.errors.map(err => {
-        const icon = platformIcons[err.platform] || '🤖';
-        const date = err.created_at ? new Date(err.created_at).toLocaleString('ar-MA', { hour12: false }) : '—';
-        const errMsg = (err.error_message || err.message || '—').substring(0, 120);
-        const cmd = err.command || err.cmd || '—';
-        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;" onmouseover="this.style.background='rgba(252,129,129,0.06)'" onmouseout="this.style.background='transparent'">
-          <td style="padding:10px 14px;font-weight:700;color:var(--accent);">${cmd}</td>
-          <td style="padding:10px 14px;color:var(--text-muted);max-width:300px;word-break:break-word;">${errMsg}</td>
-          <td style="padding:10px 14px;">${icon} ${err.platform || '—'}</td>
-          <td style="padding:10px 14px;color:var(--text-muted);font-size:12px;white-space:nowrap;">${date}</td>
+      const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff', wa: '#25d366', tg: '#38bdf8', fb: '#0084ff', WA: '#25d366', TG: '#38bdf8', FB: '#0084ff' };
+      const platformIcons  = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger', wa: 'fab fa-whatsapp', tg: 'fab fa-telegram-plane', fb: 'fab fa-facebook-messenger', WA: 'fab fa-whatsapp', TG: 'fab fa-telegram-plane', FB: 'fab fa-facebook-messenger' };
+      let errIdx = 0;
+      tbody.innerHTML = data.errors.map((err, i) => {
+        const ptf = (err.platform || '').toLowerCase();
+        const color  = platformColors[ptf] || '#a78bfa';
+        const icon   = platformIcons[ptf]  || 'fas fa-robot';
+        const date   = err.created_at ? new Date(err.created_at).toLocaleString('ar-MA', { hour12: false }) : '—';
+        const rawMsg = (err.error_message || err.message || err.stack || '—');
+        const shortMsg = rawMsg.length > 100 ? rawMsg.substring(0, 100) + '...' : rawMsg;
+        const hasMore = rawMsg.length > 100;
+        const rowId = `err-row-${i}`;
+        const userId = err.user_id || err.jid || '—';
+        return `<tr id="${rowId}" style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;vertical-align:top;" onmouseover="this.style.background='rgba(252,129,129,0.06)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:10px 14px;font-weight:700;color:var(--accent);white-space:nowrap;">
+            <code style="background:rgba(167,139,250,0.1);padding:2px 6px;border-radius:5px;font-size:12px;">${err.command || err.cmd || '—'}</code>
+          </td>
+          <td style="padding:10px 14px;max-width:340px;word-break:break-word;">
+            <div id="err-short-${i}" style="color:#fc8181;font-size:12px;line-height:1.5;">${shortMsg}</div>
+            ${hasMore ? `<div id="err-full-${i}" style="display:none;color:var(--text-muted);font-size:12px;line-height:1.5;white-space:pre-wrap;">${rawMsg}</div>
+            <button onclick="toggleErrDetail(${i})" id="err-btn-${i}" style="margin-top:6px;background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:0;font-family:Cairo,sans-serif;">▼ عرض كامل</button>` : ''}
+          </td>
+          <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">${userId}</td>
+          <td style="padding:10px 14px;white-space:nowrap;">
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:${color};background:${color}22;padding:3px 8px;border-radius:8px;">
+              <i class="${icon}"></i> ${err.platform || '—'}
+            </span>
+          </td>
+          <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${date}</td>
         </tr>`;
       }).join('');
     } catch(e) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات: ' + e.message + '</td></tr>';
     }
+  }
+
+  function toggleErrDetail(i) {
+    const shortEl = document.getElementById(`err-short-${i}`);
+    const fullEl  = document.getElementById(`err-full-${i}`);
+    const btn     = document.getElementById(`err-btn-${i}`);
+    if (!fullEl) return;
+    const isHidden = fullEl.style.display === 'none';
+    fullEl.style.display  = isHidden ? 'block' : 'none';
+    shortEl.style.display = isHidden ? 'none'  : 'block';
+    btn.textContent       = isHidden ? '▲ إخفاء' : '▼ عرض كامل';
   }
 
   function renderTopCommands(platform) {
