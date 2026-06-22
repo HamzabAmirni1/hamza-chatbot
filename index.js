@@ -1228,6 +1228,143 @@ app.get('/api/scripts/logs', (req, res) => {
 });
 
 
+// Global process and log containers for Instagram Hunter
+global.instaHunterProcess = global.instaHunterProcess || null;
+global.instaHunterLogs = global.instaHunterLogs || [];
+
+app.get('/api/insta/status', (req, res) => {
+  try {
+    const isRunning = !!(global.instaHunterProcess && global.instaHunterProcess.pid && !global.instaHunterProcess.killed);
+    res.json({
+      ok: true,
+      running: isRunning,
+      pid: isRunning ? global.instaHunterProcess.pid : null,
+      config: {
+        token: process.env.INSTA_HUNTER_TELEGRAM_TOKEN || '',
+        ownerId: process.env.INSTA_HUNTER_TELEGRAM_OWNER_ID || ''
+      }
+    });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/insta/toggle', async (req, res) => {
+  try {
+    const { action, token, ownerId } = req.body;
+    const isRunning = !!(global.instaHunterProcess && global.instaHunterProcess.pid && !global.instaHunterProcess.killed);
+
+    if (action === 'start') {
+      if (isRunning) {
+        return res.json({ ok: true, message: 'Process is already running.', pid: global.instaHunterProcess.pid });
+      }
+
+      const scriptPath = path.join(__dirname, 'انستا 2012-عشوائي قوية ❤️‍🔥.py');
+      if (!fs.existsSync(scriptPath)) {
+        return res.status(404).json({ ok: false, error: 'Script file not found.' });
+      }
+
+      global.instaHunterLogs = [];
+      global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 🚀 Starting Instagram Hunter process...`);
+
+      const env = {
+        ...process.env,
+        INSTA_HUNTER_TELEGRAM_TOKEN: token || '',
+        INSTA_HUNTER_TELEGRAM_OWNER_ID: ownerId || ''
+      };
+
+      const startProcess = (cmd) => {
+        global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] Spawning: ${cmd} for Instagram Hunter`);
+        const proc = spawn(cmd, [scriptPath], { env });
+        
+        proc.stdout.on('data', (data) => {
+          // Strip ANSI escape codes
+          const cleanData = data.toString().replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+          const lines = cleanData.split('\n');
+          lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed) {
+              if (trimmed.includes('━━━') || trimmed.includes('┃ ✦')) {
+                // Strip redundant drawing boxes but keep stats lines formatted nicely
+                global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 📊 ${trimmed.replace(/┃ ✦ /g, '').replace(/┃/g, '')}`);
+              } else {
+                global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] STDOUT: ${trimmed}`);
+              }
+            }
+          });
+          if (global.instaHunterLogs.length > 300) global.instaHunterLogs.splice(0, global.instaHunterLogs.length - 300);
+        });
+
+        proc.stderr.on('data', (data) => {
+          const lines = data.toString().split('\n');
+          lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed) {
+              global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] STDERR: ${trimmed}`);
+            }
+          });
+          if (global.instaHunterLogs.length > 300) global.instaHunterLogs.splice(0, global.instaHunterLogs.length - 300);
+        });
+
+        proc.on('error', (err) => {
+          global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] ERROR: Failed to start process with command '${cmd}': ${err.message}`);
+          if (cmd === 'python3') {
+            global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 🔄 Attempting fallback to 'python'...`);
+            global.instaHunterProcess = startProcess('python');
+          } else {
+            global.instaHunterProcess = null;
+          }
+        });
+
+        proc.on('exit', (code, signal) => {
+          global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 🛑 Process exited with code ${code} and signal ${signal}`);
+          global.instaHunterProcess = null;
+        });
+
+        return proc;
+      };
+
+      global.instaHunterProcess = startProcess('python3');
+      
+      // Wait a short time to check if spawn worked
+      await new Promise(r => setTimeout(r, 1000));
+
+      const nowRunning = !!(global.instaHunterProcess && global.instaHunterProcess.pid && !global.instaHunterProcess.killed);
+      return res.json({ ok: true, running: nowRunning, pid: nowRunning ? global.instaHunterProcess.pid : null });
+
+    } else if (action === 'stop') {
+      if (!isRunning) {
+        return res.json({ ok: true, message: 'Process is already stopped.' });
+      }
+
+      global.instaHunterLogs.push(`[${new Date().toLocaleTimeString()}] 🛑 Terminating process (PID: ${global.instaHunterProcess.pid})...`);
+      global.instaHunterProcess.kill('SIGINT');
+      
+      await new Promise(r => setTimeout(r, 1000));
+      const stillRunning = !!(global.instaHunterProcess && global.instaHunterProcess.pid && !global.instaHunterProcess.killed);
+      if (stillRunning) {
+        global.instaHunterProcess.kill('SIGKILL');
+      }
+
+      global.instaHunterProcess = null;
+      return res.json({ ok: true, running: false });
+    } else {
+      return res.status(400).json({ ok: false, error: 'Invalid action. Use start or stop.' });
+    }
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/insta/logs', (req, res) => {
+  try {
+    res.json({ ok: true, logs: global.instaHunterLogs || [] });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
 app.post('/api/broadcast', async (req, res) => {
   try {
     const { message, platform } = req.body;
