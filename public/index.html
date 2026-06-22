@@ -1264,6 +1264,9 @@
     <a class="nav-item" onclick="showPage('analytics'); closeSidebarOnMobile()" id="nav-analytics" style="background:linear-gradient(135deg,rgba(159,122,234,0.06),rgba(99,179,237,0.04));border:1px solid rgba(159,122,234,0.18) !important;">
       <i class="fas fa-chart-line" style="color:var(--purple);"></i> <span style="color:var(--purple);">Analytics</span>
     </a>
+    <a class="nav-item" onclick="showPage('scripts'); closeSidebarOnMobile()" id="nav-scripts">
+      <i class="fab fa-python" style="color:#ffd43b;"></i> <span>السكريبتات الإضافية</span>
+    </a>
   </nav>
 
   <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
@@ -2476,7 +2479,92 @@
       </div>
       <div id="an-activity-feed" style="max-height:340px;overflow-y:auto;"></div>
     </div>
-  </div><!-- end page-analytics -->  <!-- Custom Modal Confirmation Dialog -->
+  </div><!-- end page-analytics -->
+
+  <!-- =================== PYTHON SCRIPTS PAGE =================== -->
+  <div class="page" id="page-scripts">
+    <div class="page-header">
+      <h1><i class="fab fa-python" style="color:#ffd43b"></i> إدارة السكريبتات الإضافية</h1>
+      <p>تشغيل وإدارة سكريبتات البوت والتحكم في تشغيلها ومراقبة السجلات مباشرة</p>
+    </div>
+
+    <div class="grid grid-2">
+      <!-- Configuration and Status Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon green"><i class="fas fa-server"></i></div>
+          <div class="card-title">سكريبت بوت الإيميلات المؤقتة</div>
+        </div>
+        
+        <div style="margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 13px; color: var(--text-muted);">حالة التشغيل الحالية:</span>
+          <span id="script-status-badge" class="chip chip-red" style="font-size: 12px; padding: 4px 10px; font-weight: 700;">متوقف</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><i class="fab fa-telegram-plane"></i> توكن بوت التليجرام الخاص بالسكريبت</label>
+          <input type="password" id="script-telegramToken" class="form-input" placeholder="Telegram Bot Token" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-user-shield"></i> معرّف التليجرام الخاص بالمالك (Owner ID)</label>
+          <input type="text" id="script-ownerId" class="form-input" placeholder="Telegram Owner User ID" />
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:24px;">
+          <button id="btn-start-script" class="btn btn-primary" onclick="toggleScript('start')" style="flex:1; justify-content:center; background: linear-gradient(135deg, #10b981, #059669); border:none; box-shadow:0 4px 12px rgba(16,185,129,0.2);">
+            <i class="fas fa-play"></i> تشغيل
+          </button>
+          <button id="btn-stop-script" class="btn btn-danger" onclick="toggleScript('stop')" style="flex:1; justify-content:center; display:none;">
+            <i class="fas fa-stop"></i> إيقاف
+          </button>
+        </div>
+      </div>
+
+      <!-- Help & Explanation Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue"><i class="fas fa-info-circle"></i></div>
+          <div class="card-title">حول سكريبت الإيميلات المؤقتة</div>
+        </div>
+        <div class="steps" style="margin-top:0;">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">يقوم هذا السكريبت بتشغيل بوت تليجرام منفصل لإنشاء صناديق بريد إلكتروني مؤقتة لاستلام كود التفعيل أو الرسائل بشكل فوري.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">يمكنك تخصيص التوكن الخاص بالبوت ومعرف المستخدم ليتصل السكريبت بحسابك ويرسل لك رسائل البريد فور وصولها.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">يتم تشغيل السكريبت كعملية منفصلة (Child Process) في الخلفية على خادم Koyeb مع إمكانية عرض السجلات الحية.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Log Terminal Card -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-header" style="flex-wrap: wrap; gap: 8px;">
+        <div class="card-icon purple"><i class="fas fa-terminal"></i></div>
+        <div class="card-title" style="margin-left: 12px;">🖥️ شاشة المراقبة وسجل الأحداث (Logs)</div>
+        <div style="display:flex; gap:8px; margin-right:auto;">
+          <button class="btn btn-secondary" onclick="fetchScriptLogs()" style="padding:6px 12px; font-size:11px; font-family:Cairo,sans-serif;">
+            <i class="fas fa-sync-alt"></i> تحديث السجل
+          </button>
+          <button class="btn btn-danger" onclick="clearLocalScriptLogs()" style="padding:6px 12px; font-size:11px; font-family:Cairo,sans-serif; background:rgba(252,129,129,0.1); border:1px solid rgba(252,129,129,0.2); color:var(--red);">
+            <i class="fas fa-trash-alt"></i> مسح الشاشة
+          </button>
+        </div>
+      </div>
+      <div id="script-logs-container" style="background:#05070f; border:1px solid var(--border); border-radius:12px; padding:14px; font-family:monospace; font-size:12px; height:350px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; direction:ltr; text-align:left; color:#a0aec0; line-height:1.5;">
+        <div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">لا توجد سجلات حالية. قم بتشغيل السكريبت لبدء المراقبة.</div>
+      </div>
+    </div>
+  </div><!-- end page-scripts -->
+
+  <!-- Custom Modal Confirmation Dialog -->
   <div id="custom-confirm-modal" class="custom-modal-overlay hide">
     <div class="custom-modal">
       <div class="custom-modal-header">
@@ -2707,6 +2795,9 @@
     if (page !== 'manage' || manageTab !== 'monitor') {
       stopLogsPolling();
     }
+    if (page !== 'scripts') {
+      if (typeof stopScriptLogsPolling === 'function') stopScriptLogsPolling();
+    }
 
     // Save to localStorage
     localStorage.setItem('active_page', page);
@@ -2720,6 +2811,7 @@
     else if (page === 'broadcast') await loadUsers();
     else if (page === 'manage') await loadManagePage();
     else if (page === 'analytics') await loadAnalytics();
+    else if (page === 'scripts') await loadScriptsPage();
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -2752,6 +2844,7 @@
       else if (activePage === 'broadcast') await loadUsers();
       else if (activePage === 'manage') await loadManagePage();
       else if (activePage === 'analytics') await loadAnalytics();
+      else if (activePage === 'scripts') await loadScriptsPage();
       
       showToast('✅ تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
@@ -4335,6 +4428,132 @@
     } catch(e) {
       showToast('خطأ في الاتصال للخادم', 'error');
     }
+  }
+
+  // =================== PYTHON SCRIPTS PAGE JS ===================
+  let scriptLogsInterval = null;
+  let isScriptLogsPolling = false;
+
+  async function loadScriptsPage() {
+    try {
+      const res = await fetch('/api/scripts/status');
+      const data = await res.json();
+      if (data && data.ok) {
+        updateScriptStatusUI(data);
+      }
+    } catch(e) {
+      showToast('خطأ في تحميل حالة السكريبت', 'error');
+    }
+  }
+
+  function updateScriptStatusUI(data) {
+    const badge = document.getElementById('script-status-badge');
+    const startBtn = document.getElementById('btn-start-script');
+    const stopBtn = document.getElementById('btn-stop-script');
+    
+    // Config fields
+    if (data.config) {
+      if (data.config.token && !document.getElementById('script-telegramToken').value) {
+        document.getElementById('script-telegramToken').value = data.config.token;
+      }
+      if (data.config.ownerId && !document.getElementById('script-ownerId').value) {
+        document.getElementById('script-ownerId').value = data.config.ownerId;
+      }
+    }
+
+    if (data.running) {
+      badge.textContent = 'نشط (PID: ' + data.pid + ')';
+      badge.className = 'chip chip-green';
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'flex';
+      startScriptLogsPolling();
+    } else {
+      badge.textContent = 'متوقف';
+      badge.className = 'chip chip-red';
+      startBtn.style.display = 'flex';
+      stopBtn.style.display = 'none';
+      stopScriptLogsPolling();
+    }
+  }
+
+  async function toggleScript(action) {
+    const token = document.getElementById('script-telegramToken').value.trim();
+    const ownerId = document.getElementById('script-ownerId').value.trim();
+
+    if (action === 'start') {
+      if (!token) {
+        showToast('يرجى إدخال توكن البوت أولاً', 'error');
+        return;
+      }
+      if (!ownerId) {
+        showToast('يرجى إدخال معرف المالك أولاً', 'error');
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch('/api/scripts/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, token, ownerId })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        showToast(action === 'start' ? '🚀 تم تشغيل السكريبت بنجاح' : '🛑 تم إيقاف السكريبت', 'success');
+        updateScriptStatusUI(data);
+        fetchScriptLogs();
+      } else {
+        showToast(data.error || 'فشل تنفيذ الإجراء', 'error');
+      }
+    } catch(e) {
+      showToast('خطأ في الاتصال بالسيرفر', 'error');
+    }
+  }
+
+  function startScriptLogsPolling() {
+    if (isScriptLogsPolling) return;
+    isScriptLogsPolling = true;
+    fetchScriptLogs();
+    scriptLogsInterval = setInterval(fetchScriptLogs, 3000);
+  }
+
+  function stopScriptLogsPolling() {
+    isScriptLogsPolling = false;
+    if (scriptLogsInterval) {
+      clearInterval(scriptLogsInterval);
+      scriptLogsInterval = null;
+    }
+  }
+
+  async function fetchScriptLogs() {
+    try {
+      const res = await fetch('/api/scripts/logs');
+      const data = await res.json();
+      if (data && data.ok) {
+        const container = document.getElementById('script-logs-container');
+        const logs = data.logs || [];
+        if (logs.length === 0) {
+          container.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">لا توجد سجلات حالية. قم بتشغيل السكريبت لبدء المراقبة.</div>`;
+        } else {
+          container.innerHTML = logs.map(line => {
+            let color = '#a0aec0';
+            if (line.includes('STDERR:') || line.includes('ERROR:')) color = '#fc8181';
+            else if (line.includes('🚀') || line.includes('Spawning:')) color = '#68d391';
+            else if (line.includes('🛑')) color = '#cbd5e0';
+            const escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<div style="color: ${color}; white-space: pre-wrap; word-break: break-all;">${escaped}</div>`;
+          }).join('');
+          
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+    } catch(e) {
+      console.error('Error fetching script logs:', e);
+    }
+  }
+
+  function clearLocalScriptLogs() {
+    document.getElementById('script-logs-container').innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:50px; font-family:Cairo,sans-serif;">تم مسح الشاشة. بانتظار سجلات جديدة...</div>`;
   }
 
   // =================== SIDEBAR TOGGLE ===================

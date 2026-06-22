@@ -1038,6 +1038,150 @@ app.get('/api/syslog', (req, res) => {
   } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// --- PYTHON SCRIPTS MANAGEMENT API ---
+const { spawn, exec } = require('child_process');
+
+// Auto pre-install python dependencies on node server start
+try {
+  console.log("📦 Installing Python dependencies in background (pyTelegramBotAPI, beautifulsoup4, requests)...");
+  exec('pip install pyTelegramBotAPI beautifulsoup4 requests', (err, stdout, stderr) => {
+    if (err) {
+      console.error("❌ Failed to pre-install Python dependencies:", err.message);
+    } else {
+      console.log("✅ Python dependencies installed successfully:\n", stdout);
+    }
+  });
+} catch (e) {
+  console.error("❌ Error pre-installing Python dependencies:", e.message);
+}
+
+// Global process and log containers
+global.tempEmailProcess = global.tempEmailProcess || null;
+global.tempEmailLogs = global.tempEmailLogs || [];
+
+app.get('/api/scripts/status', (req, res) => {
+  try {
+    const isRunning = !!(global.tempEmailProcess && global.tempEmailProcess.pid && !global.tempEmailProcess.killed);
+    res.json({
+      ok: true,
+      running: isRunning,
+      pid: isRunning ? global.tempEmailProcess.pid : null,
+      config: {
+        token: process.env.TELEGRAM_TOKEN || config.telegramToken || '',
+        ownerId: process.env.TELEGRAM_OWNER_ID || (config.ownerNumber && config.ownerNumber[0]) || ''
+      }
+    });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/scripts/toggle', async (req, res) => {
+  try {
+    const { action, token, ownerId } = req.body;
+    const isRunning = !!(global.tempEmailProcess && global.tempEmailProcess.pid && !global.tempEmailProcess.killed);
+
+    if (action === 'start') {
+      if (isRunning) {
+        return res.json({ ok: true, message: 'Script is already running.', pid: global.tempEmailProcess.pid });
+      }
+
+      const scriptPath = path.join(__dirname, 'انشاء ايميلات مؤقته.py');
+      if (!fs.existsSync(scriptPath)) {
+        return res.status(404).json({ ok: false, error: 'Script file not found.' });
+      }
+
+      global.tempEmailLogs = global.tempEmailLogs || [];
+      global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] 🚀 Starting Temporary Email Bot process...`);
+
+      const env = {
+        ...process.env,
+        TELEGRAM_TOKEN: token || process.env.TELEGRAM_TOKEN || config.telegramToken || 'token',
+        TELEGRAM_OWNER_ID: ownerId || process.env.TELEGRAM_OWNER_ID || (config.ownerNumber && config.ownerNumber[0]) || 'ID'
+      };
+
+      const startProcess = (cmd) => {
+        global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] Spawning: ${cmd} for Temporary Email Bot`);
+        const proc = spawn(cmd, [scriptPath], { env });
+        
+        proc.stdout.on('data', (data) => {
+          const lines = data.toString().split('\n');
+          lines.forEach(line => {
+            if (line.trim()) {
+              global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] STDOUT: ${line}`);
+            }
+          });
+          if (global.tempEmailLogs.length > 300) global.tempEmailLogs.shift();
+        });
+
+        proc.stderr.on('data', (data) => {
+          const lines = data.toString().split('\n');
+          lines.forEach(line => {
+            if (line.trim()) {
+              global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] STDERR: ${line}`);
+            }
+          });
+          if (global.tempEmailLogs.length > 300) global.tempEmailLogs.shift();
+        });
+
+        proc.on('error', (err) => {
+          global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] ERROR: Failed to start process with command '${cmd}': ${err.message}`);
+          if (cmd === 'python3') {
+            global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] 🔄 Attempting fallback to 'python'...`);
+            global.tempEmailProcess = startProcess('python');
+          } else {
+            global.tempEmailProcess = null;
+          }
+        });
+
+        proc.on('exit', (code, signal) => {
+          global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] 🛑 Process exited with code ${code} and signal ${signal}`);
+          global.tempEmailProcess = null;
+        });
+
+        return proc;
+      };
+
+      global.tempEmailProcess = startProcess('python3');
+      
+      // Wait a short time to check if spawn worked
+      await new Promise(r => setTimeout(r, 1000));
+
+      const nowRunning = !!(global.tempEmailProcess && global.tempEmailProcess.pid && !global.tempEmailProcess.killed);
+      return res.json({ ok: true, running: nowRunning, pid: nowRunning ? global.tempEmailProcess.pid : null });
+
+    } else if (action === 'stop') {
+      if (!isRunning) {
+        return res.json({ ok: true, message: 'Script is already stopped.' });
+      }
+
+      global.tempEmailLogs.push(`[${new Date().toLocaleTimeString()}] 🛑 Terminating script process (PID: ${global.tempEmailProcess.pid})...`);
+      global.tempEmailProcess.kill('SIGINT');
+      
+      await new Promise(r => setTimeout(r, 1000));
+      const stillRunning = !!(global.tempEmailProcess && global.tempEmailProcess.pid && !global.tempEmailProcess.killed);
+      if (stillRunning) {
+        global.tempEmailProcess.kill('SIGKILL');
+      }
+
+      global.tempEmailProcess = null;
+      return res.json({ ok: true, running: false });
+    } else {
+      return res.status(400).json({ ok: false, error: 'Invalid action. Use start or stop.' });
+    }
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/scripts/logs', (req, res) => {
+  try {
+    res.json({ ok: true, logs: global.tempEmailLogs || [] });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 
 app.post('/api/broadcast', async (req, res) => {
   try {

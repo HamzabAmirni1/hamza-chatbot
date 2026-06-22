@@ -1,3 +1,5 @@
+import os
+import sys
 import requests
 import telebot
 from telebot import types
@@ -6,12 +8,27 @@ import json
 import time
 import random
 
-bot_token = 'token' #توكنك
-ID = 'ID' #ايديك
+bot_token = os.environ.get('TELEGRAM_TOKEN', 'token') #توكنك
+ID = os.environ.get('TELEGRAM_OWNER_ID', 'ID') #ايديك
 ch = 'v7dsc' #يوزر قناتك من دونـ@
-bot = telebot.TeleBot(bot_token)
-owner = bot.get_chat(ID)
-us = owner.username
+
+if bot_token == 'token' or not bot_token:
+    print("Error: TELEGRAM_TOKEN environment variable not set or is set to 'token'.")
+    sys.exit(1)
+
+try:
+    bot = telebot.TeleBot(bot_token)
+    # Check if ID is a valid ID (integer or username)
+    try:
+        owner_id = int(ID) if ID.isdigit() else ID
+        owner = bot.get_chat(owner_id)
+        us = owner.username or "hamzaamirni"
+    except Exception as e:
+        print(f"Warning: Could not fetch get_chat for ID={ID}: {e}")
+        us = "hamzaamirni"
+except Exception as e:
+    print(f"Error initializing bot: {e}")
+    sys.exit(1)
 class TempMail:
     def __init__(self):
         self.email = None
