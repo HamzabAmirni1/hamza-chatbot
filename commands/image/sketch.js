@@ -4,7 +4,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const https = require('https');
 const crypto = require('crypto');
-const { uploadToCatbox } = require('../../lib/media');
+const { uploadToBestProvider } = require('../../lib/media');
 
 function generateSessionHash() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -115,7 +115,7 @@ module.exports = async (sock, chatId, msg, args) => {
             { logger: pino({ level: "silent" }) },
         );
 
-        const imageUrl = await uploadToCatbox(buffer);
+        const imageUrl = await uploadToBestProvider(buffer);
         if (!imageUrl) throw new Error("فشل رفع الصورة");
 
         const sketchUrl = await imageToSketch(imageUrl);

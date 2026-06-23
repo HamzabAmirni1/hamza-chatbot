@@ -39,16 +39,10 @@ function getStream(url) {
     });
 }
 
+const { uploadToBestProvider } = require('../../lib/media');
+
 async function uploadToCatbox(imageBuffer) {
-    const form = new FormData();
-    form.append('reqtype', 'fileupload');
-    form.append('userhash', '');
-    form.append('fileToUpload', imageBuffer, { filename: 'image.jpg' });
-    const { data } = await axios.post('https://catbox.moe/user/api.php', form, {
-        headers: form.getHeaders(),
-        timeout: 30000,
-    });
-    return data;
+    return await uploadToBestProvider(imageBuffer);
 }
 
 async function imageToSketch(imageUrl) {
