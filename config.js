@@ -6,7 +6,7 @@ const settings = {
     timezone: 'Africa/Casablanca',
     prefix: '.',
     ownerNumber: ['2105596325', '212624855939', '24413221021704865', '76704223654068', '72375181807785', '218859369943283'],
-    pairingNumber: '212619416368',
+    pairingNumber: '',
     extraNumbers: [],
     newsletterJid: '120363367937224887@newsletter',
     newsletterName: 'حمزة اعمرني',
