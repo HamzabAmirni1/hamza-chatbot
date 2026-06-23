@@ -1184,6 +1184,11 @@
         font-size: 8px !important;
       }
 
+      /* Analytics page: grid-2 (chart + activity strip) stacks on mobile */
+      #page-analytics .grid-2 {
+        grid-template-columns: 1fr !important;
+      }
+
       /* Live Activity Feed mobile optimization */
       #an-activity-feed > div {
         flex-wrap: wrap !important;
@@ -2309,12 +2314,17 @@
   <div class="page" id="page-activity">
     <div class="page-header">
       <h1><i class="fas fa-history" style="color:var(--yellow)"></i> سجل النشاط المباشر</h1>
-      <p>آخر 50 أمر تم تنفيذه في البوت في الوقت الفعلي</p>
+      <p>آخر 50 نشاط في البوت — يتجدد تلقائياً كل 5 ثوانٍ</p>
     </div>
     <div class="card">
       <div class="card-header">
         <div class="card-icon yellow"><i class="fas fa-list-alt"></i></div>
         <div class="card-title">الأنشطة الأخيرة</div>
+        <!-- LIVE badge -->
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);border-radius:20px;font-size:11px;font-weight:700;color:var(--accent);margin-right:8px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse 1.5s infinite;"></span>
+          مباشر
+        </span>
         <button class="btn btn-secondary" onclick="loadActivity()" style="margin-right:auto;padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
       </div>
       <div id="activity-log">
@@ -3143,6 +3153,9 @@
     if (page !== 'insta-hunter') {
       if (typeof stopInstaLogsPolling === 'function') stopInstaLogsPolling();
     }
+    if (page !== 'activity') {
+      stopActivityPolling();
+    }
 
     // Save to localStorage
     localStorage.setItem('active_page', page);
@@ -3152,7 +3165,7 @@
     else if (page === 'settings') await loadSettings();
     else if (page === 'users') await loadUsers();
     else if (page === 'cmdstats') { await loadCmdStats(); await loadCmdErrors(); }
-    else if (page === 'activity') await loadActivity();
+    else if (page === 'activity') { await loadActivity(); startActivityPolling(); }
     else if (page === 'broadcast') await loadUsers();
     else if (page === 'manage') await loadManagePage();
     else if (page === 'analytics') await loadAnalytics();
@@ -3187,7 +3200,7 @@
       else if (activePage === 'settings') await loadSettings();
       else if (activePage === 'users') await loadUsers();
       else if (activePage === 'cmdstats') await loadCmdStats();
-      else if (activePage === 'activity') await loadActivity();
+      else if (activePage === 'activity') { await loadActivity(); startActivityPolling(); }
       else if (activePage === 'broadcast') await loadUsers();
       else if (activePage === 'manage') await loadManagePage();
       else if (activePage === 'analytics') await loadAnalytics();
@@ -4558,6 +4571,28 @@
   }
 
   // =================== ACTIVITY LOG ===================
+  let _activityPollInterval = null;
+
+  function startActivityPolling() {
+    stopActivityPolling();
+    // Poll every 5 seconds to get fresh activity data
+    _activityPollInterval = setInterval(async () => {
+      const activePage = localStorage.getItem('active_page');
+      if (activePage === 'activity') {
+        await loadActivity();
+      } else {
+        stopActivityPolling();
+      }
+    }, 5000);
+  }
+
+  function stopActivityPolling() {
+    if (_activityPollInterval) {
+      clearInterval(_activityPollInterval);
+      _activityPollInterval = null;
+    }
+  }
+
   async function loadActivity() {
     try {
       const res = await fetch('/api/activity');
@@ -5575,6 +5610,13 @@
       const lastSeen    = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
       const safeId      = (u.id || '').replace(/'/g, "\\'");
       const safeName    = displayName.replace(/'/g, "\\'").replace(/`/g, '\\`');
+      const safeRawName = (u.name || '').replace(/'/g, "\\'").replace(/`/g, '\\`');
+
+      // Build copy-all text: "Name | ID | Platform"
+      const copyAllText = u.name
+        ? `${u.name} | ${u.platform === 'whatsapp' ? '+' : ''}${u.id} | ${u.platform}`
+        : `${u.platform === 'whatsapp' ? '+' : ''}${u.id} | ${u.platform}`;
+      const safeCopyAll = copyAllText.replace(/'/g, "\\'").replace(/`/g, '\\`');
 
       return `
       <div class="card" style="padding:0;overflow:hidden;transition:transform .18s,box-shadow .18s;cursor:default;"
@@ -5596,13 +5638,22 @@
             <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(${meta.color === '#25d366' ? '37,211,102' : meta.color === '#38bdf8' ? '56,189,248' : '0,132,255'},.12);color:${meta.color};">${meta.label}</span>
             <span style="font-size:10px;color:var(--text-muted);">آخر ظهور: ${lastSeen}</span>
           </div>
-          <!-- Actions -->
-          <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;">
-            <button class="btn btn-primary" title="نسخ المعرف" onclick="navigator.clipboard.writeText('${safeId}').then(()=>showToast('✅ تم نسخ المعرف','success'))" style="flex:1;padding:6px;font-size:11px;background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.2);color:var(--blue);">
+          <!-- Actions row 1: Copy buttons -->
+          <div style="display:flex;gap:6px;margin-top:12px;">
+            <button class="btn btn-primary" title="نسخ المعرف / الرقم" onclick="navigator.clipboard.writeText('${safeId}').then(()=>showToast('✅ تم نسخ المعرف','success'))" style="flex:1;padding:6px 4px;font-size:10px;background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.2);color:var(--blue);">
+              <i class="fas fa-hashtag"></i> ID
+            </button>
+            ${u.name ? `<button class="btn btn-primary" title="نسخ الاسم" onclick="navigator.clipboard.writeText('${safeRawName}').then(()=>showToast('✅ تم نسخ الاسم','success'))" style="flex:1;padding:6px 4px;font-size:10px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);color:var(--purple);">
+              <i class="fas fa-user"></i> اسم
+            </button>` : ''}
+            <button class="btn btn-primary" title="نسخ كل المعلومات" onclick="navigator.clipboard.writeText(\`${safeCopyAll}\`).then(()=>showToast('✅ تم النسخ','success'))" style="flex:1;padding:6px 4px;font-size:10px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);color:var(--accent);">
               <i class="fas fa-copy"></i> نسخ
             </button>
-            <button class="btn btn-primary" title="إرسال رسالة مباشرة" onclick="openDirectMessageModal('${safeId}','${u.platform}','${safeName}')" style="flex:1;padding:6px;font-size:11px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);color:var(--accent);">
-              <i class="fas fa-paper-plane"></i> رسالة
+          </div>
+          <!-- Actions row 2: Message button -->
+          <div style="margin-top:6px;">
+            <button class="btn btn-primary" title="إرسال رسالة مباشرة" onclick="openDirectMessageModal('${safeId}','${u.platform}','${safeName}')" style="width:100%;padding:7px;font-size:11px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);color:var(--accent);">
+              <i class="fas fa-paper-plane"></i> إرسال رسالة
             </button>
           </div>
         </div>
