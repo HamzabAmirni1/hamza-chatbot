@@ -59,7 +59,7 @@ const { startFbPostScheduler } = require("./lib/fbScheduler");
 const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
 const { startTrafficInterval, getStats: getTrafficStats } = require("./lib/trafficBooster");
-const { ALL_COMMANDS, NLC_KEYWORDS } = require('./lib/commandMap');
+const { ALL_COMMANDS, NLC_KEYWORDS, isQuestionOrInquiry } = require('./lib/commandMap');
 const { checkSubscriptionGate, getSubscriptionMessage, getWelcomeMessage } = require('./lib/subscription');
 
 const bodyParser = require("body-parser");
@@ -2288,7 +2288,7 @@ async function startBot(folderName, phoneNumber) {
         }
 
         // --- PRIORITY 2: NLC KEYWORDS (text only, no image attached) ---
-        if (body && !isCommand && !body.startsWith(".")) {
+        if (body && !isCommand && !body.startsWith(".") && !isQuestionOrInquiry(body)) {
           const lowerBody = body.toLowerCase();
           const nlcKeywords = NLC_KEYWORDS;
           const context = await getContext(sender);
