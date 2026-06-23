@@ -1302,9 +1302,108 @@
       text-align: right;
       margin-top: 2px;
     }
+
+    /* PWA Custom Install Prompt Banner */
+    #pwa-install-banner {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(150px);
+      width: 90%;
+      max-width: 450px;
+      background: rgba(26, 34, 53, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(99, 179, 237, 0.25);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(37, 211, 102, 0.1);
+      z-index: 99999;
+      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+      opacity: 0;
+      direction: rtl;
+    }
+    #pwa-install-banner.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .pwa-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 10px rgba(37, 211, 102, 0.2);
+    }
+    .pwa-info {
+      flex: 1;
+    }
+    .pwa-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .pwa-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .pwa-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-pwa-install {
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Cairo', sans-serif;
+      box-shadow: 0 4px 10px rgba(37, 211, 102, 0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-pwa-install:hover {
+      transform: scale(1.03);
+      box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+    }
+    .btn-pwa-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+    .btn-pwa-close:hover {
+      color: var(--red);
+    }
   </style>
 </head>
 <body>
+
+<!-- PWA Custom Install Banner -->
+<div id="pwa-install-banner">
+  <img src="/icon-192.png" alt="Logo" class="pwa-logo" />
+  <div class="pwa-info">
+    <div class="pwa-title">تثبيت تطبيق لوحة التحكم</div>
+    <div class="pwa-desc">تصفح لوحة التحكم بشكل أسرع كأنها تطبيق APK على الهاتف!</div>
+  </div>
+  <div class="pwa-actions">
+    <button class="btn-pwa-install" id="btn-pwa-install-act">تثبيت</button>
+    <button class="btn-pwa-close" id="btn-pwa-close-act" aria-label="إغلاق"><i class="fas fa-times"></i></button>
+  </div>
+</div>
 
 <!-- Loading screen -->
 <div id="loading-overlay">
@@ -5693,6 +5792,55 @@
         .catch((err) => console.error('Service Worker registration failed:', err));
     });
   }
+
+  // PWA Install Banner Logic
+  let deferredPrompt;
+  const installBanner = document.getElementById('pwa-install-banner');
+  const installBtn = document.getElementById('btn-pwa-install-act');
+  const closeBtn = document.getElementById('btn-pwa-close-act');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can install the PWA
+    if (localStorage.getItem('pwa-banner-dismissed') !== 'true') {
+      setTimeout(() => {
+        if (installBanner) installBanner.classList.add('show');
+      }, 3000); // Show after 3 seconds of load
+    }
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      // Show the install prompt
+      deferredPrompt.prompt();
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response to the install prompt: ${outcome}`);
+      // We've used the prompt, so we can't use it again
+      deferredPrompt = null;
+      // Hide the install banner
+      if (installBanner) installBanner.classList.remove('show');
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (installBanner) installBanner.classList.remove('show');
+      // Remember dismissal so it doesn't prompt again during this session
+      localStorage.setItem('pwa-banner-dismissed', 'true');
+    });
+  }
+
+  window.addEventListener('appinstalled', (event) => {
+    console.log('👍', 'appinstalled', event);
+    // Clear the deferredPrompt so it can be garbage collected
+    deferredPrompt = null;
+    if (installBanner) installBanner.classList.remove('show');
+  });
 
 </script>
 </body>
