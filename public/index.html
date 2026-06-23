@@ -1108,8 +1108,9 @@
         width: 100% !important;
       }
 
-      /* Analytics page: tab buttons should stay compact inline, not full-width */
-      #page-analytics .card-header button.platform-tab-btn {
+      /* Analytics & Cmdstats pages: tab buttons should stay compact inline, not full-width */
+      #page-analytics .card-header button.platform-tab-btn,
+      #page-cmdstats .card-header button.platform-tab-btn {
         width: auto !important;
         margin-top: 0 !important;
         flex: 1 1 auto;
@@ -1118,13 +1119,96 @@
         font-size: 11px;
         justify-content: center;
       }
-      #page-analytics .card-header div[style*="margin-right:auto"] {
+      #page-analytics .card-header div[style*="margin-right:auto"],
+      #page-cmdstats .card-header div[style*="margin-right:auto"] {
         width: 100% !important;
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
+        margin-top: 8px;
       }
-      /* Analytics KPI cards on mobile: same as all pages — 1 col (removed 2-col override) */
+
+      /* KPI Stat Cards 2-column layout on mobile */
+      #page-analytics .grid-4, 
+      #page-cmdstats .grid-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+      #page-analytics .stat-card,
+      #page-cmdstats .stat-card {
+        padding: 12px !important;
+        gap: 8px !important;
+        border-radius: 12px !important;
+      }
+      #page-analytics .stat-icon,
+      #page-cmdstats .stat-icon {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 8px !important;
+        font-size: 16px !important;
+      }
+      #page-analytics .stat-value,
+      #page-cmdstats .stat-value {
+        font-size: 16px !important;
+      }
+      #page-analytics .stat-label,
+      #page-cmdstats .stat-label {
+        font-size: 10px !important;
+      }
+
+      /* Platform breakdown cards 3-column layout on mobile */
+      #page-analytics .grid-3,
+      #page-cmdstats .grid-3 {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+      }
+      #page-analytics .grid-3 .card,
+      #page-cmdstats .grid-3 .card {
+        padding: 10px 6px !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        gap: 6px !important;
+      }
+      #page-analytics .grid-3 i,
+      #page-cmdstats .grid-3 i {
+        font-size: 18px !important;
+      }
+      #page-analytics .grid-3 .card div div:first-child,
+      #page-cmdstats .grid-3 .card div div:first-child {
+        font-size: 13px !important;
+        line-height: 1.2;
+      }
+      #page-analytics .grid-3 .card div div:last-child,
+      #page-cmdstats .grid-3 .card div div:last-child {
+        font-size: 8px !important;
+      }
+
+      /* Live Activity Feed mobile optimization */
+      #an-activity-feed > div {
+        flex-wrap: wrap !important;
+        padding: 10px 12px !important;
+        gap: 8px !important;
+      }
+      #an-activity-feed > div > div:nth-child(2) {
+        flex: 1 1 calc(100% - 60px) !important;
+      }
+      #an-activity-feed > div > div:last-child {
+        width: 100% !important;
+        margin-top: 2px !important;
+        padding-right: 46px !important;
+        font-size: 9px !important;
+        color: var(--text-muted) !important;
+        text-align: right;
+      }
+
+      /* Activity strip date labels mobile scaling */
+      #an-activity-strip div[style*="font-size:9px"] {
+        font-size: 8px !important;
+      }
+      #an-activity-strip div[style*="height:72px"] {
+        gap: 4px !important;
+      }
 
       /* Users page mobile styling */
       #page-users #users-list .number-item {
@@ -2118,11 +2202,11 @@
         <div class="card-header" style="flex-wrap: wrap; gap: 8px;">
           <div class="card-icon green"><i class="fas fa-fire"></i></div>
           <div class="card-title" style="margin-left: 12px;">🔥 الأكثر استخداماً</div>
-          <div style="display:flex;gap:4px;margin-right:auto;">
-            <button id="tab-top-all" class="btn btn-secondary active" onclick="renderTopCommands('all')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">🌐 الكل</button>
-            <button id="tab-top-whatsapp" class="btn btn-secondary" onclick="renderTopCommands('whatsapp')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">📱 واتساب</button>
-            <button id="tab-top-telegram" class="btn btn-secondary" onclick="renderTopCommands('telegram')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">✈️ تليجرام</button>
-            <button id="tab-top-facebook" class="btn btn-secondary" onclick="renderTopCommands('facebook')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">🔵 فيسبوك</button>
+          <div style="display:flex;gap:4px;margin-right:auto;flex-wrap:wrap;">
+            <button id="tab-top-all" class="platform-tab-btn active" onclick="renderTopCommands('all')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">🌐 الكل</button>
+            <button id="tab-top-whatsapp" class="platform-tab-btn" onclick="renderTopCommands('whatsapp')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">📱 واتساب</button>
+            <button id="tab-top-telegram" class="platform-tab-btn" onclick="renderTopCommands('telegram')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">✈️ تليجرام</button>
+            <button id="tab-top-facebook" class="platform-tab-btn" onclick="renderTopCommands('facebook')" style="padding:4px 8px;font-size:11px;font-family:Cairo,sans-serif;">🔵 فيسبوك</button>
           </div>
         </div>
         <div id="top-commands-list"><div style="color:var(--text-muted);text-align:center;padding:20px;">جاري التحميل...</div></div>
