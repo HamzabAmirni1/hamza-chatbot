@@ -94,6 +94,14 @@ global.trackCommand = (command, platform) => {
     global._cmdStatsByPlatform[plat] = {};
   }
   global._cmdStatsByPlatform[plat][command] = (global._cmdStatsByPlatform[plat][command] || 0) + 1;
+
+  // Debounced save to Supabase (max 1 write per 60 seconds)
+  if (!global._cmdStatsSaveTimer) {
+    global._cmdStatsSaveTimer = setTimeout(() => {
+      global._cmdStatsSaveTimer = null;
+      db.saveCmdStats(global._cmdStats, global._cmdStatsByPlatform).catch(() => {});
+    }, 60000);
+  }
 };
 
 // ====== GOOGLE TTS HELPER ======
@@ -2491,6 +2499,19 @@ async function startBot(folderName, phoneNumber) {
     global.waNames = await db.loadUserNames('whatsapp');
     console.log(chalk.cyan(`📥 Loaded ${Object.keys(global.tgNames || {}).length} Telegram names, ${Object.keys(global.fbNames || {}).length} Facebook names, and ${Object.keys(global.waNames || {}).length} WhatsApp names from Supabase.`));
   } catch (e) {}
+
+  // Load persisted command stats from Supabase
+  try {
+    const savedStats = await db.loadCmdStats();
+    if (savedStats && savedStats.stats && typeof savedStats.stats === 'object') {
+      global._cmdStats = savedStats.stats;
+      global._cmdStatsByPlatform = savedStats.byPlatform || { whatsapp: {}, telegram: {}, facebook: {} };
+      const totalCmds = Object.values(global._cmdStats).reduce((s, v) => s + v, 0);
+      console.log(chalk.green(`📊 Restored ${Object.keys(global._cmdStats).length} command stats (${totalCmds} total uses) from Supabase.`));
+    }
+  } catch (e) {
+    console.error(chalk.yellow('[Startup] Could not load cmd stats from Supabase:', e.message));
+  }
   
   // 1. WhatsApp Bots
   const waBots = await db.getAllWhatsAppAuth();
