@@ -1073,12 +1073,23 @@ app.post('/api/dev-messages/reply', async (req, res) => {
     let sent = false;
     let lastError = null;
 
+    const formattedReply = `╔═══════════════════════╗
+║   📢 رسالة من مطور البوت   ║
+╚═══════════════════════╝
+
+💬 الرد على رسالتك:
+"${replyText}"
+
+━━━━━━━━━━━━━━━━━━━━━━━
+👤 المطور: حمزة اعمرني 🇲🇦
+💡 للرد مجدداً، اكتب: .msgtodev [رسالتك]`;
+
     if (platform === 'whatsapp') {
       const clients = global.clients || [];
       const sock = clients.find(c => c?.user) || clients[0];
       if (!sock) return res.status(500).json({ ok: false, error: 'لا توجد جلسة واتساب نشطة لإرسال الرد' });
       const jid = msgObj.sender.includes('@') ? msgObj.sender : `${msgObj.sender}@s.whatsapp.net`;
-      await sock.sendMessage(jid, { text: replyText });
+      await sock.sendMessage(jid, { text: formattedReply });
       sent = true;
     } else if (platform === 'telegram') {
       const botTokens = Object.keys(global.telegramBots || {});
@@ -1087,11 +1098,11 @@ app.post('/api/dev-messages/reply', async (req, res) => {
         const botInstance = global.telegramBots ? global.telegramBots[token] : null;
         try {
           if (botInstance) {
-            await botInstance.sendMessage(msgObj.sender, replyText);
+            await botInstance.sendMessage(msgObj.sender, formattedReply);
           } else {
             await require('axios').post(
               `https://api.telegram.org/bot${token}/sendMessage`,
-              { chat_id: msgObj.sender, text: replyText.replace(/\*/g, '').replace(/_/g, ''), parse_mode: 'HTML' },
+              { chat_id: msgObj.sender, text: formattedReply },
               { timeout: 10000 }
             );
           }
@@ -1105,7 +1116,7 @@ app.post('/api/dev-messages/reply', async (req, res) => {
       const { sendFacebookMessage } = require('./lib/facebook');
       for (const pageToken of pageTokens) {
         try {
-          await sendFacebookMessage(msgObj.sender, replyText, pageToken);
+          await sendFacebookMessage(msgObj.sender, formattedReply, pageToken);
           sent = true;
           break;
         } catch (e) { lastError = e; }
