@@ -1116,8 +1116,8 @@ app.get('/api/dev-messages', async (req, res) => {
 // 💬 Reply to a developer inbox message
 app.post('/api/dev-messages/reply', async (req, res) => {
   try {
-    const { id, replyText } = req.body;
-    if (!id || !replyText) return res.status(400).json({ ok: false, error: 'Message ID and Reply Text are required' });
+    const { id, replyText, mediaBase64, mediaType, mediaName, ptt } = req.body;
+    if (!id || (!replyText && !mediaBase64)) return res.status(400).json({ ok: false, error: 'Message ID and Reply Text or Media are required' });
 
     // Fetch the specific message from DB
     const allMessages = await db.getDevMessages();
@@ -1125,27 +1125,50 @@ app.post('/api/dev-messages/reply', async (req, res) => {
     if (!msgObj) return res.status(404).json({ ok: false, error: 'الرسالة غير موجودة أو تم حذفها' });
 
     const platform = (msgObj.platform || 'whatsapp').toLowerCase();
-    let sent = false;
-    let lastError = null;
+    
+    // Media support
+    const mediaBuffer = mediaBase64 ? Buffer.from(mediaBase64, 'base64') : null;
+    const fileName = mediaName || 'file';
+    const isImage = mediaType && mediaType.startsWith('image/');
+    const isAudio = mediaType && (mediaType.startsWith('audio/') || mediaType === 'video/ogg');
+    const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
 
     const formattedReply = `╔═══════════════════════╗
 ║   📢 رسالة من مطور البوت   ║
 ╚═══════════════════════╝
 
 💬 الرد على رسالتك:
-"${replyText}"
+"${replyText || (isAudio ? '🎙️ رسالة صوتية' : '📎 ملف مرفق')}"
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 👤 المطور: حمزة اعمرني 🇲🇦
 💡 للرد مجدداً، اكتب: .msgtodev [رسالتك]`;
+
+    let sent = false;
+    let lastError = null;
 
     if (platform === 'whatsapp') {
       const clients = global.clients || [];
       const sock = clients.find(c => c?.user) || clients[0];
       if (!sock) return res.status(500).json({ ok: false, error: 'لا توجد جلسة واتساب نشطة لإرسال الرد' });
       const jid = msgObj.sender.includes('@') ? msgObj.sender : `${msgObj.sender}@s.whatsapp.net`;
-      await sock.sendMessage(jid, { text: formattedReply });
+
+      if (mediaBuffer) {
+        if (isImage) {
+          await sock.sendMessage(jid, { image: mediaBuffer, caption: formattedReply, mimetype: mediaType });
+        } else if (isAudio) {
+          await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: !!ptt });
+          await sock.sendMessage(jid, { text: formattedReply });
+        } else if (isVideo) {
+          await sock.sendMessage(jid, { video: mediaBuffer, caption: formattedReply, mimetype: mediaType });
+        } else {
+          await sock.sendMessage(jid, { document: mediaBuffer, fileName: fileName, mimetype: mediaType || 'application/octet-stream', caption: formattedReply });
+        }
+      } else {
+        await sock.sendMessage(jid, { text: formattedReply });
+      }
       sent = true;
+
     } else if (platform === 'telegram') {
       const botTokens = Object.keys(global.telegramBots || {});
       if (config.telegramToken && !botTokens.includes(config.telegramToken)) botTokens.push(config.telegramToken);
@@ -1153,8 +1176,26 @@ app.post('/api/dev-messages/reply', async (req, res) => {
         const botInstance = global.telegramBots ? global.telegramBots[token] : null;
         try {
           if (botInstance) {
-            await botInstance.sendMessage(msgObj.sender, formattedReply);
+            if (mediaBuffer) {
+              if (isImage) {
+                await botInstance.sendPhoto(msgObj.sender, mediaBuffer, { caption: formattedReply }, { filename: fileName, contentType: mediaType });
+              } else if (isAudio) {
+                if (ptt) {
+                  await botInstance.sendVoice(msgObj.sender, mediaBuffer, { caption: '' });
+                } else {
+                  await botInstance.sendAudio(msgObj.sender, mediaBuffer, { caption: '' }, { filename: fileName, contentType: mediaType });
+                }
+                await botInstance.sendMessage(msgObj.sender, formattedReply);
+              } else if (isVideo) {
+                await botInstance.sendVideo(msgObj.sender, mediaBuffer, { caption: formattedReply });
+              } else {
+                await botInstance.sendDocument(msgObj.sender, mediaBuffer, { caption: formattedReply }, { filename: fileName, contentType: mediaType });
+              }
+            } else {
+              await botInstance.sendMessage(msgObj.sender, formattedReply);
+            }
           } else {
+            // Direct API call (text only fallback)
             await require('axios').post(
               `https://api.telegram.org/bot${token}/sendMessage`,
               { chat_id: msgObj.sender, text: formattedReply },
@@ -1165,16 +1206,30 @@ app.post('/api/dev-messages/reply', async (req, res) => {
           break;
         } catch (e) { lastError = e; }
       }
+
     } else if (platform === 'facebook') {
       const pageTokens = Object.values(global.fbPageTokens || {});
       if (config.fbPageAccessToken && !pageTokens.includes(config.fbPageAccessToken)) pageTokens.push(config.fbPageAccessToken);
-      const { sendFacebookMessage } = require('./lib/facebook');
+      const { sendFacebookMessage, sendFacebookMedia } = require('./lib/facebook');
       for (const pageToken of pageTokens) {
         try {
-          await sendFacebookMessage(msgObj.sender, formattedReply, pageToken);
+          if (mediaBuffer && typeof sendFacebookMedia === 'function') {
+            const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
+            await sendFacebookMedia(msgObj.sender, mediaBuffer, fbType, fileName, formattedReply, pageToken);
+          } else {
+            await sendFacebookMessage(msgObj.sender, formattedReply, pageToken);
+          }
           sent = true;
           break;
-        } catch (e) { lastError = e; }
+        } catch (e) {
+          lastError = e;
+          // Fallback to text
+          try {
+            await sendFacebookMessage(msgObj.sender, formattedReply, pageToken);
+            sent = true;
+            break;
+          } catch (_) {}
+        }
       }
     }
 

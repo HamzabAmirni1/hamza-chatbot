@@ -4508,6 +4508,122 @@
     });
   }
 
+  // Key-value stores for dynamically rendered inline reply boxes in the Inbox
+  const _devReplyFiles = {};
+  const _devReplyIsRecorded = {};
+  const _devReplyRecorders = {};
+  const _devReplyRecordTimers = {};
+
+  function setDevReplyFileAccept(id, accept) {
+    const input = document.getElementById(`devreply-media-file-${id}`);
+    if (input) input.accept = accept;
+  }
+
+  function onDevReplyMediaChange(id, input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    _devReplyFiles[id] = file;
+    _devReplyIsRecorded[id] = false;
+    showDevReplyMediaPreview(id, file);
+  }
+
+  function showDevReplyMediaPreview(id, file) {
+    const preview = document.getElementById(`devreply-media-preview-${id}`);
+    const icon = document.getElementById(`devreply-media-icon-${id}`);
+    const nameEl = document.getElementById(`devreply-media-name-${id}`);
+    const sizeEl = document.getElementById('devreply-media-size-' + id);
+    if (!preview) return;
+    preview.style.display = 'block';
+    nameEl.textContent = file.name;
+    sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+    // Remove existing audio preview if any
+    const oldAudio = document.getElementById(`devreply-audio-preview-player-${id}`);
+    if (oldAudio) oldAudio.remove();
+
+    if (file.type.startsWith('image/')) {
+      icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
+    } else if (file.type.startsWith('audio/')) {
+      icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
+      // Inline player
+      const audioEl = document.createElement('audio');
+      audioEl.id = `devreply-audio-preview-player-${id}`;
+      audioEl.controls = true;
+      audioEl.src = URL.createObjectURL(file);
+      audioEl.style.cssText = 'width:100%; margin-top:6px; height:28px;';
+      preview.appendChild(audioEl);
+    } else if (file.type.startsWith('video/')) {
+      icon.className = 'fas fa-video'; icon.style.color = '#34d399';
+    } else {
+      icon.className = 'fas fa-file-alt'; icon.style.color = '#fbbf24';
+    }
+  }
+
+  function clearDevReplyMedia(id) {
+    delete _devReplyFiles[id];
+    delete _devReplyIsRecorded[id];
+    const input = document.getElementById(`devreply-media-file-${id}`);
+    if (input) input.value = '';
+    const preview = document.getElementById(`devreply-media-preview-${id}`);
+    if (preview) preview.style.display = 'none';
+    const oldAudio = document.getElementById(`devreply-audio-preview-player-${id}`);
+    if (oldAudio) oldAudio.remove();
+  }
+
+  async function toggleDevReplyRecording(id) {
+    const btn = document.getElementById(`devreply-mic-btn-${id}`);
+    const label = document.getElementById(`devreply-mic-label-${id}`);
+    if (!btn || !label) return;
+
+    if (_devReplyRecorders[id] && _devReplyRecorders[id].state === 'recording') {
+      _devReplyRecorders[id].stop();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks = [];
+      const recorder = new MediaRecorder(stream);
+      _devReplyRecorders[id] = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      let elapsed = 0;
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        clearInterval(_devReplyRecordTimers[id]);
+        btn.style.background = 'rgba(239,68,68,0.08)';
+        btn.style.color = '#ef4444';
+        label.textContent = 'تسجيل صوت';
+
+        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
+        _devReplyFiles[id] = audioFile;
+        _devReplyIsRecorded[id] = true;
+        showDevReplyMediaPreview(id, audioFile);
+        showToast('🎤 تم حفظ التسجيل بنجاح', 'success');
+      };
+
+      recorder.start();
+      btn.style.background = '#ef4444';
+      btn.style.color = '#fff';
+      label.textContent = '🔴 إيقاف (00:00)';
+
+      _devReplyRecordTimers[id] = setInterval(() => {
+        elapsed++;
+        const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const secs = String(elapsed % 60).padStart(2, '0');
+        label.textContent = `🔴 إيقاف (${mins}:${secs})`;
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      showToast('❌ تعذر الوصول للميكروفون', 'error');
+    }
+  }
+
   let _dmTargetNumber = '';
   let _dmTargetPlatform = '';
 
@@ -5161,11 +5277,42 @@
           </div>
           <div style="font-size:14px;color:var(--text-main);background:var(--card);padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${escapeHtml(m.text || '')}</div>
           ${replied ? `<div style="font-size:12px;color:var(--text-muted);background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);padding:10px 14px;border-radius:10px;"><i class="fas fa-reply" style="color:var(--accent);margin-left:6px;"></i><strong>ردك:</strong> ${escapeHtml(m.replyText || '')}</div>` : ''}
-          <div id="devmsg-reply-area-${m.id}" style="display:none;">
-            <textarea id="devmsg-reply-input-${m.id}" placeholder="اكتب ردك هنا..." style="width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+          <div id="devmsg-reply-area-${m.id}" style="display:none; margin-bottom:12px;">
+            <textarea id="devmsg-reply-input-${m.id}" placeholder="اكتب ردك هنا... (اختياري إذا أرسلت ملفاً)" style="width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
+            
+            <!-- Inline Reply Media Selector -->
+            <div style="background:rgba(255,255,255,0.02);border:1px dashed var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"><i class="fas fa-paperclip"></i> إرفاق ملف (صورة / صوت / مستند)</div>
+              <input type="file" id="devreply-media-file-${m.id}" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${m.id}', this)" />
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+                <button type="button" onclick="document.getElementById('devreply-media-file-${m.id}').click()" style="padding:5px 10px;font-size:11px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:6px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                  <i class="fas fa-image"></i> صورة
+                </button>
+                <button type="button" onclick="setDevReplyFileAccept('${m.id}', 'audio/*'); document.getElementById('devreply-media-file-${m.id}').click()" style="padding:5px 10px;font-size:11px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:6px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                  <i class="fas fa-music"></i> ملف صوتي
+                </button>
+                <button type="button" id="devreply-mic-btn-${m.id}" onclick="toggleDevReplyRecording('${m.id}')" style="padding:5px 10px;font-size:11px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                  <i class="fas fa-microphone"></i> <span id="devreply-mic-label-${m.id}">تسجيل صوت</span>
+                </button>
+                <button type="button" onclick="setDevReplyFileAccept('${m.id}', '.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('devreply-media-file-${m.id}').click()" style="padding:5px 10px;font-size:11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:6px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                  <i class="fas fa-file"></i> مستند
+                </button>
+              </div>
+              <div id="devreply-media-preview-${m.id}" style="display:none;">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);border-radius:6px;">
+                  <i id="devreply-media-icon-${m.id}" class="fas fa-file" style="font-size:14px;color:#25d366;"></i>
+                  <div style="flex:1;min-width:0;">
+                    <div id="devreply-media-name-${m.id}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                    <div id="devreply-media-size-${m.id}" style="font-size:10px;color:var(--text-muted);"></div>
+                  </div>
+                  <button type="button" onclick="clearDevReplyMedia('${m.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;"><i class="fas fa-times"></i></button>
+                </div>
+              </div>
+            </div>
+
             <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end;">
               <button onclick="hideDevReply('${m.id}')" class="btn btn-secondary" style="padding:8px 16px;font-size:12px;">إلغاء</button>
-              <button onclick="sendDevReply('${m.id}')" class="btn btn-primary" style="padding:8px 18px;font-size:12px;"><i class="fas fa-paper-plane"></i> إرسال الرد</button>
+              <button onclick="sendDevReply('${m.id}')" class="btn btn-primary" id="devreply-send-btn-${m.id}" style="padding:8px 18px;font-size:12px;"><i class="fas fa-paper-plane"></i> إرسال الرد</button>
             </div>
           </div>
           <div style="display:flex;gap:8px;">
@@ -5185,24 +5332,40 @@
   }
   function hideDevReply(id) {
     document.getElementById('devmsg-reply-area-' + id).style.display = 'none';
+    clearDevReplyMedia(id);
   }
 
   async function sendDevReply(id) {
     const input = document.getElementById('devmsg-reply-input-' + id);
     const replyText = input.value.trim();
-    if (!replyText) { showToast('⚠️ اكتب نص الرد أولاً', 'error'); return; }
-    const btn = document.querySelector(`#devmsg-${id} .btn-primary`);
+    const mediaFile = _devReplyFiles[id];
+    
+    if (!replyText && !mediaFile) { showToast('⚠️ اكتب نص الرد أو أرفق ملفاً', 'error'); return; }
+    
+    const btn = document.getElementById(`devreply-send-btn-${id}`);
     const oldHtml = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...'; }
+    
     try {
+      const body = { id, replyText };
+      if (mediaFile) {
+        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري رفع الملف...';
+        body.mediaBase64 = await fileToBase64(mediaFile);
+        body.mediaType = mediaFile.type;
+        body.mediaName = mediaFile.name;
+        body.ptt = _devReplyIsRecorded[id] || false;
+        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+      }
+
       const res = await fetch('/api/dev-messages/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, replyText })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (data.ok) {
         showToast('✅ تم إرسال الرد بنجاح!', 'success');
+        clearDevReplyMedia(id);
         await loadDevMessages();
       } else {
         showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
