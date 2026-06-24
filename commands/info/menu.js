@@ -31,7 +31,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 📥 *DOWNLOADER*
 .play | .video | .fb | .ig | .ytmp4
 .tiktok | .pinterest | .lyrics | .capcut
-.yts | .tomp3 | .ytdl | .ytv | .yta
+.yts | .tomp3 | .ytdl | .ytv | .yta | .gdrive
 
 🕋 *ISLAMIC & RAMADAN*
 .quran | .quranmp3 | .qdl | .qurancard
