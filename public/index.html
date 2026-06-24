@@ -3501,7 +3501,24 @@
     loadSessions();
   }
 
-
+  async function togglePauseBot(platform, id) {
+    try {
+      const res = await fetch('/api/bots/toggle-pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.isPaused ? '⏸️ تم إيقاف البوت مؤقتاً' : '▶️ تم تشغيل البوت بنجاح', 'success');
+        loadSessions();
+      } else {
+        showToast(data.error || 'فشل تغيير حالة البوت', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال بالسيرفر', 'error');
+    }
+  }
 
   async function loadSessions() {
     try {
@@ -3519,42 +3536,47 @@
         html += `<div style="text-align:center;padding:20px;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">لا توجد جلسات واتساب متصلة</div>`;
       } else {
         html += `<div style="display:grid;gap:12px;margin-bottom:24px;">` + sessions.map(s => `
-          <div class="session-card">
+          <div class="session-card" style="${s.paused ? 'opacity: 0.75;' : ''}">
             <div class="session-avatar" style="background:linear-gradient(135deg,#25d366,#128c7e);"><i class="fab fa-whatsapp"></i></div>
             <div class="session-info">
               <div class="session-number">+${s.number || s.path || 'غير معروف'}</div>
               <div class="session-status ${s.connected ? 'connected' : 'disconnected'}">
-                ${s.connected ? 'متصل' : 'غير متصل'}
+                ${s.paused ? '<span style="color:var(--red);">موقوف مؤقتاً ⏸️</span>' : (s.connected ? 'متصل' : 'غير متصل')}
                 ${s.jid ? ' — ' + s.jid : ''}
               </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
-              <span class="chip ${s.connected ? 'chip-green' : 'chip-red'}">${s.connected ? 'نشط' : 'منفصل'}</span>
-              ${!s.connected ? `<button class="btn" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;cursor:pointer;" onclick="reconnectWASession('${s.number || s.path}')" title="إعادة الاتصال"><i class="fas fa-sync-alt"></i></button>` : ''}
-              <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteWASession('${s.number || s.path}')"><i class="fas fa-trash"></i></button>
+              <span class="chip ${s.paused ? 'chip-red' : (s.connected ? 'chip-green' : 'chip-red')}">${s.paused ? 'موقوف' : (s.connected ? 'نشط' : 'منفصل')}</span>
+              <button class="btn" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,${s.paused ? '#10b981,#059669' : '#f59e0b,#d97706'});color:white;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="togglePauseBot('whatsapp', '${s.number || s.path}')" title="${s.paused ? 'تشغيل' : 'إيقاف مؤقت'}">
+                <i class="fas ${s.paused ? 'fa-play' : 'fa-pause'}"></i>
+              </button>
+              ${!s.connected ? `<button class="btn" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="reconnectWASession('${s.number || s.path}')" title="إعادة الاتصال"><i class="fas fa-sync-alt"></i></button>` : ''}
+              <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;display:flex;align-items:center;justify-content:center;" onclick="deleteWASession('${s.number || s.path}')" title="حذف الجلسة"><i class="fas fa-trash"></i></button>
             </div>
           </div>
         `).join('') + `</div>`;
       }
 
-      
       // 2. Telegram Bots
       html += `<h3 style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><i class="fab fa-telegram-plane" style="color:#38bdf8;"></i> بوتات تليجرام (${tgBots.length})</h3>`;
       if (tgBots.length === 0) {
         html += `<div style="text-align:center;padding:20px;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">لا توجد بوتات تليجرام متصلة</div>`;
       } else {
         html += `<div style="display:grid;gap:12px;margin-bottom:24px;">` + tgBots.map(b => `
-          <div class="session-card">
+          <div class="session-card" style="${b.paused ? 'opacity: 0.75;' : ''}">
             <div class="session-avatar" style="background:linear-gradient(135deg,#38bdf8,#0284c7);"><i class="fab fa-telegram-plane"></i></div>
             <div class="session-info">
               <div class="session-number">${b.name || 'Telegram Bot'}</div>
               <div class="session-status ${b.connected ? 'connected' : 'disconnected'}">
-                ${b.connected ? 'متصل وبانتظار الرسائل' : 'غير متصل'} — Token: ${b.token}
+                ${b.paused ? '<span style="color:var(--red);">موقوف مؤقتاً ⏸️</span>' : (b.connected ? 'متصل وبانتظار الرسائل' : 'غير متصل')} — Token: ${b.token}
               </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
-              <span class="chip ${b.connected ? 'chip-green' : 'chip-red'}">${b.connected ? 'نشط' : 'غير نشط'}</span>
-              ${b.id.startsWith('local') ? '' : `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteBotConfig('${b.id}')"><i class="fas fa-trash"></i></button>`}
+              <span class="chip ${b.paused ? 'chip-red' : (b.connected ? 'chip-green' : 'chip-red')}">${b.paused ? 'موقوف' : (b.connected ? 'نشط' : 'غير نشط')}</span>
+              <button class="btn" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,${b.paused ? '#10b981,#059669' : '#f59e0b,#d97706'});color:white;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="togglePauseBot('telegram', '${b.id}')" title="${b.paused ? 'تشغيل' : 'إيقاف مؤقت'}">
+                <i class="fas ${b.paused ? 'fa-play' : 'fa-pause'}"></i>
+              </button>
+              ${b.id.startsWith('local') ? '' : `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;display:flex;align-items:center;justify-content:center;" onclick="deleteBotConfig('${b.id}')" title="حذف البوت"><i class="fas fa-trash"></i></button>`}
             </div>
           </div>
         `).join('') + `</div>`;
@@ -3566,17 +3588,20 @@
         html += `<div style="text-align:center;padding:20px;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">لا توجد صفحات فيسبوك مرتبطة</div>`;
       } else {
         html += `<div style="display:grid;gap:12px;margin-bottom:24px;">` + fbPages.map(p => `
-          <div class="session-card">
+          <div class="session-card" style="${p.paused ? 'opacity: 0.75;' : ''}">
             <div class="session-avatar" style="background:linear-gradient(135deg,#0084ff,#0044ff);"><i class="fab fa-facebook-messenger"></i></div>
             <div class="session-info">
               <div class="session-number">${p.name || 'Facebook Page'}</div>
               <div class="session-status connected">
-                مرتبطة بالـ Webhook — ID: ${p.pageId}
+                ${p.paused ? '<span style="color:var(--red);">موقوف مؤقتاً ⏸️</span>' : 'مرتبطة بالـ Webhook'} — ID: ${p.pageId}
               </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
-              <span class="chip chip-green">نشط</span>
-              ${p.id.startsWith('local') ? '' : `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteBotConfig('${p.id}')"><i class="fas fa-trash"></i></button>`}
+              <span class="chip ${p.paused ? 'chip-red' : 'chip-green'}">${p.paused ? 'موقوف' : 'نشط'}</span>
+              <button class="btn" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,${p.paused ? '#10b981,#059669' : '#f59e0b,#d97706'});color:white;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="togglePauseBot('facebook', '${p.id}')" title="${p.paused ? 'تشغيل' : 'إيقاف مؤقت'}">
+                <i class="fas ${p.paused ? 'fa-play' : 'fa-pause'}"></i>
+              </button>
+              ${p.id.startsWith('local') ? '' : `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;display:flex;align-items:center;justify-content:center;" onclick="deleteBotConfig('${p.id}')" title="حذف الصفحة"><i class="fas fa-trash"></i></button>`}
             </div>
           </div>
         `).join('') + `</div>`;

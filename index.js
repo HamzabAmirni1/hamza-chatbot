@@ -360,52 +360,76 @@ app.get('/api/status', async (req, res) => {
   try {
     const sessions = (global.clients || []).map(sock => {
       const user = sock?.user;
+      const cleanPhone = (user?.id?.split(':')[0] || sock._num || '').replace(/[^0-9]/g, '');
+      const isPaused = !!(global.pausedBots?.whatsapp?.[cleanPhone]);
       return {
         jid: user?.id || null,
         number: user?.id?.split(':')[0] || sock._num || null,
         connected: !!user,
-        path: sock._folderName || null
+        path: sock._folderName || null,
+        paused: isPaused
       };
     });
     
     // Fetch Telegram/Facebook configs from DB
     const configs = await db.getBotConfigs();
-    const telegramBots = configs.filter(c => c.bot_type === 'telegram').map(c => ({
-      id: c.id,
-      name: c.bot_name,
-      connected: !!(global.telegramBots && global.telegramBots[c.bot_token]) || (c.bot_token === config.telegramToken && !!global.telegramBot),
-      token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A'
-    }));
+    const telegramBots = configs.filter(c => c.bot_type === 'telegram').map(c => {
+      const isPaused = !!(global.pausedBots?.telegram?.[c.bot_token]);
+      return {
+        id: c.id,
+        name: c.bot_name,
+        connected: !!(global.telegramBots && global.telegramBots[c.bot_token]) || (c.bot_token === config.telegramToken && !!global.telegramBot),
+        token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A',
+        paused: isPaused
+      };
+    });
     const facebookPages = configs.filter(c => c.bot_type === 'facebook').map(c => {
       const parts = c.bot_name.split('|');
       const pageId = parts[parts.length - 1].trim();
       const pageName = parts[0] === pageId ? 'Facebook Page' : parts[0];
+      const isPaused = !!(global.pausedBots?.facebook?.[pageId]);
       return {
         id: c.id,
         name: pageName,
         pageId: pageId,
         connected: true,
-        token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A'
+        token: c.bot_token ? `${c.bot_token.substring(0, 8)}...` : 'N/A',
+        paused: isPaused
       };
     });
     
     // Add local config defaults if not already present
-    if (config.telegramToken && !telegramBots.some(b => b.token.startsWith(config.telegramToken.substring(0, 8)))) {
-      telegramBots.push({
-        id: 'local_tg',
-        name: config.botName || 'Telegram Bot (محلي)',
-        connected: !!global.telegramBot,
-        token: `${config.telegramToken.substring(0, 8)}...`
-      });
+    if (config.telegramToken) {
+      const isLocalTgPaused = !!(global.pausedBots?.telegram?.[config.telegramToken]);
+      const existing = telegramBots.find(b => b.token.startsWith(config.telegramToken.substring(0, 8)));
+      if (existing) {
+        existing.paused = isLocalTgPaused;
+      } else {
+        telegramBots.push({
+          id: 'local_tg',
+          name: config.botName || 'Telegram Bot (محلي)',
+          connected: !!global.telegramBot,
+          token: `${config.telegramToken.substring(0, 8)}...`,
+          paused: isLocalTgPaused
+        });
+      }
     }
-    if (config.fbPageAccessToken && !facebookPages.some(p => p.token.startsWith(config.fbPageAccessToken.substring(0, 8)))) {
-      facebookPages.push({
-        id: 'local_fb',
-        name: 'Facebook Page (محلي)',
-        pageId: config.fbPageId || 'me',
-        connected: true,
-        token: `${config.fbPageAccessToken.substring(0, 8)}...`
-      });
+    if (config.fbPageAccessToken) {
+      const localPageId = config.fbPageId || 'me';
+      const isLocalFbPaused = !!(global.pausedBots?.facebook?.[localPageId]);
+      const existing = facebookPages.find(p => p.token.startsWith(config.fbPageAccessToken.substring(0, 8)));
+      if (existing) {
+        existing.paused = isLocalFbPaused;
+      } else {
+        facebookPages.push({
+          id: 'local_fb',
+          name: 'Facebook Page (محلي)',
+          pageId: localPageId,
+          connected: true,
+          token: `${config.fbPageAccessToken.substring(0, 8)}...`,
+          paused: isLocalFbPaused
+        });
+      }
     }
     
     const traffic = getTrafficStats();
@@ -566,7 +590,59 @@ app.post('/api/reconnect-wa', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
+// ⏸️ Toggle Pause Bot (WhatsApp, Telegram, Facebook)
+app.post('/api/bots/toggle-pause', async (req, res) => {
+  try {
+    const { platform, id } = req.body;
+    if (!platform || !id) return res.status(400).json({ success: false, error: 'Platform and ID are required' });
 
+    global.pausedBots = global.pausedBots || { whatsapp: {}, telegram: {}, facebook: {} };
+    if (!global.pausedBots[platform]) global.pausedBots[platform] = {};
+
+    let targetKey = id;
+
+    if (platform === 'telegram') {
+      if (id === 'local_tg') {
+        targetKey = config.telegramToken;
+      } else {
+        const configs = await db.getBotConfigs();
+        const conf = configs.find(c => c.id.toString() === id.toString());
+        if (conf && conf.bot_token) {
+          targetKey = conf.bot_token;
+        }
+      }
+    } else if (platform === 'facebook') {
+      if (id === 'local_fb') {
+        targetKey = config.fbPageId || 'me';
+      } else {
+        const configs = await db.getBotConfigs();
+        const conf = configs.find(c => c.id.toString() === id.toString());
+        if (conf && conf.bot_name) {
+          const parts = conf.bot_name.split('|');
+          targetKey = parts[parts.length - 1].trim();
+        }
+      }
+    } else if (platform === 'whatsapp') {
+      targetKey = id.replace(/[^0-9]/g, '');
+    }
+
+    if (!targetKey) {
+      return res.status(404).json({ success: false, error: 'Bot configuration not found' });
+    }
+
+    const isCurrentlyPaused = !!global.pausedBots[platform][targetKey];
+    global.pausedBots[platform][targetKey] = !isCurrentlyPaused;
+
+    // Save configuration to Supabase cache
+    await db.setCache('paused_bots', global.pausedBots);
+
+    console.log(`[Pause/Resume] ${platform} bot (${targetKey.substring(0, 15)}) set to paused: ${!isCurrentlyPaused}`);
+
+    res.json({ success: true, isPaused: !isCurrentlyPaused });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 app.get('/api/settings', (req, res) => {
   try {
@@ -2095,6 +2171,13 @@ async function startBot(folderName, phoneNumber) {
       if (chatUpdate.type !== "notify") return;
       for (const msg of chatUpdate.messages) {
         if (!msg.message || msg.key.fromMe) continue;
+
+        // Check if this WhatsApp bot is paused
+        const cleanBotPhone = (sock.user?.id?.split(':')[0] || sock._num || '').replace(/[^0-9]/g, '');
+        if (cleanBotPhone && global.pausedBots?.whatsapp?.[cleanBotPhone]) {
+          continue;
+        }
+
         const type = Object.keys(msg.message)[0];
         let body = type === "conversation" ? msg.message.conversation : type === "extendedTextMessage" ? msg.message.extendedTextMessage.text : type === "imageMessage" ? msg.message.imageMessage.caption : type === "videoMessage" ? msg.message.videoMessage.caption : "";
         console.log(chalk.magenta(`[WA MSG] from: ${msg.key.remoteJid} | type: ${type} | body: ${body ? body.substring(0,40) : '[no text]'}`));
@@ -2222,7 +2305,6 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        try { await sock.readMessages([msg.key]); } catch (_) {}
         try { await sock.sendPresenceUpdate("available", sender); } catch (_) {}
         try { await sock.sendPresenceUpdate("composing", sender); } catch (_) {}
         const delayPromise = new Promise((resolve) => setTimeout(resolve, 500));
@@ -2250,6 +2332,7 @@ async function startBot(folderName, phoneNumber) {
             else if (new RegExp(`^(${ghibliKeywords})$`, "i").test(keyword)) aiType = "ghibli";
 
             try {
+              try { await sock.readMessages([msg.key]); } catch (_) {}
               const editCmd = require('./commands/image/edit');
               await editCmd(sock, sender, msg, [], { aiType, aiPrompt: rest }, "ar");
               isCommand = true;
@@ -2270,6 +2353,7 @@ async function startBot(folderName, phoneNumber) {
           // Only trigger ALL_COMMANDS if the prefix is present
           if (isPrefixed && allCmds[command]) {
             try {
+              try { await sock.readMessages([msg.key]); } catch (_) {}
               const cmdFile = require(`./commands/${allCmds[command]}`);
               await cmdFile(sock, sender, msg, args, { 
                 getAutoGPTResponse, addToHistory, delayPromise, getUptime, 
@@ -2321,6 +2405,7 @@ async function startBot(folderName, phoneNumber) {
             }
 
             if (response) {
+              try { await sock.readMessages([msg.key]); } catch (_) {}
               try { await addToHistory(sender, "assistant", response); } catch (_) {}
               try {
                 await sock.sendMessage(sender, { text: `🤖 *مساعد حمزة اعمرني:*\\n\\n${response}` }, { quoted: msg });
@@ -2338,6 +2423,7 @@ async function startBot(folderName, phoneNumber) {
         if (isRawImage || isRawVideo) {
           // Fallback: imageMessage that didn't pass the isMediaMsg check (edge case)
           try {
+            try { await sock.readMessages([msg.key]); } catch (_) {}
             const analyze = require('./commands/ai/analyze');
             const buffer = isRawImage ? await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) }) : null;
             const mime = isRawImage ? msg.message.imageMessage.mimetype : msg.message.videoMessage.mimetype;
@@ -2364,6 +2450,7 @@ async function startBot(folderName, phoneNumber) {
             const regex = new RegExp(`(^|\\s)(${key})(\\s|$)`, "i");
             if (regex.test(lowerBody)) {
               try {
+                try { await sock.readMessages([msg.key]); } catch (_) {}
                 const cmdFile = require(`./commands/${nlcPath}`);
                 let rest = lowerBody.replace(new RegExp(`.*(${key})`, "i"), "").trim().split(" ").filter(a => a);
                 const cmdName = key.split("|")[0];
@@ -2455,6 +2542,7 @@ async function startBot(folderName, phoneNumber) {
         }
 
         if (reply) {
+          try { await sock.readMessages([msg.key]); } catch (_) {}
           await addToHistory(sender, "user", body);
           let botReplyText = reply;
           let extractedCommand = null;
@@ -2563,6 +2651,18 @@ async function startBot(folderName, phoneNumber) {
     }
   } catch (e) {
     console.error(chalk.yellow('[Startup] Could not load cmd stats from Supabase:', e.message));
+  }
+
+  // Load paused bots list from Supabase cache
+  global.pausedBots = { whatsapp: {}, telegram: {}, facebook: {} };
+  try {
+    const paused = await db.getCache('paused_bots');
+    if (paused && typeof paused === 'object') {
+      global.pausedBots = paused;
+      console.log(chalk.green('⏸️ Loaded paused bots config from Supabase.'));
+    }
+  } catch (e) {
+    console.error(chalk.yellow('[Startup] Could not load paused bots config:', e.message));
   }
   
   // 1. WhatsApp Bots
