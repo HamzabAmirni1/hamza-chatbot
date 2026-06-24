@@ -996,6 +996,15 @@ app.post('/api/send-message', async (req, res) => {
     const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
     const isDoc = mediaBuffer && !isImage && !isAudio && !isVideo;
 
+    console.log('[Send Message API Request]:', {
+      number,
+      platform: plat,
+      messageLength: message?.length,
+      hasMediaBuffer: !!mediaBuffer,
+      mediaType,
+      mediaName
+    });
+
     if (plat === 'whatsapp') {
       const clients = global.clients || [];
       const sock = clients.find(c => c?.user) || clients[0];
@@ -1164,6 +1173,16 @@ app.post('/api/dev-messages/reply', async (req, res) => {
     const isImage = mediaType && mediaType.startsWith('image/');
     const isAudio = mediaType && (mediaType.startsWith('audio/') || mediaType === 'video/ogg');
     const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
+
+    console.log('[Dev Messages Reply Request]:', {
+      id,
+      platform,
+      sender: msgObj.sender,
+      replyTextLength: replyText?.length,
+      hasMediaBuffer: !!mediaBuffer,
+      mediaType,
+      mediaName
+    });
 
     const formattedReply = `╔═══════════════════════╗
 ║   📢 رسالة من مطور البوت   ║
@@ -1805,6 +1824,14 @@ app.post('/api/broadcast', async (req, res) => {
     
     const targetPlatform = platform || 'all';
     let results = { whatsapp: { sent: 0, failed: 0 }, telegram: { sent: 0, failed: 0 }, facebook: { sent: 0, failed: 0 } };
+
+    console.log('[Broadcast Request]:', {
+      platform: targetPlatform,
+      messageLength: message?.length,
+      hasMediaBuffer: !!mediaBuffer,
+      mediaType,
+      mediaName
+    });
     
     // Format broadcast message with developer header
     const formattedMessage = `\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557\n\u2551   \uD83D\uDCE2 \u0631\u0633\u0627\u0644\u0629 \u0645\u0646 \u0645\u0637\u0648\u0631 \u0627\u0644\u0628\u0648\u062a\n\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\n\n${message}\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u2694\uFE0F *\u062d\u0645\u0632\u0629 \u0627\u0639\u0645\u0631\u0646\u064a*`;
