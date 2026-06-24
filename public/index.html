@@ -1455,6 +1455,9 @@
     <a class="nav-item" onclick="showPage('activity'); closeSidebarOnMobile()" id="nav-activity">
       <i class="fas fa-history"></i> سجل النشاط
     </a>
+    <a class="nav-item" onclick="showPage('devmessages'); closeSidebarOnMobile()" id="nav-devmessages">
+      <i class="fas fa-inbox"></i> رسائل المستخدمين
+    </a>
     <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage">
       <i class="fas fa-sliders-h"></i> <span>إدارة شاملة</span>
     </a>
@@ -2394,6 +2397,32 @@
     </div>
   </div>
 
+  <!-- =================== DEV MESSAGES PAGE =================== -->
+  <div class="page" id="page-devmessages">
+    <div class="page-header">
+      <h1><i class="fas fa-inbox" style="color:var(--blue)"></i> رسائل المستخدمين الواردة</h1>
+      <p>الرسائل التي أرسلها المستخدمون باستخدام الأمر <code>.msgtodev</code> ويمكنك الرد عليها مباشرة</p>
+    </div>
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="card-icon blue"><i class="fas fa-envelope-open-text"></i></div>
+          <div class="card-title">صندوق الوارد <span id="devmsg-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" onclick="clearAllDevMessages()" style="padding:8px 14px;font-size:12px;background:rgba(252,129,129,0.08);color:var(--red);border-color:rgba(252,129,129,0.25);"><i class="fas fa-trash-alt"></i> حذف الكل</button>
+          <button class="btn btn-secondary" onclick="loadDevMessages()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        </div>
+      </div>
+      <div id="dev-messages-list" style="padding: 20px; display: grid; gap: 16px;">
+        <div style="color:var(--text-muted);text-align:center;padding:40px;">
+          <i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+          لا توجد رسائل واردة حالياً.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- =================== MANAGE PAGE =================== -->
   <div class="page" id="page-manage">
     <div class="page-header">
@@ -3230,6 +3259,7 @@
     else if (page === 'scripts') await loadScriptsPage();
     else if (page === 'insta-hunter') await loadInstaPage();
     else if (page === 'contacts') await loadContacts();
+    else if (page === 'devmessages') await loadDevMessages();
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -3265,6 +3295,7 @@
       else if (activePage === 'scripts') await loadScriptsPage();
       else if (activePage === 'insta-hunter') await loadInstaPage();
       else if (activePage === 'contacts') await loadContacts();
+      else if (activePage === 'devmessages') await loadDevMessages();
       
       showToast('✅ تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
@@ -4766,6 +4797,144 @@
           return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:12px;border-right:3px solid ${platformColor};"><div style="width:32px;height:32px;border-radius:50%;background:${platformBg};display:flex;align-items:center;justify-content:center;font-size:13px;color:white;">${platformIcon}</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;"><span style="font-size:12px;font-weight:700;color:var(--text-main);">${userLabel}</span>${contentHtml}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayMessage}</div></div><div style="text-align:left;font-size:11px;color:var(--text-muted);white-space:nowrap;"><div>${timeStr}</div><div>${dateStr}</div></div></div>`;
         }).join('') + `</div>`;
     } catch(e) { showToast('خطأ في تحميل السجل', 'error'); }
+  }
+
+  // =================== DEV MESSAGES INBOX ===================
+  async function loadDevMessages() {
+    const listEl = document.getElementById('dev-messages-list');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري التحميل...</div>`;
+    try {
+      const res = await fetch('/api/dev-messages');
+      const data = await res.json();
+      const countEl = document.getElementById('devmsg-count');
+      if (!data.ok || !data.messages || data.messages.length === 0) {
+        if (countEl) countEl.textContent = '(0)';
+        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد رسائل واردة حالياً.<br><small style="font-size:12px;margin-top:8px;display:block;">يمكن للمستخدمين إرسال رسائل بالأمر <code>.msgtodev</code></small></div>`;
+        return;
+      }
+      const msgs = [...data.messages].reverse(); // newest first
+      const unreadCount = msgs.filter(m => !m.replied).length;
+      if (countEl) countEl.textContent = unreadCount > 0 ? `(${unreadCount} غير مُجاب)` : `(${msgs.length} رسالة)`;
+      listEl.innerHTML = msgs.map(m => {
+        const platform = (m.platform || 'whatsapp').toLowerCase();
+        let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
+        if (platform === 'telegram')  { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تليجرام'; }
+        if (platform === 'facebook')  { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
+        const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleString('ar-MA') : '';
+        const replied = m.replied;
+        return `
+        <div id="devmsg-${m.id}" style="background:var(--bg);border-radius:16px;padding:18px 20px;border:1px solid var(--border);border-right:4px solid ${pColor};display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;border-radius:50%;background:${pColor}22;display:flex;align-items:center;justify-content:center;color:${pColor};font-size:16px;"><i class="${pIcon}"></i></div>
+              <div>
+                <div style="font-weight:700;font-size:14px;color:var(--text-main);">${m.senderName || m.sender}</div>
+                <div style="font-size:11px;color:var(--text-muted);direction:ltr;">${m.sender} · ${pLabel}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${replied ? `<span style="background:rgba(37,211,102,0.1);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;"><i class="fas fa-check-double"></i> تم الرد</span>` : `<span style="background:rgba(246,224,94,0.1);color:var(--yellow);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;"><i class="fas fa-clock"></i> بانتظار الرد</span>`}
+              <span style="font-size:11px;color:var(--text-muted);">${dateStr}</span>
+            </div>
+          </div>
+          <div style="font-size:14px;color:var(--text-main);background:var(--card);padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${escapeHtml(m.text || '')}</div>
+          ${replied ? `<div style="font-size:12px;color:var(--text-muted);background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);padding:10px 14px;border-radius:10px;"><i class="fas fa-reply" style="color:var(--accent);margin-left:6px;"></i><strong>ردك:</strong> ${escapeHtml(m.replyText || '')}</div>` : ''}
+          <div id="devmsg-reply-area-${m.id}" style="display:none;">
+            <textarea id="devmsg-reply-input-${m.id}" placeholder="اكتب ردك هنا..." style="width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end;">
+              <button onclick="hideDevReply('${m.id}')" class="btn btn-secondary" style="padding:8px 16px;font-size:12px;">إلغاء</button>
+              <button onclick="sendDevReply('${m.id}')" class="btn btn-primary" style="padding:8px 18px;font-size:12px;"><i class="fas fa-paper-plane"></i> إرسال الرد</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            ${!replied ? `<button onclick="showDevReply('${m.id}')" class="btn btn-primary" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-reply"></i> رد على المستخدم</button>` : `<button onclick="showDevReply('${m.id}')" class="btn btn-secondary" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-edit"></i> رد مرة أخرى</button>`}
+            <button onclick="deleteDevMsg('${m.id}')" class="btn" style="padding:8px 14px;font-size:12px;background:rgba(252,129,129,0.1);color:var(--red);border:1px solid rgba(252,129,129,0.3);"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:30px;"><i class="fas fa-exclamation-triangle"></i> فشل تحميل الرسائل: ${e.message}</div>`;
+    }
+  }
+
+  function showDevReply(id) {
+    document.getElementById('devmsg-reply-area-' + id).style.display = 'block';
+    document.getElementById('devmsg-reply-input-' + id).focus();
+  }
+  function hideDevReply(id) {
+    document.getElementById('devmsg-reply-area-' + id).style.display = 'none';
+  }
+
+  async function sendDevReply(id) {
+    const input = document.getElementById('devmsg-reply-input-' + id);
+    const replyText = input.value.trim();
+    if (!replyText) { showToast('⚠️ اكتب نص الرد أولاً', 'error'); return; }
+    const btn = document.querySelector(`#devmsg-${id} .btn-primary`);
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...'; }
+    try {
+      const res = await fetch('/api/dev-messages/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, replyText })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ تم إرسال الرد بنجاح!', 'success');
+        await loadDevMessages();
+      } else {
+        showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+      }
+    } catch(e) {
+      showToast('❌ خطأ: ' + e.message, 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+    }
+  }
+
+  async function deleteDevMsg(id) {
+    if (!confirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
+    try {
+      const res = await fetch('/api/dev-messages/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم حذف الرسالة', 'success');
+        const el = document.getElementById('devmsg-' + id);
+        if (el) el.remove();
+        const listEl = document.getElementById('dev-messages-list');
+        if (listEl && !listEl.querySelector('[id^=devmsg-]')) {
+          listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد رسائل واردة حالياً.</div>`;
+        }
+      } else {
+        showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
+      }
+    } catch(e) {
+      showToast('❌ خطأ: ' + e.message, 'error');
+    }
+  }
+
+  async function clearAllDevMessages() {
+    if (!confirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
+    try {
+      const res = await fetch('/api/dev-messages/clear-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم حذف جميع الرسائل', 'success');
+        await loadDevMessages();
+      } else {
+        showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
+      }
+    } catch(e) {
+      showToast('❌ خطأ: ' + e.message, 'error');
+    }
   }
 
   // =================== HELPERS ===================

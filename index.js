@@ -1048,6 +1048,127 @@ app.post('/api/send-message', async (req, res) => {
   }
 });
 
+// 📬 Get developer inbox messages from Supabase cache
+app.get('/api/dev-messages', async (req, res) => {
+  try {
+    const messages = await db.getCache('dev_messages') || [];
+    res.json({ ok: true, messages });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 💬 Reply to a developer inbox message
+app.post('/api/dev-messages/reply', async (req, res) => {
+  try {
+    const { id, replyText } = req.body;
+    if (!id || !replyText) return res.status(400).json({ ok: false, error: 'Message ID and Reply Text are required' });
+
+    let devMessages = await db.getCache('dev_messages') || [];
+    const msgIndex = devMessages.findIndex(m => m.id === id);
+    if (msgIndex === -1) return res.status(404).json({ ok: false, error: 'الرسالة غير موجودة أو تم حذفها' });
+
+    const msgObj = devMessages[msgIndex];
+    const platform = (msgObj.platform || 'whatsapp').toLowerCase();
+    let sent = false;
+    let lastError = null;
+
+    if (platform === 'whatsapp') {
+      const clients = global.clients || [];
+      const sock = clients.find(c => c?.user) || clients[0];
+      if (!sock) return res.status(500).json({ ok: false, error: 'لا توجد جلسة واتساب نشطة لإرسال الرد' });
+
+      const jid = msgObj.sender.includes('@') ? msgObj.sender : `${msgObj.sender}@s.whatsapp.net`;
+      await sock.sendMessage(jid, { text: replyText });
+      sent = true;
+    } else if (platform === 'telegram') {
+      const botTokens = Object.keys(global.telegramBots || {});
+      if (config.telegramToken && !botTokens.includes(config.telegramToken)) botTokens.push(config.telegramToken);
+
+      for (const token of botTokens) {
+        const botInstance = global.telegramBots ? global.telegramBots[token] : null;
+        try {
+          if (botInstance) {
+            await botInstance.sendMessage(msgObj.sender, replyText);
+          } else {
+            await require('axios').post(
+              `https://api.telegram.org/bot${token}/sendMessage`,
+              {
+                chat_id: msgObj.sender,
+                text: replyText.replace(/\*/g, '').replace(/_/g, ''),
+                parse_mode: 'HTML'
+              },
+              { timeout: 10000 }
+            );
+          }
+          sent = true;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+    } else if (platform === 'facebook') {
+      const pageTokens = Object.values(global.fbPageTokens || {});
+      if (config.fbPageAccessToken && !pageTokens.includes(config.fbPageAccessToken)) pageTokens.push(config.fbPageAccessToken);
+      const { sendFacebookMessage } = require('./lib/facebook');
+
+      for (const pageToken of pageTokens) {
+        try {
+          await sendFacebookMessage(msgObj.sender, replyText, pageToken);
+          sent = true;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+    }
+
+    if (!sent) {
+      const errorMsg = lastError ? (lastError.response?.data?.description || lastError.message) : 'فشل إرسال الرد للمستخدم';
+      return res.status(500).json({ ok: false, error: errorMsg });
+    }
+
+    // Update message object status
+    msgObj.replied = true;
+    msgObj.replyText = replyText;
+    msgObj.replyTimestamp = new Date().toISOString();
+
+    // Save back to Supabase cache
+    await db.setCache('dev_messages', devMessages);
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 🗑️ Delete a developer inbox message
+app.post('/api/dev-messages/delete', async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ ok: false, error: 'Message ID is required' });
+    let devMessages = await db.getCache('dev_messages') || [];
+    const before = devMessages.length;
+    devMessages = devMessages.filter(m => m.id !== id);
+    if (devMessages.length === before) return res.status(404).json({ ok: false, error: 'الرسالة غير موجودة' });
+    await db.setCache('dev_messages', devMessages);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 🧹 Clear all developer inbox messages
+app.post('/api/dev-messages/clear-all', async (req, res) => {
+  try {
+    await db.setCache('dev_messages', []);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
 app.post('/api/clear-activity', async (req, res) => {
   try {
     const success = await db.clearAllActivity();
