@@ -2445,7 +2445,7 @@ async function startBot(folderName, phoneNumber) {
 
         const isPrefixed = body && body.startsWith(".");
         const cleanBody = isPrefixed ? body.slice(1).trim() : body.trim();
-        const cmdMatch = cleanBody.match(/^([a-zA-Z0-9\u0600-\u06FF]+)(\s+.*|$)/i);
+        const cmdMatch = cleanBody.match(/^([a-zA-Z0-9\u0600-\u06FF\-_]+)(\s+.*|$)/i);
 
         if (cmdMatch) {
           const command = cmdMatch[1].toLowerCase();
@@ -2649,7 +2649,7 @@ async function startBot(folderName, phoneNumber) {
           let botReplyText = reply;
           let extractedCommand = null;
 
-          const cmdMatchAI = reply.match(/\[COMMAND:\s*(\.[a-zA-Z0-9\u0600-\u06FF\-]+.*?)]/i);
+          const cmdMatchAI = reply.match(/\[COMMAND:\s*(\.[a-zA-Z0-9\u0600-\u06FF\-_]+.*?)]/i);
           if (cmdMatchAI) {
             extractedCommand = cmdMatchAI[1].trim();
             botReplyText = reply.replace(cmdMatchAI[0], '').trim();
@@ -2707,7 +2707,7 @@ async function startBot(folderName, phoneNumber) {
           }
 
           if (extractedCommand) {
-             const cmdMatch = extractedCommand.match(/^[\.]?([a-zA-Z0-9\u0600-\u06FF\-]+)(\s+.*|$)/i);
+              const cmdMatch = extractedCommand.match(/^[\.]?([a-zA-Z0-9\u0600-\u06FF\-_]+)(\s+.*|$)/i);
              if (cmdMatch) {
                 const command = cmdMatch[1].toLowerCase();
                 const args = (cmdMatch[2] || "").trim().split(" ").filter(a => a);
