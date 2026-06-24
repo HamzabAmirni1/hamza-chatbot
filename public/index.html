@@ -2340,7 +2340,10 @@
               <i class="fas fa-image"></i> صورة
             </button>
             <button type="button" onclick="setBroadcastFileAccept('audio/*'); document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <i class="fas fa-microphone"></i> صوت
+              <i class="fas fa-music"></i> ملف صوتي
+            </button>
+            <button type="button" id="broadcast-mic-btn" onclick="toggleBroadcastRecording()" style="padding:7px 14px;font-size:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;color:#ef4444;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-microphone"></i> <span id="broadcast-mic-label">تسجيل صوت</span>
             </button>
             <button type="button" onclick="setBroadcastFileAccept('.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:8px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:6px;">
               <i class="fas fa-file"></i> مستند
@@ -3066,7 +3069,10 @@
               <i class="fas fa-image"></i> صورة
             </button>
             <button type="button" onclick="setDmFileAccept('audio/*'); document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <i class="fas fa-microphone"></i> صوت
+              <i class="fas fa-music"></i> ملف صوتي
+            </button>
+            <button type="button" id="dm-mic-btn" onclick="toggleDmRecording()" style="padding:7px 14px;font-size:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;color:#ef4444;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-microphone"></i> <span id="dm-mic-label">تسجيل صوت</span>
             </button>
             <button type="button" onclick="setDmFileAccept('.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:8px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:6px;">
               <i class="fas fa-file"></i> مستند
@@ -4270,6 +4276,7 @@
   // =================== MEDIA FILE HELPERS ===================
   // State for DM media
   let _dmMediaFile = null;
+  let _dmMediaIsRecorded = false;
 
   function setDmFileAccept(accept) {
     document.getElementById('dm-media-file').accept = accept;
@@ -4279,6 +4286,11 @@
     const file = input.files && input.files[0];
     if (!file) return;
     _dmMediaFile = file;
+    _dmMediaIsRecorded = false;
+    showDmMediaPreview(file);
+  }
+
+  function showDmMediaPreview(file) {
     const preview = document.getElementById('dm-media-preview');
     const icon = document.getElementById('dm-media-icon');
     const nameEl = document.getElementById('dm-media-name');
@@ -4286,10 +4298,20 @@
     preview.style.display = 'block';
     nameEl.textContent = file.name;
     sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+    const oldAudio = document.getElementById('dm-audio-preview-player');
+    if (oldAudio) oldAudio.remove();
+
     if (file.type.startsWith('image/')) {
       icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
     } else if (file.type.startsWith('audio/')) {
       icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
+      const audioEl = document.createElement('audio');
+      audioEl.id = 'dm-audio-preview-player';
+      audioEl.controls = true;
+      audioEl.src = URL.createObjectURL(file);
+      audioEl.style.cssText = 'width:100%; margin-top:8px; height:32px;';
+      preview.appendChild(audioEl);
     } else if (file.type.startsWith('video/')) {
       icon.className = 'fas fa-video'; icon.style.color = '#34d399';
     } else {
@@ -4299,12 +4321,16 @@
 
   function clearDmMedia() {
     _dmMediaFile = null;
+    _dmMediaIsRecorded = false;
     document.getElementById('dm-media-file').value = '';
     document.getElementById('dm-media-preview').style.display = 'none';
+    const oldAudio = document.getElementById('dm-audio-preview-player');
+    if (oldAudio) oldAudio.remove();
   }
 
   // State for broadcast media
   let _broadcastMediaFile = null;
+  let _broadcastMediaIsRecorded = false;
 
   function setBroadcastFileAccept(accept) {
     document.getElementById('broadcast-media-file').accept = accept;
@@ -4314,6 +4340,11 @@
     const file = input.files && input.files[0];
     if (!file) return;
     _broadcastMediaFile = file;
+    _broadcastMediaIsRecorded = false;
+    showBroadcastMediaPreview(file);
+  }
+
+  function showBroadcastMediaPreview(file) {
     const preview = document.getElementById('broadcast-media-preview');
     const icon = document.getElementById('broadcast-media-icon');
     const nameEl = document.getElementById('broadcast-media-name');
@@ -4321,10 +4352,20 @@
     preview.style.display = 'block';
     nameEl.textContent = file.name;
     sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+    const oldAudio = document.getElementById('broadcast-audio-preview-player');
+    if (oldAudio) oldAudio.remove();
+
     if (file.type.startsWith('image/')) {
       icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
     } else if (file.type.startsWith('audio/')) {
       icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
+      const audioEl = document.createElement('audio');
+      audioEl.id = 'broadcast-audio-preview-player';
+      audioEl.controls = true;
+      audioEl.src = URL.createObjectURL(file);
+      audioEl.style.cssText = 'width:100%; margin-top:8px; height:32px;';
+      preview.appendChild(audioEl);
     } else if (file.type.startsWith('video/')) {
       icon.className = 'fas fa-video'; icon.style.color = '#34d399';
     } else {
@@ -4334,8 +4375,127 @@
 
   function clearBroadcastMedia() {
     _broadcastMediaFile = null;
+    _broadcastMediaIsRecorded = false;
     document.getElementById('broadcast-media-file').value = '';
     document.getElementById('broadcast-media-preview').style.display = 'none';
+    const oldAudio = document.getElementById('broadcast-audio-preview-player');
+    if (oldAudio) oldAudio.remove();
+  }
+
+  // MediaRecorder Logic for DM
+  let _dmRecorder = null;
+  let _dmAudioChunks = [];
+  let _dmRecordTimer = null;
+  let _dmRecordSeconds = 0;
+
+  async function toggleDmRecording() {
+    const btn = document.getElementById('dm-mic-btn');
+    const label = document.getElementById('dm-mic-label');
+    
+    if (_dmRecorder && _dmRecorder.state === 'recording') {
+      _dmRecorder.stop();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      _dmAudioChunks = [];
+      _dmRecorder = new MediaRecorder(stream);
+      
+      _dmRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) _dmAudioChunks.push(e.data);
+      };
+
+      _dmRecorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        clearInterval(_dmRecordTimer);
+        btn.style.background = 'rgba(239,68,68,0.1)';
+        btn.style.color = '#ef4444';
+        label.textContent = 'تسجيل صوت';
+
+        const audioBlob = new Blob(_dmAudioChunks, { type: 'audio/ogg; codecs=opus' });
+        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
+        _dmMediaFile = audioFile;
+        _dmMediaIsRecorded = true;
+        showDmMediaPreview(audioFile);
+        showToast('🎤 تم حفظ التسجيل بنجاح', 'success');
+      };
+
+      _dmRecorder.start();
+      _dmRecordSeconds = 0;
+      btn.style.background = '#ef4444';
+      btn.style.color = '#fff';
+      label.textContent = '🔴 إيقاف (00:00)';
+
+      _dmRecordTimer = setInterval(() => {
+        _dmRecordSeconds++;
+        const mins = String(Math.floor(_dmRecordSeconds / 60)).padStart(2, '0');
+        const secs = String(_dmRecordSeconds % 60).padStart(2, '0');
+        label.textContent = `🔴 إيقاف (${mins}:${secs})`;
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      showToast('❌ تعذر الوصول للميكروفون', 'error');
+    }
+  }
+
+  // MediaRecorder Logic for Broadcast
+  let _broadcastRecorder = null;
+  let _broadcastAudioChunks = [];
+  let _broadcastRecordTimer = null;
+  let _broadcastRecordSeconds = 0;
+
+  async function toggleBroadcastRecording() {
+    const btn = document.getElementById('broadcast-mic-btn');
+    const label = document.getElementById('broadcast-mic-label');
+
+    if (_broadcastRecorder && _broadcastRecorder.state === 'recording') {
+      _broadcastRecorder.stop();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      _broadcastAudioChunks = [];
+      _broadcastRecorder = new MediaRecorder(stream);
+
+      _broadcastRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) _broadcastAudioChunks.push(e.data);
+      };
+
+      _broadcastRecorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        clearInterval(_broadcastRecordTimer);
+        btn.style.background = 'rgba(239,68,68,0.1)';
+        btn.style.color = '#ef4444';
+        label.textContent = 'تسجيل صوت';
+
+        const audioBlob = new Blob(_broadcastAudioChunks, { type: 'audio/ogg; codecs=opus' });
+        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
+        _broadcastMediaFile = audioFile;
+        _broadcastMediaIsRecorded = true;
+        showBroadcastMediaPreview(audioFile);
+        showToast('🎤 تم حفظ التسجيل بنجاح', 'success');
+      };
+
+      _broadcastRecorder.start();
+      _broadcastRecordSeconds = 0;
+      btn.style.background = '#ef4444';
+      btn.style.color = '#fff';
+      label.textContent = '🔴 إيقاف (00:00)';
+
+      _broadcastRecordTimer = setInterval(() => {
+        _broadcastRecordSeconds++;
+        const mins = String(Math.floor(_broadcastRecordSeconds / 60)).padStart(2, '0');
+        const secs = String(_broadcastRecordSeconds % 60).padStart(2, '0');
+        label.textContent = `🔴 إيقاف (${mins}:${secs})`;
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      showToast('❌ تعذر الوصول للميكروفون', 'error');
+    }
   }
 
   // Convert File to base64
@@ -4409,6 +4569,7 @@
         body.mediaType = mediaFile.type;
         body.mediaName = mediaFile.name;
         body.caption = message;
+        body.ptt = _dmMediaIsRecorded;
         sendBtn.textContent = 'جاري الإرسال...';
       }
 
@@ -4824,6 +4985,7 @@
         body.mediaType = mediaFile.type;
         body.mediaName = mediaFile.name;
         body.caption = msg;
+        body.ptt = _broadcastMediaIsRecorded;
       }
       showAlert(alert, 'info', '⏳ جاري بدء الإرسال...');
 

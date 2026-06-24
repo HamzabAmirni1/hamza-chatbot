@@ -950,7 +950,7 @@ app.post('/api/delete-user', async (req, res) => {
 
 app.post('/api/send-message', async (req, res) => {
   try {
-    const { number, platform, message, mediaBase64, mediaType, mediaName, caption } = req.body;
+    const { number, platform, message, mediaBase64, mediaType, mediaName, caption, ptt } = req.body;
     if (!number) return res.status(400).json({ ok: false, error: 'الرقم أو المعرف مطلوب' });
     if (!message && !mediaBase64) return res.status(400).json({ ok: false, error: 'الرسالة أو الملف مطلوب' });
 
@@ -979,7 +979,7 @@ app.post('/api/send-message', async (req, res) => {
         if (isImage) {
           await sock.sendMessage(jid, { image: mediaBuffer, caption: msgCaption, mimetype: mediaType });
         } else if (isAudio) {
-          await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: false });
+          await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: !!ptt });
           if (message) await sock.sendMessage(jid, { text: message });
         } else if (isVideo) {
           await sock.sendMessage(jid, { video: mediaBuffer, caption: msgCaption, mimetype: mediaType });
@@ -1009,7 +1009,11 @@ app.post('/api/send-message', async (req, res) => {
                 if (isImage) {
                   await botInstance.sendPhoto(cleanNum, mediaBuffer, { caption: msgCaption }, { filename: fileName, contentType: mediaType });
                 } else if (isAudio) {
-                  await botInstance.sendAudio(cleanNum, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                  if (ptt) {
+                    await botInstance.sendVoice(cleanNum, mediaBuffer, { caption: message || '' });
+                  } else {
+                    await botInstance.sendAudio(cleanNum, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                  }
                 } else if (isVideo) {
                   await botInstance.sendVideo(cleanNum, mediaBuffer, { caption: msgCaption });
                 } else {
@@ -1697,7 +1701,7 @@ app.get('/api/insta/logs', (req, res) => {
 
 app.post('/api/broadcast', async (req, res) => {
   try {
-    const { message, platform, mediaBase64, mediaType, mediaName, caption } = req.body;
+    const { message, platform, mediaBase64, mediaType, mediaName, caption, ptt } = req.body;
     if (!message && !mediaBase64) return res.status(400).json({ ok: false, error: 'رسالة أو ملف مطلوب' });
 
     // Media support
@@ -1780,7 +1784,7 @@ app.post('/api/broadcast', async (req, res) => {
                   if (isImage) {
                     await sock.sendMessage(jid, { image: mediaBuffer, caption: formattedMessage, mimetype: mediaType });
                   } else if (isAudio) {
-                    await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: false });
+                    await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: !!ptt });
                     if (formattedMessage) await sock.sendMessage(jid, { text: formattedMessage });
                   } else if (isVideo) {
                     await sock.sendMessage(jid, { video: mediaBuffer, caption: formattedMessage, mimetype: mediaType });
@@ -1811,7 +1815,11 @@ app.post('/api/broadcast', async (req, res) => {
                   if (isImage) {
                     await botInstance.sendPhoto(chatId, mediaBuffer, { caption: formattedMessage }, { filename: fileName, contentType: mediaType });
                   } else if (isAudio) {
-                    await botInstance.sendAudio(chatId, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                    if (ptt) {
+                      await botInstance.sendVoice(chatId, mediaBuffer, { caption: message || '' });
+                    } else {
+                      await botInstance.sendAudio(chatId, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                    }
                   } else if (isVideo) {
                     await botInstance.sendVideo(chatId, mediaBuffer, { caption: formattedMessage });
                   } else {
