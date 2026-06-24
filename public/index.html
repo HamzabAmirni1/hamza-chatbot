@@ -3462,6 +3462,47 @@
     } catch(e) { showToast('خطأ في الاتصال', 'error'); }
   }
 
+  async function reconnectWASession(phone) {
+    showToast('⏳ جاري إعادة الاتصال وطلب كود الإقران...', 'info');
+    try {
+      const res = await fetch('/api/reconnect-wa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const data = await res.json();
+      if (data.success && data.code) {
+        // Show pairing code in a nice popup modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:99999;`;
+        let secs = 120;
+        modal.innerHTML = `
+          <div style="background:var(--sidebar-bg);border:1px solid var(--border);border-radius:20px;padding:32px 40px;text-align:center;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+            <div style="font-size:40px;margin-bottom:12px;">📱</div>
+            <h3 style="margin:0 0 8px;font-family:Cairo,sans-serif;color:var(--text);">كود الإقران</h3>
+            <p style="color:var(--text-muted);font-size:13px;margin:0 0 20px;font-family:Cairo,sans-serif;">افتح واتساب ← الإعدادات ← الأجهزة المرتبطة ← ربط جهاز ← أدخل الكود يدوياً</p>
+            <div id="rc-code" style="font-size:32px;font-weight:900;letter-spacing:6px;color:var(--green);font-family:monospace;background:rgba(37,211,102,.1);padding:14px 24px;border-radius:12px;margin-bottom:12px;">${data.code}</div>
+            <div id="rc-timer" style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">⏱️ ينتهي خلال ${secs} ثانية</div>
+            <button onclick="this.closest('[style*=fixed]').remove()" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text);padding:10px 28px;border-radius:10px;cursor:pointer;font-family:Cairo,sans-serif;font-size:14px;">إغلاق</button>
+          </div>`;
+        document.body.appendChild(modal);
+        const interval = setInterval(() => {
+          secs--;
+          const t = modal.querySelector('#rc-timer');
+          if (t) t.textContent = `⏱️ ينتهي خلال ${secs} ثانية`;
+          if (secs <= 0) { clearInterval(interval); modal.remove(); loadSessions(); }
+        }, 1000);
+      } else {
+        showToast(data.error || 'فشل في الحصول على كود الإقران. حاول مرة أخرى.', 'error');
+      }
+    } catch(e) {
+      showToast('خطأ في الاتصال بالسيرفر', 'error');
+    }
+    loadSessions();
+  }
+
+
+
   async function loadSessions() {
     try {
       const res = await fetch('/api/status');
@@ -3489,11 +3530,13 @@
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="chip ${s.connected ? 'chip-green' : 'chip-red'}">${s.connected ? 'نشط' : 'منفصل'}</span>
+              ${!s.connected ? `<button class="btn" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;cursor:pointer;" onclick="reconnectWASession('${s.number || s.path}')" title="إعادة الاتصال"><i class="fas fa-sync-alt"></i></button>` : ''}
               <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="deleteWASession('${s.number || s.path}')"><i class="fas fa-trash"></i></button>
             </div>
           </div>
         `).join('') + `</div>`;
       }
+
       
       // 2. Telegram Bots
       html += `<h3 style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><i class="fab fa-telegram-plane" style="color:#38bdf8;"></i> بوتات تليجرام (${tgBots.length})</h3>`;

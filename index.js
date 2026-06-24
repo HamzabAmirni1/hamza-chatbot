@@ -516,6 +516,58 @@ app.post('/api/delete-wa', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
+// ♻️ Reconnect WhatsApp: kills old socket, wipes local session files, starts fresh for pairing
+app.post('/api/reconnect-wa', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ success: false, error: 'Phone is required' });
+    
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const folderName = `session_wa_${cleanPhone}`;
+    
+    // Kill existing socket for this number
+    const activeClient = (global.clients || []).find(c => c._folderName === folderName);
+    if (activeClient) {
+      try { activeClient.end(); } catch (e) {}
+      global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    
+    // Wipe local session files (so Baileys starts fresh without stale keys)
+    const sessionPath = path.join(__dirname, 'sessions', folderName);
+    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+    
+    // Clear Supabase session data (but keep the record so pairing works)
+    await db.updateWhatsAppSession(cleanPhone, null);
+    await db.updatePairingCode(cleanPhone, null, 'disconnected');
+    
+    // Reset pairing globals
+    delete (global.pendingPairingCodes || {})[cleanPhone];
+    if (global.pairingMode) delete global.pairingMode[folderName];
+    if (global.pairingCodeRequested) delete global.pairingCodeRequested[folderName];
+    if (global.lastPairingRequestTime) delete global.lastPairingRequestTime[folderName];
+    
+    // Start fresh bot (will wait for pairing code request from dashboard)
+    global.pairingMode = global.pairingMode || {};
+    global.pairingMode[folderName] = true;
+    startBot(folderName, cleanPhone).catch(err => console.error(`[API/Reconnect] Error:`, err.message));
+    
+    // Wait up to 30s for pairing code to be generated
+    let attempts = 0;
+    while (attempts < 60) {
+      await new Promise(r => setTimeout(r, 500));
+      if (global.pendingPairingCodes[cleanPhone]) {
+        const { code } = global.pendingPairingCodes[cleanPhone];
+        return res.json({ success: true, code, number: cleanPhone });
+      }
+      attempts++;
+    }
+    return res.status(504).json({ success: false, error: 'انتهت مهلة طلب الكود. يرجى المحاولة مرة أخرى.' });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+
+
 app.get('/api/settings', (req, res) => {
   try {
     const c = require('./config');
