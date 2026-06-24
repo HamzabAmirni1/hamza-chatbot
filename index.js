@@ -1102,6 +1102,10 @@ app.post('/api/send-message', async (req, res) => {
             break;
           } catch (e) {
             lastError = e;
+            console.error(chalk.red('[Send Message API] Failed to send Facebook media/message:'), e.message);
+            if (e.response?.data) {
+              console.error(chalk.red('[Send Message API] Facebook API Error details:'), JSON.stringify(e.response.data));
+            }
             // Fallback to text if media fails
             try {
               if (message) {
@@ -1251,6 +1255,10 @@ app.post('/api/dev-messages/reply', async (req, res) => {
           break;
         } catch (e) {
           lastError = e;
+          console.error(chalk.red('[Dev Messages Reply] Failed to send Facebook media:'), e.message);
+          if (e.response?.data) {
+            console.error(chalk.red('[Dev Messages Reply] Facebook API Error details:'), JSON.stringify(e.response.data));
+          }
           // Fallback to text
           try {
             await sendFacebookMessage(msgObj.sender, formattedReply, pageToken);
@@ -1937,7 +1945,11 @@ app.post('/api/broadcast', async (req, res) => {
                   await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
                 }
                 ok = true;
-              } catch (_) {
+              } catch (err) {
+                console.error(chalk.red(`[Broadcast Facebook] Failed to send media to ${recipientId}:`), err.message);
+                if (err.response?.data) {
+                  console.error(chalk.red('[Broadcast Facebook] Facebook API Error details:'), JSON.stringify(err.response.data));
+                }
                 // Fallback to text
                 try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken); ok = true; } catch (__) {}
               }
