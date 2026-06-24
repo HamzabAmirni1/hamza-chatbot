@@ -260,6 +260,34 @@ app.get("/health", (req, res) => res.status(200).json({ status: "healthy", uptim
 app.get("/ping", (req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 app.get("/", (req, res) => res.status(200).json({ bot: config.botName, status: "running", uptime: getUptime() }));
 
+// ── Temporary Media Store ──────────────────────────────────────────────────
+// Stores media buffers in memory so Facebook can fetch them from our public URL.
+// Each entry auto-expires after 15 minutes.
+global._tempMedia = global._tempMedia || new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of global._tempMedia) {
+    if (now - entry.ts > 15 * 60 * 1000) global._tempMedia.delete(key);
+  }
+}, 5 * 60 * 1000);
+
+// Public endpoint — Facebook fetches the media from here
+app.get('/media/:key', (req, res) => {
+  const entry = global._tempMedia.get(req.params.key);
+  if (!entry) return res.status(404).send('Not found');
+  res.set('Content-Type', entry.mime);
+  res.set('Cache-Control', 'no-store');
+  res.send(entry.buffer);
+});
+
+// Helper used by facebook.js to store a buffer and get a public URL
+global.storeTempMedia = function(buffer, mime) {
+  const key = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  global._tempMedia.set(key, { buffer, mime, ts: Date.now() });
+  const base = (config.publicUrl || '').replace(/\/$/, '');
+  return `${base}/media/${key}`;
+};
+
 
 // Enable CORS for Dashboard
 app.use((req, res, next) => {
@@ -1066,7 +1094,7 @@ app.post('/api/send-message', async (req, res) => {
           try {
             if (mediaBuffer && (typeof sendFacebookMedia === 'function')) {
               const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-              await sendFacebookMedia(cleanNum, mediaBuffer, fbType, fileName, msgCaption, pageToken);
+              await sendFacebookMedia(cleanNum, mediaBuffer, fbType, msgCaption, pageToken);
             } else {
               await sendFacebookMessage(cleanNum, message || msgCaption, pageToken);
             }
@@ -1215,7 +1243,7 @@ app.post('/api/dev-messages/reply', async (req, res) => {
         try {
           if (mediaBuffer && typeof sendFacebookMedia === 'function') {
             const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-            await sendFacebookMedia(msgObj.sender, mediaBuffer, fbType, fileName, formattedReply, pageToken);
+            await sendFacebookMedia(msgObj.sender, mediaBuffer, fbType, formattedReply, pageToken);
           } else {
             await sendFacebookMessage(msgObj.sender, formattedReply, pageToken);
           }
@@ -1904,7 +1932,7 @@ app.post('/api/broadcast', async (req, res) => {
                 const { sendFacebookMedia } = require('./lib/facebook');
                 if (mediaBuffer && typeof sendFacebookMedia === 'function') {
                   const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, fileName, formattedMessage, pageId || config.fbPageAccessToken);
+                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken);
                 } else {
                   await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
                 }
