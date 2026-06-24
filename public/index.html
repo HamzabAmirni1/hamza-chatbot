@@ -2332,7 +2332,7 @@
           <textarea id="broadcast-msg" class="form-input" rows="5" placeholder="اكتب رسالتك هنا... (اختياري إذا أرسلت ملفاً)" style="resize:vertical;"></textarea>
         </div>
         <!-- Media Attachment for Broadcast -->
-        <div style="background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:12px;padding:12px;margin-bottom:16px;">
+        <div style="background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:12px;padding:12px;margin-bottom:16px;overflow:hidden;">
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"><i class="fas fa-paperclip"></i> إرفاق ملف (صورة / صوت / مستند) — اختياري</div>
           <input type="file" id="broadcast-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onBroadcastMediaChange(this)" />
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
@@ -5261,7 +5261,7 @@
         const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleString('ar-MA') : '';
         const replied = m.replied;
         return `
-        <div id="devmsg-${m.id}" style="background:var(--bg);border-radius:16px;padding:18px 20px;border:1px solid var(--border);border-right:4px solid ${pColor};display:flex;flex-direction:column;gap:12px;">
+        <div id="devmsg-${m.id}" style="background:var(--bg);border-radius:16px;padding:18px 20px;border:1px solid var(--border);border-right:4px solid ${pColor};display:flex;flex-direction:column;gap:12px;overflow:hidden;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <div style="width:36px;height:36px;border-radius:50%;background:${pColor}22;display:flex;align-items:center;justify-content:center;color:${pColor};font-size:16px;"><i class="${pIcon}"></i></div>
@@ -5374,15 +5374,18 @@
         // 3. Mark the card as "replied" without re-rendering
         const card = document.getElementById('devmsg-' + id);
         if (card) {
-          // Update the status badge from "بانتظار الرد" → "تم الرد"
-          const waitBadge = card.querySelector('span[style*="rgba(246,224,94"]');
-          if (waitBadge) {
-            waitBadge.style.background = 'rgba(37,211,102,0.1)';
-            waitBadge.style.color = 'var(--accent)';
-            waitBadge.innerHTML = '<i class="fas fa-check-double"></i> تم الرد';
+          // Update the status badge – find it by class or style content
+          const allSpans = card.querySelectorAll('span');
+          for (const sp of allSpans) {
+            if (sp.innerHTML.includes('بانتظار الرد') || sp.style.background.includes('246,224,94')) {
+              sp.style.background = 'rgba(37,211,102,0.1)';
+              sp.style.color = 'var(--accent)';
+              sp.innerHTML = '<i class="fas fa-check-double"></i> تم الرد';
+              break;
+            }
           }
-          // Update the reply button label
-          const replyBtn = card.querySelector(`button[onclick="showDevReply('${id}')"]`);
+          // Update the reply button using the data-reply-btn attribute
+          const replyBtn = card.querySelector(`[data-reply-btn="${id}"]`);
           if (replyBtn) {
             replyBtn.className = 'btn btn-secondary';
             replyBtn.innerHTML = '<i class="fas fa-edit"></i> رد مرة أخرى';
@@ -5395,12 +5398,18 @@
           if (existingReplyPreview) {
             existingReplyPreview.outerHTML = replyPreviewHtml;
           } else {
-            // Insert it right before the reply area div
-            const replyArea = document.getElementById('devmsg-reply-area-' + id);
-            if (replyArea) {
-              replyArea.insertAdjacentHTML('beforebegin', replyPreviewHtml);
+            // Insert before the buttons row (which comes before the reply area in the HTML)
+            const btnsRow = card.querySelector(`[data-reply-btn="${id}"]`);
+            if (btnsRow && btnsRow.parentElement) {
+              btnsRow.parentElement.insertAdjacentHTML('beforebegin', replyPreviewHtml);
+            } else {
+              // Fallback: insert at end of card
+              card.insertAdjacentHTML('beforeend', replyPreviewHtml);
             }
           }
+          // Hide the reply area after sending
+          const replyArea = document.getElementById('devmsg-reply-area-' + id);
+          if (replyArea) replyArea.style.display = 'none';
         }
       } else {
         showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
