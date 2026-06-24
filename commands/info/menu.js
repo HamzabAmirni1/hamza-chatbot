@@ -46,7 +46,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 .ping | .weather | .translate | .tempmail
 .sticker | .tomp3 | .toimg | .blur | .style
 .img2pdf | .igfollowers | .alloschool
-🆕 .tts | .qr | .ocr | .ss | .mega
+🆕 .tts | .qr | .ocr | .ss | .mega | .msgtodev
 ━━━━━━━━━━━━━━━━
 `;
 
