@@ -2349,14 +2349,14 @@
               <i class="fas fa-file"></i> مستند
             </button>
           </div>
-          <div id="broadcast-media-preview" style="display:none;">
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);border-radius:8px;">
-              <i id="broadcast-media-icon" class="fas fa-file" style="font-size:18px;color:#25d366;"></i>
-              <div style="flex:1;min-width:0;">
-                <div id="broadcast-media-name" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div id="broadcast-media-preview" style="display:none;margin-top:8px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);border-radius:8px;overflow:hidden;box-sizing:border-box;width:100%;">
+              <i id="broadcast-media-icon" class="fas fa-file" style="font-size:18px;color:#25d366;flex-shrink:0;"></i>
+              <div style="flex:1;min-width:0;overflow:hidden;">
+                <div id="broadcast-media-name" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;"></div>
                 <div id="broadcast-media-size" style="font-size:11px;color:var(--text-muted);"></div>
               </div>
-              <button type="button" onclick="clearBroadcastMedia()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;"><i class="fas fa-times"></i></button>
+              <button type="button" onclick="clearBroadcastMedia()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;flex-shrink:0;"><i class="fas fa-times"></i></button>
             </div>
           </div>
         </div>
@@ -5277,7 +5277,11 @@
           </div>
           <div style="font-size:14px;color:var(--text-main);background:var(--card);padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${escapeHtml(m.text || '')}</div>
           ${replied ? `<div style="font-size:12px;color:var(--text-muted);background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);padding:10px 14px;border-radius:10px;"><i class="fas fa-reply" style="color:var(--accent);margin-left:6px;"></i><strong>ردك:</strong> ${escapeHtml(m.replyText || '')}</div>` : ''}
-          <div id="devmsg-reply-area-${m.id}" style="display:none; margin-bottom:12px;">
+          <div style="display:flex;gap:8px;">
+            ${!replied ? `<button onclick="showDevReply('${m.id}')" class="btn btn-primary" data-reply-btn="${m.id}" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-reply"></i> رد على المستخدم</button>` : `<button onclick="showDevReply('${m.id}')" class="btn btn-secondary" data-reply-btn="${m.id}" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-edit"></i> رد مرة أخرى</button>`}
+            <button onclick="deleteDevMsg('${m.id}')" class="btn" style="padding:8px 14px;font-size:12px;background:rgba(252,129,129,0.1);color:var(--red);border:1px solid rgba(252,129,129,0.3);"><i class="fas fa-trash"></i></button>
+          </div>
+          <div id="devmsg-reply-area-${m.id}" style="display:none; margin-top:12px; overflow:hidden;">
             <textarea id="devmsg-reply-input-${m.id}" placeholder="اكتب ردك هنا... (اختياري إذا أرسلت ملفاً)" style="width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
             
             <!-- Inline Reply Media Selector -->
@@ -5299,13 +5303,13 @@
                 </button>
               </div>
               <div id="devreply-media-preview-${m.id}" style="display:none;">
-                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);border-radius:6px;">
-                  <i id="devreply-media-icon-${m.id}" class="fas fa-file" style="font-size:14px;color:#25d366;"></i>
-                  <div style="flex:1;min-width:0;">
-                    <div id="devreply-media-name-${m.id}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);border-radius:6px;overflow:hidden;box-sizing:border-box;width:100%;">
+                  <i id="devreply-media-icon-${m.id}" class="fas fa-file" style="font-size:14px;color:#25d366;flex-shrink:0;"></i>
+                  <div style="flex:1;min-width:0;overflow:hidden;">
+                    <div id="devreply-media-name-${m.id}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;"></div>
                     <div id="devreply-media-size-${m.id}" style="font-size:10px;color:var(--text-muted);"></div>
                   </div>
-                  <button type="button" onclick="clearDevReplyMedia('${m.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;"><i class="fas fa-times"></i></button>
+                  <button type="button" onclick="clearDevReplyMedia('${m.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0;"><i class="fas fa-times"></i></button>
                 </div>
               </div>
             </div>
@@ -5314,10 +5318,6 @@
               <button onclick="hideDevReply('${m.id}')" class="btn btn-secondary" style="padding:8px 16px;font-size:12px;">إلغاء</button>
               <button onclick="sendDevReply('${m.id}')" class="btn btn-primary" id="devreply-send-btn-${m.id}" style="padding:8px 18px;font-size:12px;"><i class="fas fa-paper-plane"></i> إرسال الرد</button>
             </div>
-          </div>
-          <div style="display:flex;gap:8px;">
-            ${!replied ? `<button onclick="showDevReply('${m.id}')" class="btn btn-primary" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-reply"></i> رد على المستخدم</button>` : `<button onclick="showDevReply('${m.id}')" class="btn btn-secondary" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-edit"></i> رد مرة أخرى</button>`}
-            <button onclick="deleteDevMsg('${m.id}')" class="btn" style="padding:8px 14px;font-size:12px;background:rgba(252,129,129,0.1);color:var(--red);border:1px solid rgba(252,129,129,0.3);"><i class="fas fa-trash"></i></button>
           </div>
         </div>`;
       }).join('');
