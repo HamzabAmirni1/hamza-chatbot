@@ -2329,7 +2329,33 @@
         </div>
         <div class="form-group">
           <label class="form-label">الرسالة (يدعم تنسيق واتساب *غامق* _مائل_)</label>
-          <textarea id="broadcast-msg" class="form-input" rows="7" placeholder="اكتب رسالتك هنا..." style="resize:vertical;"></textarea>
+          <textarea id="broadcast-msg" class="form-input" rows="5" placeholder="اكتب رسالتك هنا... (اختياري إذا أرسلت ملفاً)" style="resize:vertical;"></textarea>
+        </div>
+        <!-- Media Attachment for Broadcast -->
+        <div style="background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:12px;padding:12px;margin-bottom:16px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"><i class="fas fa-paperclip"></i> إرفاق ملف (صورة / صوت / مستند) — اختياري</div>
+          <input type="file" id="broadcast-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onBroadcastMediaChange(this)" />
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <button type="button" onclick="document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:8px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-image"></i> صورة
+            </button>
+            <button type="button" onclick="setBroadcastFileAccept('audio/*'); document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-microphone"></i> صوت
+            </button>
+            <button type="button" onclick="setBroadcastFileAccept('.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:8px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-file"></i> مستند
+            </button>
+          </div>
+          <div id="broadcast-media-preview" style="display:none;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);border-radius:8px;">
+              <i id="broadcast-media-icon" class="fas fa-file" style="font-size:18px;color:#25d366;"></i>
+              <div style="flex:1;min-width:0;">
+                <div id="broadcast-media-name" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                <div id="broadcast-media-size" style="font-size:11px;color:var(--text-muted);"></div>
+              </div>
+              <button type="button" onclick="clearBroadcastMedia()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;"><i class="fas fa-times"></i></button>
+            </div>
+          </div>
         </div>
         <div style="background:rgba(246,224,94,0.08);border:1px solid rgba(246,224,94,0.2);border-radius:12px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--yellow);">
           <i class="fas fa-exclamation-triangle"></i> ستُرسل لجميع المستخدمين المسجلين في المنصة المحددة — تأكد من المحتوى قبل الإرسال
@@ -3022,14 +3048,41 @@
 
   <!-- Direct Message Modal -->
   <div id="direct-message-modal" class="custom-modal-overlay hide">
-    <div class="custom-modal" style="max-width: 450px;">
+    <div class="custom-modal" style="max-width: 500px;">
       <div class="custom-modal-header">
         <i class="fas fa-paper-plane custom-modal-icon" style="color: var(--blue);"></i>
         <span class="custom-modal-title">إرسال رسالة مباشرة</span>
       </div>
       <div class="custom-modal-body">
-        <div style="font-size:13px; margin-bottom: 10px;">إرسال إلى: <span id="dm-recipient-name" style="font-weight: 700; color: var(--accent);"></span> (<span id="dm-recipient-phone" style="font-family: monospace;"></span>)</div>
-        <textarea id="dm-message-text" class="form-input" rows="4" placeholder="اكتب رسالتك هنا..." style="resize:vertical; width:100%; box-sizing:border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: 'Cairo', sans-serif; font-size:14px; outline:none;"></textarea>
+        <div style="font-size:13px; margin-bottom: 12px;">إرسال إلى: <span id="dm-recipient-name" style="font-weight: 700; color: var(--accent);"></span> (<span id="dm-recipient-phone" style="font-family: monospace;"></span>)</div>
+        <!-- Message Text -->
+        <textarea id="dm-message-text" class="form-input" rows="3" placeholder="اكتب رسالتك هنا... (اختياري إذا أرسلت ملفاً)" style="resize:vertical; width:100%; box-sizing:border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: 'Cairo', sans-serif; font-size:14px; outline:none; margin-bottom:12px;"></textarea>
+        <!-- Media Attachment -->
+        <div style="background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:12px;padding:12px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"><i class="fas fa-paperclip"></i> إرفاق ملف (صورة / صوت / مستند)</div>
+          <input type="file" id="dm-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDmMediaChange(this)" />
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" onclick="document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:8px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-image"></i> صورة
+            </button>
+            <button type="button" onclick="setDmFileAccept('audio/*'); document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-microphone"></i> صوت
+            </button>
+            <button type="button" onclick="setDmFileAccept('.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:8px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-file"></i> مستند
+            </button>
+          </div>
+          <div id="dm-media-preview" style="margin-top:10px;display:none;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);border-radius:8px;">
+              <i id="dm-media-icon" class="fas fa-file" style="font-size:18px;color:#25d366;"></i>
+              <div style="flex:1;min-width:0;">
+                <div id="dm-media-name" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                <div id="dm-media-size" style="font-size:11px;color:var(--text-muted);"></div>
+              </div>
+              <button type="button" onclick="clearDmMedia()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;"><i class="fas fa-times"></i></button>
+            </div>
+          </div>
+        </div>
         <div id="dm-alert" class="alert" style="margin-top: 10px; display: none;"></div>
       </div>
       <div class="custom-modal-footer">
@@ -4214,12 +4267,94 @@
     else showToast(data.error || 'فشل', 'error');
   }
 
+  // =================== MEDIA FILE HELPERS ===================
+  // State for DM media
+  let _dmMediaFile = null;
+
+  function setDmFileAccept(accept) {
+    document.getElementById('dm-media-file').accept = accept;
+  }
+
+  function onDmMediaChange(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    _dmMediaFile = file;
+    const preview = document.getElementById('dm-media-preview');
+    const icon = document.getElementById('dm-media-icon');
+    const nameEl = document.getElementById('dm-media-name');
+    const sizeEl = document.getElementById('dm-media-size');
+    preview.style.display = 'block';
+    nameEl.textContent = file.name;
+    sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+    if (file.type.startsWith('image/')) {
+      icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
+    } else if (file.type.startsWith('audio/')) {
+      icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
+    } else if (file.type.startsWith('video/')) {
+      icon.className = 'fas fa-video'; icon.style.color = '#34d399';
+    } else {
+      icon.className = 'fas fa-file-alt'; icon.style.color = '#fbbf24';
+    }
+  }
+
+  function clearDmMedia() {
+    _dmMediaFile = null;
+    document.getElementById('dm-media-file').value = '';
+    document.getElementById('dm-media-preview').style.display = 'none';
+  }
+
+  // State for broadcast media
+  let _broadcastMediaFile = null;
+
+  function setBroadcastFileAccept(accept) {
+    document.getElementById('broadcast-media-file').accept = accept;
+  }
+
+  function onBroadcastMediaChange(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    _broadcastMediaFile = file;
+    const preview = document.getElementById('broadcast-media-preview');
+    const icon = document.getElementById('broadcast-media-icon');
+    const nameEl = document.getElementById('broadcast-media-name');
+    const sizeEl = document.getElementById('broadcast-media-size');
+    preview.style.display = 'block';
+    nameEl.textContent = file.name;
+    sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+    if (file.type.startsWith('image/')) {
+      icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
+    } else if (file.type.startsWith('audio/')) {
+      icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
+    } else if (file.type.startsWith('video/')) {
+      icon.className = 'fas fa-video'; icon.style.color = '#34d399';
+    } else {
+      icon.className = 'fas fa-file-alt'; icon.style.color = '#fbbf24';
+    }
+  }
+
+  function clearBroadcastMedia() {
+    _broadcastMediaFile = null;
+    document.getElementById('broadcast-media-file').value = '';
+    document.getElementById('broadcast-media-preview').style.display = 'none';
+  }
+
+  // Convert File to base64
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   let _dmTargetNumber = '';
   let _dmTargetPlatform = '';
 
   function openDirectMessageModal(num, platform, name) {
     _dmTargetNumber = num;
     _dmTargetPlatform = platform;
+    clearDmMedia();
     
     document.getElementById('dm-recipient-name').textContent = name || 'مستخدم';
     document.getElementById('dm-recipient-phone').textContent = num;
@@ -4246,13 +4381,14 @@
 
   async function submitDirectMessage() {
     const message = document.getElementById('dm-message-text').value.trim();
+    const mediaFile = _dmMediaFile;
     const alertEl = document.getElementById('dm-alert');
     const sendBtn = document.getElementById('dm-send-btn');
     
-    if (!message) {
+    if (!message && !mediaFile) {
       alertEl.style.display = 'block';
       alertEl.className = 'alert alert-error';
-      alertEl.textContent = '⚠️ يرجى كتابة الرسالة أولاً';
+      alertEl.textContent = '⚠️ يرجى كتابة رسالة أو إرفاق ملف';
       return;
     }
     
@@ -4261,14 +4397,25 @@
     alertEl.style.display = 'none';
     
     try {
+      const body = {
+        number: _dmTargetNumber,
+        platform: _dmTargetPlatform,
+        message: message
+      };
+
+      if (mediaFile) {
+        sendBtn.textContent = 'جاري رفع الملف...';
+        body.mediaBase64 = await fileToBase64(mediaFile);
+        body.mediaType = mediaFile.type;
+        body.mediaName = mediaFile.name;
+        body.caption = message;
+        sendBtn.textContent = 'جاري الإرسال...';
+      }
+
       const res = await fetch('/api/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          number: _dmTargetNumber,
-          platform: _dmTargetPlatform,
-          message: message
-        })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (data.ok) {
@@ -4653,11 +4800,12 @@
   async function sendBroadcast() {
     const msg = document.getElementById('broadcast-msg').value.trim();
     const platform = document.getElementById('broadcast-platform').value;
-    if (!msg) { showToast('اكتب رسالة أولاً', 'error'); return; }
+    const mediaFile = _broadcastMediaFile;
+    if (!msg && !mediaFile) { showToast('اكتب رسالة أو أرفق ملفاً أولاً', 'error'); return; }
     if (!await showConfirm('إرسال هذه الرسالة للمستلمين المحددين؟')) return;
 
     const alert = document.getElementById('broadcast-alert');
-    showAlert(alert, 'info', '⏳ جاري بدء الإرسال...');
+    showAlert(alert, 'info', '⏳ جاري تحضير الملف...');
 
     // Show live progress panel
     let progressPanel = document.getElementById('bc-progress-panel');
@@ -4669,10 +4817,20 @@
     }
 
     try {
+      const body = { message: msg, platform };
+      if (mediaFile) {
+        showAlert(alert, 'info', '⏳ جاري رفع الملف...');
+        body.mediaBase64 = await fileToBase64(mediaFile);
+        body.mediaType = mediaFile.type;
+        body.mediaName = mediaFile.name;
+        body.caption = msg;
+      }
+      showAlert(alert, 'info', '⏳ جاري بدء الإرسال...');
+
       const res = await fetch('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, platform })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
 
@@ -4684,6 +4842,7 @@
       // Start polling progress
       showAlert(alert, 'info', `📡 البث يعمل في الخلفية... (${data.total} مستخدم)`);
       document.getElementById('broadcast-msg').value = '';
+      clearBroadcastMedia();
       document.getElementById('broadcast-last').textContent = new Date().toLocaleTimeString('ar-MA');
 
       let pollInterval = setInterval(async () => {

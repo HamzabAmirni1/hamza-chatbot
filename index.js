@@ -227,7 +227,7 @@ const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 8000;
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/media', express.static(path.join(__dirname, 'media')));
 
@@ -950,12 +950,23 @@ app.post('/api/delete-user', async (req, res) => {
 
 app.post('/api/send-message', async (req, res) => {
   try {
-    const { number, platform, message } = req.body;
+    const { number, platform, message, mediaBase64, mediaType, mediaName, caption } = req.body;
     if (!number) return res.status(400).json({ ok: false, error: 'الرقم أو المعرف مطلوب' });
-    if (!message) return res.status(400).json({ ok: false, error: 'الرسالة مطلوبة' });
+    if (!message && !mediaBase64) return res.status(400).json({ ok: false, error: 'الرسالة أو الملف مطلوب' });
 
     const plat = (platform || 'whatsapp').toLowerCase();
     const cleanNum = number.trim();
+
+    // Convert base64 to Buffer if media provided
+    const mediaBuffer = mediaBase64 ? Buffer.from(mediaBase64, 'base64') : null;
+    const msgCaption = caption || message || '';
+    const fileName = mediaName || 'file';
+
+    // Determine media category
+    const isImage = mediaType && mediaType.startsWith('image/');
+    const isAudio = mediaType && (mediaType.startsWith('audio/') || mediaType === 'video/ogg');
+    const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
+    const isDoc = mediaBuffer && !isImage && !isAudio && !isVideo;
 
     if (plat === 'whatsapp') {
       const clients = global.clients || [];
@@ -963,8 +974,23 @@ app.post('/api/send-message', async (req, res) => {
       if (!sock) return res.status(500).json({ ok: false, error: 'لا يوجد جلسة واتساب نشطة حالياً' });
 
       const jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
-      await sock.sendMessage(jid, { text: message });
+
+      if (mediaBuffer) {
+        if (isImage) {
+          await sock.sendMessage(jid, { image: mediaBuffer, caption: msgCaption, mimetype: mediaType });
+        } else if (isAudio) {
+          await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: false });
+          if (message) await sock.sendMessage(jid, { text: message });
+        } else if (isVideo) {
+          await sock.sendMessage(jid, { video: mediaBuffer, caption: msgCaption, mimetype: mediaType });
+        } else {
+          await sock.sendMessage(jid, { document: mediaBuffer, fileName: fileName, mimetype: mediaType || 'application/octet-stream', caption: msgCaption });
+        }
+      } else {
+        await sock.sendMessage(jid, { text: message });
+      }
       return res.json({ ok: true });
+
     } else if (plat === 'telegram') {
       const botTokens = Object.keys(global.telegramBots || {});
       if (config.telegramToken && !botTokens.includes(config.telegramToken)) {
@@ -979,21 +1005,33 @@ app.post('/api/send-message', async (req, res) => {
           const botInstance = global.telegramBots ? global.telegramBots[token] : null;
           try {
             if (botInstance) {
-              await botInstance.sendMessage(cleanNum, message);
+              if (mediaBuffer) {
+                if (isImage) {
+                  await botInstance.sendPhoto(cleanNum, mediaBuffer, { caption: msgCaption }, { filename: fileName, contentType: mediaType });
+                } else if (isAudio) {
+                  await botInstance.sendAudio(cleanNum, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                } else if (isVideo) {
+                  await botInstance.sendVideo(cleanNum, mediaBuffer, { caption: msgCaption });
+                } else {
+                  await botInstance.sendDocument(cleanNum, mediaBuffer, { caption: msgCaption }, { filename: fileName, contentType: mediaType });
+                }
+              } else {
+                await botInstance.sendMessage(cleanNum, message);
+              }
             } else {
-              // Direct API call
+              // Direct API call (text only fallback)
               await require('axios').post(
                 `https://api.telegram.org/bot${token}/sendMessage`,
                 {
                   chat_id: cleanNum,
-                  text: message.replace(/\*/g, '').replace(/_/g, ''),
+                  text: (message || msgCaption).replace(/\*/g, '').replace(/_/g, ''),
                   parse_mode: 'HTML'
                 },
                 { timeout: 10000 }
               );
             }
             sent = true;
-            break; // Stop on first success
+            break;
           } catch (e) {
             lastError = e;
             console.warn(`[Send Message API] Failed to send using bot token ${token.substring(0,8)}...:`, e.message);
@@ -1001,7 +1039,6 @@ app.post('/api/send-message', async (req, res) => {
         }
 
         if (!sent) {
-          // If it fails for all, return the last error message or a friendly message
           const errorMsg = lastError ? (lastError.response?.data?.description || lastError.message) : 'Forbidden: bot can\'t initiate conversation with a user';
           return res.status(500).json({ ok: false, error: errorMsg });
         }
@@ -1009,6 +1046,7 @@ app.post('/api/send-message', async (req, res) => {
       } else {
         return res.status(500).json({ ok: false, error: 'بوت تليجرام غير مفعّل' });
       }
+
     } else if (plat === 'facebook') {
       const pageTokens = Object.values(global.fbPageTokens || {});
       if (config.fbPageAccessToken && !pageTokens.includes(config.fbPageAccessToken)) {
@@ -1018,15 +1056,28 @@ app.post('/api/send-message', async (req, res) => {
       if (pageTokens.length > 0) {
         let sent = false;
         let lastError = null;
-        const { sendFacebookMessage } = require('./lib/facebook');
+        const { sendFacebookMessage, sendFacebookMedia } = require('./lib/facebook');
 
         for (const pageToken of pageTokens) {
           try {
-            await sendFacebookMessage(cleanNum, message, pageToken);
+            if (mediaBuffer && (typeof sendFacebookMedia === 'function')) {
+              const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
+              await sendFacebookMedia(cleanNum, mediaBuffer, fbType, fileName, msgCaption, pageToken);
+            } else {
+              await sendFacebookMessage(cleanNum, message || msgCaption, pageToken);
+            }
             sent = true;
             break;
           } catch (e) {
             lastError = e;
+            // Fallback to text if media fails
+            try {
+              if (message) {
+                await sendFacebookMessage(cleanNum, message, pageToken);
+                sent = true;
+                break;
+              }
+            } catch (_) {}
             console.warn(`[Send Message API] Failed to send to Facebook using token ${pageToken.substring(0,8)}...:`, e.message);
           }
         }
@@ -1646,8 +1697,16 @@ app.get('/api/insta/logs', (req, res) => {
 
 app.post('/api/broadcast', async (req, res) => {
   try {
-    const { message, platform } = req.body;
-    if (!message) return res.status(400).json({ ok: false, error: 'رسالة مطلوبة' });
+    const { message, platform, mediaBase64, mediaType, mediaName, caption } = req.body;
+    if (!message && !mediaBase64) return res.status(400).json({ ok: false, error: 'رسالة أو ملف مطلوب' });
+
+    // Media support
+    const mediaBuffer = mediaBase64 ? Buffer.from(mediaBase64, 'base64') : null;
+    const fileName = mediaName || 'broadcast';
+    const msgCaption = caption || message || '';
+    const isImage = mediaType && mediaType.startsWith('image/');
+    const isAudio = mediaType && (mediaType.startsWith('audio/') || mediaType === 'video/ogg');
+    const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
     
     const targetPlatform = platform || 'all';
     let results = { whatsapp: { sent: 0, failed: 0 }, telegram: { sent: 0, failed: 0 }, facebook: { sent: 0, failed: 0 } };
@@ -1716,7 +1775,23 @@ app.post('/api/broadcast', async (req, res) => {
             if (!jid || jid === 'test@s.whatsapp.net') continue;
             let ok = false;
             try {
-              if (sock) { await sock.sendMessage(jid, { text: formattedMessage }); ok = true; }
+              if (sock) {
+                if (mediaBuffer) {
+                  if (isImage) {
+                    await sock.sendMessage(jid, { image: mediaBuffer, caption: formattedMessage, mimetype: mediaType });
+                  } else if (isAudio) {
+                    await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: false });
+                    if (formattedMessage) await sock.sendMessage(jid, { text: formattedMessage });
+                  } else if (isVideo) {
+                    await sock.sendMessage(jid, { video: mediaBuffer, caption: formattedMessage, mimetype: mediaType });
+                  } else {
+                    await sock.sendMessage(jid, { document: mediaBuffer, fileName: fileName, mimetype: mediaType || 'application/octet-stream', caption: formattedMessage });
+                  }
+                } else {
+                  await sock.sendMessage(jid, { text: formattedMessage });
+                }
+                ok = true;
+              }
             } catch (_) {}
             pushLog('📱', name, 'WhatsApp', ok);
             await new Promise(r => setTimeout(r, 500));
@@ -1732,7 +1807,19 @@ app.post('/api/broadcast', async (req, res) => {
             let sent = false;
             for (const botInstance of allBots) {
               try {
-                await botInstance.sendMessage(chatId, formattedMessage, { parse_mode: 'Markdown' });
+                if (mediaBuffer) {
+                  if (isImage) {
+                    await botInstance.sendPhoto(chatId, mediaBuffer, { caption: formattedMessage }, { filename: fileName, contentType: mediaType });
+                  } else if (isAudio) {
+                    await botInstance.sendAudio(chatId, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                  } else if (isVideo) {
+                    await botInstance.sendVideo(chatId, mediaBuffer, { caption: formattedMessage });
+                  } else {
+                    await botInstance.sendDocument(chatId, mediaBuffer, { caption: formattedMessage }, { filename: fileName, contentType: mediaType });
+                  }
+                } else {
+                  await botInstance.sendMessage(chatId, formattedMessage, { parse_mode: 'Markdown' });
+                }
                 sent = true; break;
               } catch (_) {}
             }
@@ -1751,9 +1838,18 @@ app.post('/api/broadcast', async (req, res) => {
               const pageId = typeof user === 'object' ? user.pageId : null;
               let ok = false;
               try {
-                await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
+                const { sendFacebookMedia } = require('./lib/facebook');
+                if (mediaBuffer && typeof sendFacebookMedia === 'function') {
+                  const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
+                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, fileName, formattedMessage, pageId || config.fbPageAccessToken);
+                } else {
+                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
+                }
                 ok = true;
-              } catch (_) {}
+              } catch (_) {
+                // Fallback to text
+                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken); ok = true; } catch (__) {}
+              }
               pushLog('🔵', name, 'Facebook', ok);
               await new Promise(r => setTimeout(r, 500));
             }
