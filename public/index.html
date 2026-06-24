@@ -2444,6 +2444,14 @@
           <button class="btn btn-secondary" onclick="loadDevMessages()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
         </div>
       </div>
+      <!-- Dev messages filter toggle bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.01);flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;background:var(--bg);padding:4px;border-radius:10px;border:1px solid var(--border);gap:4px;">
+          <button id="devmsg-filter-all" onclick="setDevMsgFilter('all')" style="padding:6px 16px;font-size:12px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg, var(--accent), var(--blue));color:white;transition:all 0.2s;">الكل</button>
+          <button id="devmsg-filter-unanswered" onclick="setDevMsgFilter('unanswered')" style="padding:6px 16px;font-size:12px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:transparent;color:var(--text-muted);transition:all 0.2s;">غير مُجاب</button>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted);font-weight:600;"><i class="fas fa-info-circle" style="color:var(--blue);margin-left:4px;"></i>غير المجاب يظهر أولاً تلقائياً</span>
+      </div>
       <div id="dev-messages-list" style="padding: 20px; display: grid; gap: 16px;">
         <div style="color:var(--text-muted);text-align:center;padding:40px;">
           <i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
@@ -4515,6 +4523,28 @@
   const _devReplyRecorders = {};
   const _devReplyRecordTimers = {};
 
+  let _devMsgFilter = 'all';
+
+  async function setDevMsgFilter(filter) {
+    _devMsgFilter = filter;
+    const allBtn = document.getElementById('devmsg-filter-all');
+    const unansweredBtn = document.getElementById('devmsg-filter-unanswered');
+    if (allBtn && unansweredBtn) {
+      if (filter === 'all') {
+        allBtn.style.background = 'linear-gradient(135deg, var(--accent), var(--blue))';
+        allBtn.style.color = 'white';
+        unansweredBtn.style.background = 'transparent';
+        unansweredBtn.style.color = 'var(--text-muted)';
+      } else {
+        allBtn.style.background = 'transparent';
+        allBtn.style.color = 'var(--text-muted)';
+        unansweredBtn.style.background = 'linear-gradient(135deg, var(--accent), var(--blue))';
+        unansweredBtn.style.color = 'white';
+      }
+    }
+    await loadDevMessages();
+  }
+
   function setDevReplyFileAccept(id, accept) {
     const input = document.getElementById(`devreply-media-file-${id}`);
     if (input) input.accept = accept;
@@ -5251,9 +5281,38 @@
         listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد رسائل واردة حالياً.<br><small style="font-size:12px;margin-top:8px;display:block;">يمكن للمستخدمين إرسال رسائل بالأمر <code>.msgtodev</code></small></div>`;
         return;
       }
-      const msgs = [...data.messages].reverse(); // newest first
-      const unreadCount = msgs.filter(m => !m.replied).length;
-      if (countEl) countEl.textContent = unreadCount > 0 ? `(${unreadCount} غير مُجاب)` : `(${msgs.length} رسالة)`;
+      
+      let msgs = [...data.messages];
+      
+      // Filter if requested
+      if (_devMsgFilter === 'unanswered') {
+        msgs = msgs.filter(m => !m.replied);
+      }
+      
+      const unreadCount = data.messages.filter(m => !m.replied).length;
+      if (countEl) {
+        if (_devMsgFilter === 'unanswered') {
+          countEl.textContent = `(${unreadCount} غير مُجاب)`;
+        } else {
+          countEl.textContent = unreadCount > 0 ? `(${unreadCount} غير مُجاب)` : `(${data.messages.length} رسالة)`;
+        }
+      }
+      
+      if (msgs.length === 0) {
+        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-check-circle" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;color:var(--accent);"></i>رائع! لا توجد رسائل بانتظار الرد حالياً.</div>`;
+        return;
+      }
+      
+      // Sort unanswered first, then by timestamp descending
+      msgs.sort((a, b) => {
+        if (!!a.replied !== !!b.replied) {
+          return a.replied ? 1 : -1; // Unanswered first
+        }
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA; // Newest first
+      });
+
       listEl.innerHTML = msgs.map(m => {
         const platform = (m.platform || 'whatsapp').toLowerCase();
         let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
@@ -5286,7 +5345,7 @@
             <textarea id="devmsg-reply-input-${m.id}" placeholder="اكتب ردك هنا... (اختياري إذا أرسلت ملفاً)" style="width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
             
             <!-- Inline Reply Media Selector -->
-            <div style="background:rgba(255,255,255,0.02);border:1px dashed var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
+            <div style="background:rgba(255,255,255,0.02);border:1px dashed var(--border);border-radius:10px;padding:10px;margin-bottom:8px;box-sizing:border-box;width:100%;">
               <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"><i class="fas fa-paperclip"></i> إرفاق ملف (صورة / صوت / مستند)</div>
               <input type="file" id="devreply-media-file-${m.id}" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${m.id}', this)" />
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
@@ -5303,12 +5362,12 @@
                   <i class="fas fa-file"></i> مستند
                 </button>
               </div>
-              <div id="devreply-media-preview-${m.id}" style="display:none;">
+              <div id="devreply-media-preview-${m.id}" style="display:none;margin-top:8px;width:100%;box-sizing:border-box;">
                 <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);border-radius:6px;overflow:hidden;box-sizing:border-box;width:100%;">
                   <i id="devreply-media-icon-${m.id}" class="fas fa-file" style="font-size:14px;color:#25d366;flex-shrink:0;"></i>
-                  <div style="flex:1;min-width:0;overflow:hidden;">
-                    <div id="devreply-media-name-${m.id}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;"></div>
-                    <div id="devreply-media-size-${m.id}" style="font-size:10px;color:var(--text-muted);"></div>
+                  <div style="flex:1;min-width:0;overflow:hidden;direction:ltr;text-align:left;">
+                    <div id="devreply-media-name-${m.id}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;direction:ltr;"></div>
+                    <div id="devreply-media-size-${m.id}" style="font-size:10px;color:var(--text-muted);direction:ltr;"></div>
                   </div>
                   <button type="button" onclick="clearDevReplyMedia('${m.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0;"><i class="fas fa-times"></i></button>
                 </div>
