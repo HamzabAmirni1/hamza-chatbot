@@ -1133,64 +1133,18 @@
         margin-top: 8px;
       }
 
-      /* KPI Stat Cards 2-column layout on mobile */
+      /* KPI Stat Cards & Platform breakdown: stack to 1 column on mobile to match other pages */
       #page-analytics .grid-4, 
-      #page-cmdstats .grid-4 {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 10px !important;
-      }
-      #page-analytics .stat-card,
-      #page-cmdstats .stat-card {
-        padding: 12px !important;
-        gap: 8px !important;
-        border-radius: 12px !important;
-      }
-      #page-analytics .stat-icon,
-      #page-cmdstats .stat-icon {
-        width: 38px !important;
-        height: 38px !important;
-        border-radius: 8px !important;
-        font-size: 16px !important;
-      }
-      #page-analytics .stat-value,
-      #page-cmdstats .stat-value {
-        font-size: 16px !important;
-      }
-      #page-analytics .stat-label,
-      #page-cmdstats .stat-label {
-        font-size: 10px !important;
-      }
-
-      /* Platform breakdown cards 3-column layout on mobile */
+      #page-cmdstats .grid-4,
       #page-analytics .grid-3,
       #page-cmdstats .grid-3 {
-        grid-template-columns: repeat(3, 1fr) !important;
-        gap: 8px !important;
-      }
-      #page-analytics .grid-3 .card,
-      #page-cmdstats .grid-3 .card {
-        padding: 10px 6px !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        text-align: center !important;
-        gap: 6px !important;
-      }
-      #page-analytics .grid-3 i,
-      #page-cmdstats .grid-3 i {
-        font-size: 18px !important;
-      }
-      #page-analytics .grid-3 .card div div:first-child,
-      #page-cmdstats .grid-3 .card div div:first-child {
-        font-size: 13px !important;
-        line-height: 1.2;
-      }
-      #page-analytics .grid-3 .card div div:last-child,
-      #page-cmdstats .grid-3 .card div div:last-child {
-        font-size: 8px !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
       }
 
-      /* Analytics page: grid-2 (chart + activity strip) stacks on mobile */
-      #page-analytics .grid-2 {
+      /* Analytics & Cmdstats pages: grid-2 (charts & lists) stacks on mobile */
+      #page-analytics .grid-2,
+      #page-cmdstats .grid-2 {
         grid-template-columns: 1fr !important;
       }
 
@@ -2277,7 +2231,7 @@
       <h1><i class="fas fa-chart-bar" style="color:var(--purple)"></i> إحصائيات الأوامر</h1>
       <p>الأوامر الأكثر استخداماً والأوامر غير المستخدمة</p>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
       <label style="font-size:13px;color:var(--text-muted);font-weight:600;">🔽 تصفية حسب المنصة:</label>
       <select id="cs-platform-filter" class="form-input" style="max-width:220px;padding:8px 12px;font-size:13px;" onchange="loadCmdStats()">
         <option value="all">🌐 الكل (WhatsApp + Telegram + Facebook)</option>
