@@ -2711,6 +2711,7 @@ async function startBot(folderName, phoneNumber) {
             } catch (err) { 
               console.error(chalk.red(`[Command Error] .${command}:`), err.message);
               commandErrors[command] = (commandErrors[command] || 0) + 1;
+              await db.logError(command, err.message, 'WA').catch(() => {});
             }
           }
         }
@@ -2805,6 +2806,7 @@ async function startBot(folderName, phoneNumber) {
               } catch (e) { 
                 console.error(chalk.red(`[NLC Error] ${key}:`), e.message);
                 commandErrors[key.split("|")[0]] = (commandErrors[key.split("|")[0]] || 0) + 1;
+                await db.logError(key.split("|")[0], e.message, 'WA').catch(() => {});
               }
             }
           }
@@ -2956,7 +2958,10 @@ async function startBot(folderName, phoneNumber) {
                         commandUsage[command] = (commandUsage[command] || 0) + 1;
                         activeUsers.add(sender);
                         if (global.trackCommand) global.trackCommand(command, 'whatsapp');
-                    } catch (err) { console.error("AI Command Execution Error:", err); }
+                    } catch (err) {
+                        console.error("AI Command Execution Error:", err);
+                        await db.logError(command, err.message, 'WA').catch(() => {});
+                    }
                 }
              }
           }

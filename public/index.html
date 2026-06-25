@@ -40,8 +40,20 @@
     }
     .tab-btn:hover { background: var(--card2); color: var(--text); }
     .tab-btn.active {
-      background: linear-gradient(135deg, var(--accent), var(--blue));
+      background: linear-gradient(135deg, var(--blue), var(--purple));
       border-color: transparent; color: white; box-shadow: 0 4px 15px rgba(99,179,237,0.2);
+    }
+    #tab-btn-wa.active {
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      box-shadow: 0 4px 15px rgba(37,211,102,0.3);
+    }
+    #tab-btn-tg.active {
+      background: linear-gradient(135deg, #37aee2, #1e96c8);
+      box-shadow: 0 4px 15px rgba(56,189,248,0.3);
+    }
+    #tab-btn-fb.active {
+      background: linear-gradient(135deg, #0084FF, #0044FF);
+      box-shadow: 0 4px 15px rgba(0,132,255,0.3);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -234,18 +246,23 @@
 
     .nav-item i { width: 18px; text-align: center; font-size: 16px; }
 
-    /* Status badge in sidebar */
+    /* Status container and badges in sidebar */
+    .status-container {
+      margin: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
     .status-badge {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      margin: 8px 12px;
-      background: rgba(37,211,102,0.1);
-      border: 1px solid rgba(37,211,102,0.2);
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
       border-radius: 12px;
+      transition: all 0.3s ease;
     }
-
     .status-dot {
       width: 8px;
       height: 8px;
@@ -254,10 +271,60 @@
       box-shadow: 0 0 8px var(--accent);
       animation: pulse 2s infinite;
     }
-
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
+    }
+    .platform-status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .platform-status-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .platform-status-badge.whatsapp {
+      background: linear-gradient(135deg, rgba(37, 211, 102, 0.1), rgba(18, 140, 126, 0.15));
+      border-color: rgba(37, 211, 102, 0.25);
+      color: #25d366;
+    }
+    .platform-status-badge.whatsapp.inactive {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      opacity: 0.4;
+    }
+    .platform-status-badge.telegram {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.15));
+      border-color: rgba(56, 189, 248, 0.25);
+      color: #38bdf8;
+    }
+    .platform-status-badge.telegram.inactive {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      opacity: 0.4;
+    }
+    .platform-status-badge.facebook {
+      background: linear-gradient(135deg, rgba(0, 132, 255, 0.1), rgba(0, 102, 204, 0.15));
+      border-color: rgba(0, 132, 255, 0.25);
+      color: #0084ff;
+    }
+    .platform-status-badge.facebook.inactive {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      opacity: 0.4;
     }
 
 
@@ -1419,9 +1486,16 @@
     <div class="sidebar-subtitle">⚡ لوحة تحكم البوت</div>
   </div>
 
-  <div class="status-badge">
-    <div class="status-dot" id="global-status-dot"></div>
-    <span id="global-status-text" style="font-size:13px;font-weight:600;">جاري الاتصال...</span>
+  <div class="status-container">
+    <div class="status-badge">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="status-dot" id="global-status-dot"></div>
+        <span id="global-status-text" style="font-size:13px;font-weight:700;">جاري الاتصال...</span>
+      </div>
+    </div>
+    <div class="platform-status-grid" id="platform-status-grid">
+      <!-- Injected dynamically via JS -->
+    </div>
   </div>
 
   <nav class="nav-section">
@@ -1430,7 +1504,7 @@
       <i class="fas fa-chart-pie"></i> لوحة التحكم
     </a>
     <a class="nav-item" onclick="showPage('sessions'); closeSidebarOnMobile()" id="nav-sessions">
-      <i class="fab fa-whatsapp"></i> الجلسات
+      <i class="fas fa-network-wired"></i> الجلسات المتصلة
     </a>
     <a class="nav-item" onclick="showPage('pairing'); closeSidebarOnMobile()" id="nav-pairing">
       <i class="fas fa-link"></i> ربط رقم جديد
@@ -1587,8 +1661,8 @@
   <!-- =================== SESSIONS PAGE =================== -->
   <div class="page" id="page-sessions">
     <div class="page-header">
-      <h1><i class="fab fa-whatsapp" style="color:var(--accent)"></i> الجلسات المتصلة</h1>
-      <p>قائمة بجميع حسابات واتساب المتصلة بالبوت</p>
+      <h1><i class="fas fa-network-wired" style="color:var(--blue)"></i> الجلسات المتصلة</h1>
+      <p>قائمة بجميع قنوات واتساب، تلغرام، وصفحات فيسبوك المربوطة بالبوت</p>
     </div>
 
     <div id="sessions-list">
@@ -3388,19 +3462,27 @@
       const tgConnected   = data.telegramBots?.filter(b => b.connected).length || 0;
       const fbConnected   = data.facebookPages?.filter(p => p.connected).length || 0;
       const totalConnected = waConnected + tgConnected + fbConnected;
-
       // Status badge — green if ANY platform is connected
       const anyConnected = totalConnected > 0;
       document.getElementById('global-status-dot').style.background = anyConnected ? 'var(--accent)' : 'var(--red)';
+      document.getElementById('global-status-dot').style.boxShadow = anyConnected ? '0 0 8px var(--accent)' : '0 0 8px var(--red)';
+      document.getElementById('global-status-text').textContent = anyConnected ? 'متصل بنجاح ✓' : 'غير متصل';
 
-      // Build status text showing which platforms are active
-      let statusParts = [];
-      if (waConnected > 0)  statusParts.push(`📱 WA(${waConnected})`);
-      if (tgConnected > 0)  statusParts.push(`✈️ TG(${tgConnected})`);
-      if (fbConnected > 0)  statusParts.push(`🔵 FB(${fbConnected})`);
-      document.getElementById('global-status-text').textContent = anyConnected
-        ? 'متصل ✓ ' + statusParts.join(' ')
-        : 'غير متصل';
+      // Update platform status badges in the sidebar
+      const gridEl = document.getElementById('platform-status-grid');
+      if (gridEl) {
+        gridEl.innerHTML = `
+          <div class="platform-status-badge whatsapp ${waConnected > 0 ? '' : 'inactive'}" title="واتساب">
+            <i class="fab fa-whatsapp"></i> <span>${waConnected}</span>
+          </div>
+          <div class="platform-status-badge telegram ${tgConnected > 0 ? '' : 'inactive'}" title="تلغرام">
+            <i class="fab fa-telegram"></i> <span>${tgConnected}</span>
+          </div>
+          <div class="platform-status-badge facebook ${fbConnected > 0 ? '' : 'inactive'}" title="فيسبوك">
+            <i class="fab fa-facebook-messenger"></i> <span>${fbConnected}</span>
+          </div>
+        `;
+      }
 
       // KPI card — total connections across all platforms
       document.getElementById('stat-sessions').textContent = totalConnected;
@@ -3435,16 +3517,16 @@
         `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${connected>0?color:'rgba(255,255,255,0.2)'};margin-left:4px;vertical-align:middle;"></span>`;
       
       document.getElementById('bot-info-list').innerHTML = `
-        ${infoRow('🤖', 'اسم البوت', info.botName || '—')}
-        ${infoRow('👑', 'المطور', info.botOwner || '—')}
-        ${infoRow('🔑', 'البادئة', info.prefix || '.')}
-        ${infoRow('⚙️', 'وضع الأوامر', info.commandMode || '—')}
-        ${infoRow('🔢', 'الرقم الرئيسي', info.pairingNumber || '—')}
-        ${infoRow('📱' + dot(waConnected,'#25d366'), 'واتساب', waConnected > 0 ? `${waConnected} جلسة نشطة` : '<span style="color:var(--red)">غير متصل</span>')}
-        ${infoRow('✈️' + dot(tgConnected,'#38bdf8'), 'تليجرام', tgConnected > 0 ? `${tgConnected} بوت نشط` : '<span style="color:var(--red)">غير متصل</span>')}
-        ${infoRow('🔵' + dot(fbConnected,'#0084ff'), 'فيسبوك', fbConnected > 0 ? `${fbConnected} صفحة مربوطة` : '<span style="color:var(--red)">غير متصل</span>')}
-        ${infoRow('🌍', 'المنطقة الزمنية', info.timezone || '—')}
-        ${infoRow('📦', 'الإصدار', info.version || '—')}
+        ${infoRow('<i class="fas fa-robot" style="color:var(--blue);margin-left:6px;width:16px;text-align:center;"></i>', 'اسم البوت', info.botName || '—')}
+        ${infoRow('<i class="fas fa-crown" style="color:var(--yellow);margin-left:6px;width:16px;text-align:center;"></i>', 'المطور', info.botOwner || '—')}
+        ${infoRow('<i class="fas fa-terminal" style="color:var(--purple);margin-left:6px;width:16px;text-align:center;"></i>', 'البادئة', info.prefix || '.')}
+        ${infoRow('<i class="fas fa-cog" style="color:var(--text-muted);margin-left:6px;width:16px;text-align:center;"></i>', 'وضع الأوامر', info.commandMode || '—')}
+        ${infoRow('<i class="fas fa-phone" style="color:var(--accent);margin-left:6px;width:16px;text-align:center;"></i>', 'الرقم الرئيسي', info.pairingNumber || '—')}
+        ${infoRow('<i class="fab fa-whatsapp" style="color:#25d366;margin-left:6px;width:16px;text-align:center;"></i>' + dot(waConnected,'#25d366'), 'واتساب', waConnected > 0 ? `${waConnected} جلسة نشطة` : '<span style="color:var(--red)">غير متصل</span>')}
+        ${infoRow('<i class="fab fa-telegram" style="color:#38bdf8;margin-left:6px;width:16px;text-align:center;"></i>' + dot(tgConnected,'#38bdf8'), 'تليجرام', tgConnected > 0 ? `${tgConnected} بوت نشط` : '<span style="color:var(--red)">غير متصل</span>')}
+        ${infoRow('<i class="fab fa-facebook-messenger" style="color:#0084ff;margin-left:6px;width:16px;text-align:center;"></i>' + dot(fbConnected,'#0084ff'), 'فيسبوك', fbConnected > 0 ? `${fbConnected} صفحة مربوطة` : '<span style="color:var(--red)">غير متصل</span>')}
+        ${infoRow('<i class="fas fa-globe" style="color:var(--blue);margin-left:6px;width:16px;text-align:center;"></i>', 'المنطقة الزمنية', info.timezone || '—')}
+        ${infoRow('<i class="fas fa-code-branch" style="color:var(--text-muted);margin-left:6px;width:16px;text-align:center;"></i>', 'الإصدار', info.version || '—')}
       `;
     } catch (e) {
       document.getElementById('global-status-text').textContent = 'خطأ في الاتصال';
