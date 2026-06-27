@@ -60,6 +60,27 @@ const COUNTRY_AR = {
   'Wales': 'ويلز'
 };
 
+// ─── STADIUM TIMEZONE OFFSETS TO MOROCCO TIME (UTC+1 WEST) ─────────────────────
+// Mapping offset differences (Morocco Time is local time + offset hours)
+const STADIUM_OFFSETS = {
+  '1': { offset: 7, zone: 'CST (مكسيكو)' }, 
+  '2': { offset: 7, zone: 'CST (غوادالاخارا)' }, 
+  '3': { offset: 7, zone: 'CST (مونتيري)' }, 
+  '4': { offset: 6, zone: 'CDT (دالاس)' }, 
+  '5': { offset: 6, zone: 'CDT (هيHouston)' }, 
+  '6': { offset: 6, zone: 'CDT (كانساس)' }, 
+  '7': { offset: 5, zone: 'EDT (أتلانتا)' }, 
+  '8': { offset: 5, zone: 'EDT (ميامي)' }, 
+  '9': { offset: 5, zone: 'EDT (بوسطن)' }, 
+  '10': { offset: 5, zone: 'EDT (فيلادلفيا)' }, 
+  '11': { offset: 5, zone: 'EDT (نيويورك)' }, 
+  '12': { offset: 5, zone: 'EDT (تورونتو)' }, 
+  '13': { offset: 8, zone: 'PDT (فانكوفر)' }, 
+  '14': { offset: 8, zone: 'PDT (سياتل)' }, 
+  '15': { offset: 8, zone: 'PDT (سان فرانسيسكو)' }, 
+  '16': { offset: 8, zone: 'PDT (لوس أنجلوس)' }
+};
+
 // Convert ISO2 code to country flag emoji
 function getFlagEmoji(iso2) {
   if (!iso2) return '🏳️';
@@ -76,10 +97,8 @@ function getFlagEmoji(iso2) {
 function getTeamDisplayName(teamName, teamsMap) {
   if (!teamName) return 'غير معروف 🏳️';
   
-  // Find team in cache to get ISO2 flag code
   let flag = '🏳️';
   if (teamsMap) {
-    // Try search by name_en (case insensitive)
     const found = Object.values(teamsMap).find(t => t.name_en.toLowerCase() === teamName.toLowerCase());
     if (found && found.iso2) {
       flag = getFlagEmoji(found.iso2);
@@ -88,6 +107,37 @@ function getTeamDisplayName(teamName, teamsMap) {
   
   const arName = COUNTRY_AR[teamName] || teamName;
   return `${arName} ${flag}`;
+}
+
+// Calculate Morocco Time and format both times
+function getMatchTimeDisplay(localDateStr, stadiumId) {
+  if (!localDateStr) return { local: 'غير محدد', morocco: 'غير محدد' };
+  
+  const parts = localDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!parts) return { local: localDateStr, morocco: localDateStr };
+  
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const year = parseInt(parts[3], 10);
+  const hour = parseInt(parts[4], 10);
+  const minute = parseInt(parts[5], 10);
+  
+  const localDate = new Date(Date.UTC(year, month, day, hour, minute));
+  const info = STADIUM_OFFSETS[stadiumId] || { offset: 5, zone: 'EDT' };
+  
+  const moroccoDate = new Date(localDate.getTime() + (info.offset * 60 * 60 * 1000));
+  
+  const localTimeFormatted = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  
+  const morMonth = String(moroccoDate.getUTCMonth() + 1).padStart(2, '0');
+  const morDay = String(moroccoDate.getUTCDate()).padStart(2, '0');
+  const morDateFormatted = `${morMonth}/${morDay}`;
+  const morTimeFormatted = `${String(moroccoDate.getUTCHours()).padStart(2, '0')}:${String(moroccoDate.getUTCMinutes()).padStart(2, '0')}`;
+  
+  return {
+    local: `${localTimeFormatted} (${info.zone})`,
+    morocco: `${morTimeFormatted} 🇲🇦 (${morDateFormatted})`
+  };
 }
 
 // Translate match stage/type
@@ -148,18 +198,15 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 
   const sub = args[0] ? args[0].toLowerCase() : 'live';
 
-  // Inform user that we are fetching live World Cup data
   let loadingMsg;
   try {
     loadingMsg = await sock.sendMessage(chatId, { text: '⏳ *جاري جلب بيانات كأس العالم 2026 مباشرة...*' }, { quoted: msg });
   } catch (_) {}
 
   try {
-    // 1. Load basic maps
     const teamsMap = await getTeamsMap();
     const stadiumsMap = await getStadiumsMap();
 
-    // 2. Fetch matches/games
     const gamesRes = await axios.get('https://worldcup26.ir/get/games', { timeout: 10000 });
     if (!gamesRes.data || !gamesRes.data.games) {
       throw new Error('لم يتم العثور على مباريات في قاعدة البيانات.');
@@ -172,7 +219,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     // SUB-COMMAND: LIVE (أو النتيجة المباشرة en direct)
     // ──────────────────────────────────────────────────────────────────────────
     if (sub === 'live' || sub === 'مباشر') {
-      // Find live matches: finished is FALSE and time_elapsed is not 'notstarted'
       const liveMatches = games.filter(g => 
         g.finished.toUpperCase() === 'FALSE' && 
         g.time_elapsed.toLowerCase() !== 'notstarted'
@@ -186,10 +232,13 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           const away = getTeamDisplayName(g.away_team_name_en, teamsMap);
           const time = g.time_elapsed === 'live' ? 'شغال حالياً' : g.time_elapsed;
           const stadium = stadiumsMap && stadiumsMap[g.stadium_id] ? `🏟️ ${stadiumsMap[g.stadium_id].name_en} (${stadiumsMap[g.stadium_id].city_en})` : '';
+          const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
 
           responseText += `⚽ *${getStageNameAr(g.type)} (المجموعة ${g.group || ''})*\n`;
           responseText += `⏱️ *الوقت:* ${time}\n`;
           responseText += `🏁 *المباراة:* ${home}  *${g.home_score} - ${g.away_score}*  ${away}\n`;
+          responseText += `⏰ *توقيت المغرب:* ${times.morocco}\n`;
+          responseText += `⏰ *توقيت المحلي:* ${times.local}\n`;
           
           if (g.home_scorers && g.home_scorers !== 'null') {
             try {
@@ -211,8 +260,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           responseText += `\n─────────────────────\n`;
         });
       } else {
-        // No live matches, show today's schedule or next matches
-        // Current simulation date is June 27, 2026
         const todayStr = '06/27'; 
         const todayMatches = games.filter(g => g.local_date.startsWith(todayStr));
 
@@ -224,15 +271,15 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           todayMatches.forEach(g => {
             const home = getTeamDisplayName(g.home_team_name_en, teamsMap);
             const away = getTeamDisplayName(g.away_team_name_en, teamsMap);
-            const timeOnly = g.local_date.split(' ')[1] || '';
+            const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
             const stadium = stadiumsMap && stadiumsMap[g.stadium_id] ? `📍 ${stadiumsMap[g.stadium_id].city_en}` : '';
 
             responseText += `📌 *${getStageNameAr(g.type)} (المجموعة ${g.group || ''})*\n`;
             responseText += `⚔️ ${home} *vs* ${away}\n`;
-            responseText += `⏰ *التوقيت:* ${timeOnly} (بتوقيت الملعب) | ${stadium}\n\n`;
+            responseText += `⏰ *توقيت المغرب:* ${times.morocco}\n`;
+            responseText += `⏰ *توقيت المحلي:* ${times.local} | ${stadium}\n\n`;
           });
         } else {
-          // If no matches today, get next 5 notstarted matches
           const upcoming = games
             .filter(g => g.finished.toUpperCase() === 'FALSE' && g.time_elapsed.toLowerCase() === 'notstarted')
             .slice(0, 5);
@@ -242,10 +289,12 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             upcoming.forEach(g => {
               const home = getTeamDisplayName(g.home_team_name_en, teamsMap);
               const away = getTeamDisplayName(g.away_team_name_en, teamsMap);
+              const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
               
               responseText += `🔹 *${getStageNameAr(g.type)} (المجموعة ${g.group || ''})*\n`;
               responseText += `⚔️ ${home} *vs* ${away}\n`;
-              responseText += `📅 *التاريخ:* ${g.local_date}\n\n`;
+              responseText += `📅 *توقيت المغرب:* ${times.morocco}\n`;
+              responseText += `📅 *توقيت المحلي:* ${times.local}\n\n`;
             });
           }
         }
@@ -260,7 +309,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     // SUB-COMMAND: SCHEDULE (جدول المباريات والتوقيت)
     // ──────────────────────────────────────────────────────────────────────────
     else if (sub === 'schedule' || sub === 'matches' || sub === 'جدول' || sub === 'توقيت') {
-      // Group games by date
       const notstarted = games.filter(g => g.finished.toUpperCase() === 'FALSE').slice(0, 10);
       
       responseText = `📅 *جدول مباريات كأس العالم 2026 القادمة* 🏆
@@ -270,11 +318,13 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         notstarted.forEach(g => {
           const home = getTeamDisplayName(g.home_team_name_en, teamsMap);
           const away = getTeamDisplayName(g.away_team_name_en, teamsMap);
+          const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
           const stadium = stadiumsMap && stadiumsMap[g.stadium_id] ? `🏟️ ${stadiumsMap[g.stadium_id].name_en}` : '';
 
           responseText += `⚽ *${getStageNameAr(g.type)} | المجموعة ${g.group || ''}*\n`;
           responseText += `⚔️ ${home} *vs* ${away}\n`;
-          responseText += `📅 *التوقيت:* ${g.local_date}\n`;
+          responseText += `⏰ *توقيت المغرب:* ${times.morocco}\n`;
+          responseText += `⏰ *توقيت المحلي:* ${times.local}\n`;
           if (stadium) responseText += `${stadium}\n`;
           responseText += `\n─────────────────────\n`;
         });
@@ -297,7 +347,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           responseText += `⚙️ _الترتيب | لعب | فوز | تعادل | خسارة | نقاط_\n`;
           
           g.teams.forEach((t, idx) => {
-            // Find team name in cached map if available
             let teamName = `Team ${t.team_id}`;
             if (teamsMap && teamsMap[t.team_id]) {
               teamName = getTeamDisplayName(teamsMap[t.team_id].name_en, teamsMap);
@@ -319,9 +368,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
       if (!queryTeam) {
         responseText = `⚠️ *يرجى كتابة اسم المنتخب المراد البحث عنه!*\n📌 مثال: \`.wc team Morocco\` أو \`.wc team المغرب\``;
       } else {
-        // Find country name in english if user typed in Arabic
         let searchName = queryTeam.toLowerCase();
-        // Check if there is Arabic name in our dictionary
         for (const [eng, ar] of Object.entries(COUNTRY_AR)) {
           if (ar.toLowerCase() === searchName || eng.toLowerCase() === searchName) {
             searchName = eng.toLowerCase();
@@ -329,16 +376,16 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           }
         }
 
-        // Search matches for this team
+        // Search matches for this team safely (preventing undefined .toLowerCase() call)
         const teamMatches = games.filter(g => 
-          g.home_team_name_en.toLowerCase().includes(searchName) || 
-          g.away_team_name_en.toLowerCase().includes(searchName)
+          (g.home_team_name_en && g.home_team_name_en.toLowerCase().includes(searchName)) || 
+          (g.away_team_name_en && g.away_team_name_en.toLowerCase().includes(searchName))
         );
 
         if (teamMatches.length > 0) {
-          const officialName = teamMatches[0].home_team_name_en.toLowerCase().includes(searchName) 
-            ? teamMatches[0].home_team_name_en 
-            : teamMatches[0].away_team_name_en;
+          const firstMatch = teamMatches[0];
+          const hasHomeName = firstMatch.home_team_name_en && firstMatch.home_team_name_en.toLowerCase().includes(searchName);
+          const officialName = hasHomeName ? firstMatch.home_team_name_en : firstMatch.away_team_name_en;
 
           responseText = `🇲🇦 *نتائج ومباريات منتخب ${getTeamDisplayName(officialName, teamsMap)}* 🏆
 ━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -346,6 +393,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           teamMatches.forEach(g => {
             const home = getTeamDisplayName(g.home_team_name_en, teamsMap);
             const away = getTeamDisplayName(g.away_team_name_en, teamsMap);
+            const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
             const time = g.time_elapsed.toLowerCase() === 'finished' 
               ? 'انتهت' 
               : (g.time_elapsed.toLowerCase() === 'notstarted' ? 'لم تبدأ' : 'شغالة حالياً');
@@ -354,7 +402,8 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             if (g.finished.toUpperCase() === 'TRUE') {
               responseText += `🏁 *النتيجة:* ${home}  *${g.home_score} - ${g.away_score}*  ${away} (انتهت ✅)\n`;
             } else {
-              responseText += `⏰ *التوقيت:* ${g.local_date} (${time})\n`;
+              responseText += `⏰ *توقيت المغرب:* ${times.morocco}\n`;
+              responseText += `⏰ *توقيت المحلي:* ${times.local} (${time})\n`;
               responseText += `⚔️ *المباراة:* ${home} vs ${away}\n`;
             }
             responseText += `\n─────────────────────\n`;
@@ -404,7 +453,6 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
 ⚔️ ${settings.botName}`;
     }
 
-    // 3. Send final message
     await sock.sendMessage(chatId, { text: responseText }, { quoted: msg });
 
   } catch (err) {
@@ -412,10 +460,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
     const errorText = `❌ *فشل جلب بيانات كأس العالم 2026*\n\nالسبب: ${err.message || 'مشكلة في الاتصال بالخادم.'}\n\nيرجى المحاولة مجدداً لاحقاً.`;
     await sock.sendMessage(chatId, { text: errorText }, { quoted: msg });
   } finally {
-    // Clean up loading message if possible
     if (loadingMsg) {
       try {
-        // Optional clean up
+        // cleanup if needed
       } catch (_) {}
     }
   }
