@@ -2472,6 +2472,11 @@ async function startBot(folderName, phoneNumber) {
       const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
+      const isPendingAuth = isPairingMode || folderName.startsWith("session_wa_qr_") || (global.pendingQrs && global.pendingQrs[folderName]);
+      if (!sock.authState.creds.registered && !isPendingAuth) {
+        return;
+      }
+
       if (statusCode === 401) {
         // Logged out — clear session and restart clean
         if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
