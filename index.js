@@ -2647,14 +2647,7 @@ async function startBot(folderName, phoneNumber) {
 
         let sender = msg.key.remoteJid;
         const isGroup = sender.endsWith("@g.us");
-
-        // WhatsApp LID privacy JID fix: replace @lid with real phone @s.whatsapp.net for sending
-        if (sender.endsWith("@lid") && msg.key.senderPn) {
-          sender = msg.key.senderPn; // e.g. 212624855939@s.whatsapp.net
-          msg.key.remoteJid = sender;
-        }
-
-        const userPhoneJid = sender; // alias kept for backward compat
+        const userPhoneJid = msg.key.senderPn || (isGroup ? msg.key.participant : sender);
 
         if (isGroup) {
           // If it's a group, only reply if:
