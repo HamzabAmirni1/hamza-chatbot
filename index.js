@@ -2606,28 +2606,42 @@ async function startBot(folderName, phoneNumber) {
           continue;
         }
 
-        const type = Object.keys(msg.message)[0];
-        let body = type === "conversation" ? msg.message.conversation : type === "extendedTextMessage" ? msg.message.extendedTextMessage.text : type === "imageMessage" ? msg.message.imageMessage.caption : type === "videoMessage" ? msg.message.videoMessage.caption : "";
+        let realMessage = msg.message;
+        if (realMessage?.viewOnceMessage?.message) realMessage = realMessage.viewOnceMessage.message;
+        if (realMessage?.viewOnceMessageV2?.message) realMessage = realMessage.viewOnceMessageV2.message;
+        if (realMessage?.viewOnceMessageV2Extension?.message) realMessage = realMessage.viewOnceMessageV2Extension.message;
+        if (realMessage?.documentWithCaptionMessage?.message) realMessage = realMessage.documentWithCaptionMessage.message;
+
+        const type = Object.keys(realMessage)[0];
+        let body = type === "conversation" ? realMessage.conversation : type === "extendedTextMessage" ? realMessage.extendedTextMessage.text : type === "imageMessage" ? realMessage.imageMessage.caption : type === "videoMessage" ? realMessage.videoMessage.caption : "";
+
+        if (type === 'interactiveResponseMessage') {
+          const response = realMessage.interactiveResponseMessage;
+          if (response.nativeFlowResponseMessage) {
+            try {
+              const params = JSON.parse(response.nativeFlowResponseMessage.paramsJson);
+              body = params.id || params.text || response.nativeFlowResponseMessage.paramsJson;
+            } catch (e) {
+              body = response.nativeFlowResponseMessage.paramsJson;
+            }
+          } else if (response.body) {
+            body = response.body.text;
+          }
+        } else if (type === 'buttonsResponseMessage') {
+          body = realMessage.buttonsResponseMessage.selectedButtonId || realMessage.buttonsResponseMessage.selectedDisplayText;
+        } else if (type === 'templateButtonReplyMessage') {
+          body = realMessage.templateButtonReplyMessage.selectedId || realMessage.templateButtonReplyMessage.selectedDisplayText;
+        } else if (type === 'listResponseMessage') {
+          body = realMessage.listResponseMessage.singleSelectReply?.selectedRowId;
+        } else if (type === 'messageContextInfo' || realMessage.messageContextInfo) {
+          const reply = realMessage.listResponseMessage?.singleSelectReply?.selectedRowId || realMessage.buttonsResponseMessage?.selectedButtonId || realMessage.templateButtonReplyMessage?.selectedId;
+          if (reply) body = reply;
+        }
+
         console.log(chalk.magenta(`[WA MSG] from: ${msg.key.remoteJid} | type: ${type} | body: ${body ? body.substring(0,40) : '[no text]'}`));
         console.log(chalk.gray(`[WA MSG Key]: ${JSON.stringify(msg.key)}`));
         console.log(chalk.gray(`[WA MSG Full]: ${JSON.stringify(msg)}`));
 
-        if (type === 'interactiveResponseMessage') {
-          const response = msg.message.interactiveResponseMessage;
-          if (response.nativeFlowResponseMessage) {
-            const params = JSON.parse(response.nativeFlowResponseMessage.paramsJson);
-            body = params.id;
-          } else if (response.body) {
-            body = response.body.text;
-          }
-        } else if (type === 'templateButtonReplyMessage') {
-          body = msg.message.templateButtonReplyMessage.selectedId || msg.message.templateButtonReplyMessage.selectedDisplayText;
-        } else if (type === 'listResponseMessage') {
-          body = msg.message.listResponseMessage.singleSelectReply.selectedRowId;
-        } else if (type === 'messageContextInfo') {
-          const reply = msg.message.listResponseMessage?.singleSelectReply?.selectedRowId || msg.message.buttonsResponseMessage?.selectedButtonId || msg.message.templateButtonReplyMessage?.selectedId;
-          if (reply) body = reply;
-        }
         if (!body && type !== "imageMessage" && type !== "videoMessage" && type !== "audioMessage") continue;
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter")) continue;
 
