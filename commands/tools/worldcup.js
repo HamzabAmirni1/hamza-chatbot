@@ -291,7 +291,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
               const away = getTeamDisplayName(g.away_team_name_en, teamsMap);
               const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
               
-              responseText += `🔹 ${getStageNameAr(g.type)} (المجموعة ${g.group || ''})\n`;
+              responseText += `🔹 ${getStageNameAr(g.type)} - المجموعة ${g.group || ''}\n`;
               responseText += `⚔️ ${home} vs ${away}\n`;
               responseText += `🇲🇦 توقيت المغرب: ${times.morocco}\n`;
               responseText += `📍 التوقيت المحلي: ${times.local}\n\n`;
@@ -317,7 +317,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           const times = getMatchTimeDisplay(g.local_date, g.stadium_id);
           const stadium = stadiumsMap && stadiumsMap[g.stadium_id] ? `${stadiumsMap[g.stadium_id].name_en}` : '';
 
-          responseText += `⚽ ${getStageNameAr(g.type)} | المجموعة ${g.group || ''}\n`;
+          responseText += `⚽ ${getStageNameAr(g.type)} - المجموعة ${g.group || ''}\n`;
           responseText += `⚔️ ${home} vs ${away}\n`;
           responseText += `🇲🇦 توقيت المغرب: ${times.morocco}\n`;
           responseText += `📍 التوقيت المحلي: ${times.local}\n`;
@@ -391,13 +391,13 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
               ? 'انتهت' 
               : (g.time_elapsed.toLowerCase() === 'notstarted' ? 'لم تبدأ' : 'شغالة حالياً');
 
-            responseText += `⚽ ${getStageNameAr(g.type)} (المجموعة ${g.group || ''})\n`;
+            responseText += `⚽ ${getStageNameAr(g.type)} - المجموعة ${g.group || ''}\n`;
             if (g.finished.toUpperCase() === 'TRUE') {
-              responseText += `🏁 النتيجة: ${home} ${g.home_score} - ${g.away_score} ${away} (انتهت ✅)\n`;
+              responseText += `🏁 النتيجة: ${home} ${g.home_score} - ${g.away_score} ${away} - انتهت ✅\n`;
             } else {
               responseText += `⚔️ ${home} vs ${away}\n`;
               responseText += `🇲🇦 توقيت المغرب: ${times.morocco}\n`;
-              responseText += `📍 التوقيت المحلي: ${times.local} (${time})\n`;
+              responseText += `📍 التوقيت المحلي: ${times.local}\n`;
             }
             responseText += `\n─────────────────────\n`;
           });
@@ -419,9 +419,9 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
           if (s.country_en.toLowerCase() === 'mexico') flag = '🇲🇽';
           if (s.country_en.toLowerCase() === 'canada') flag = '🇨🇦';
           
-          responseText += `📍 ${s.name_en} | ${flag}\n`;
-          responseText += `🏙️ المدينة: ${s.city_en} | السعة: ${s.capacity.toLocaleString()} مشجع\n`;
-          responseText += `🌍 الدولة: ${s.country_en} (${s.region})\n\n`;
+          responseText += `${flag} ${s.name_en}\n`;
+          responseText += `🏙️ المدينة: ${s.city_en} - السعة: ${s.capacity.toLocaleString()} مشجع\n`;
+          responseText += `🌍 الدولة: ${s.country_en} - ${s.region}\n\n`;
         });
       } else {
         throw new Error('فشل جلب معلومات الملاعب.');
