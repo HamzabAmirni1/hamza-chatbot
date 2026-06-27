@@ -1,4 +1,4 @@
-const { generateWAMessageContent, generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+// menu.js - Simple text menu for WhatsApp/Facebook, inline keyboard for Telegram
 const settings = require('../../config');
 const fs = require('fs-extra');
 const path = require('path');
@@ -141,12 +141,12 @@ function buildPlainText() {
 ⚡ المطور: ${settings.botOwner}
 
 👋 مرحباً! هذه قائمة الأوامر الكاملة.
-📌 استخدم النقطة قبل الأمر (مثال: .gen صورة جميلة).
+📌 استخدم النقطة قبل الأمر مثال: .gen صورة جميلة
 ━━━━━━━━━━━━━━━━━━━━━
 `;
   const body = CATEGORIES.map(cat => {
-    const cmdsStr = cat.cmds.map(([cmd, desc]) => `• .${cmd} ◄ ${desc}`).join('\n');
-    return `${cat.emoji} ${cat.title} (${cat.titleEn})\n${cmdsStr}`;
+    const cmdsStr = cat.cmds.map(([cmd, desc]) => `• .${cmd} - ${desc}`).join('\n');
+    return `${cat.emoji} ${cat.title} - ${cat.titleEn}\n${cmdsStr}`;
   }).join('\n\n━━━━━━━━━━━━━━━━━━━━━\n\n');
 
   const footer = `\n━━━━━━━━━━━━━━━━━━━━━\n📸 الانستقرام: ${settings.instagram}\n💬 القناة الرسمية: ${settings.officialChannel}\n⚔️ ${settings.botName} 2026`;
@@ -213,120 +213,16 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
   }
 
   // ═══════════════════════════════════════════
-  // WHATSAPP — Carousel with all categories
+  // WHATSAPP — Simple image + full text menu
   // ═══════════════════════════════════════════
   const imagePath = path.join(__dirname, '../../media/hamza.jpg');
-  let imageMessage;
-  try {
-    const imgSrc = fs.existsSync(imagePath)
-      ? { image: fs.readFileSync(imagePath) }
-      : { image: { url: 'https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg' } };
-    const content = await generateWAMessageContent(imgSrc, { upload: sock.waUploadToServer });
-    imageMessage = content.imageMessage;
-  } catch (e) {
-    console.error('Menu image error', e);
-  }
+  const photo = fs.existsSync(imagePath)
+    ? fs.readFileSync(imagePath)
+    : 'https://i.pinimg.com/564x/0f/65/2d/0f652d8e37e8c33a9257e5593121650c.jpg';
 
-  // Build one carousel card per category
-  const cards = CATEGORIES.map((cat) => {
-    const bodyText = cat.cmds.map(([cmd, desc]) => `• .${cmd}\n  ↳ ${desc}`).join('\n');
-    return {
-      body: proto.Message.InteractiveMessage.Body.fromObject({
-        text: bodyText,
-      }),
-      header: proto.Message.InteractiveMessage.Header.fromObject({
-        title: `${cat.emoji} ${cat.title} | ${cat.titleEn}`,
-        hasMediaAttachment: false,
-      }),
-      nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-        buttons: [
-          {
-            name: 'cta_url',
-            buttonParamsJson: JSON.stringify({
-              display_text: '📸 Instagram',
-              url: settings.instagram,
-            }),
-          },
-          {
-            name: 'cta_url',
-            buttonParamsJson: JSON.stringify({
-              display_text: '💬 WhatsApp Channel',
-              url: settings.officialChannel,
-            }),
-          },
-        ],
-      }),
-    };
-  });
+  const fullText = buildPlainText();
 
-  // Add a header card with image
-  const headerCard = {
-    body: proto.Message.InteractiveMessage.Body.fromObject({
-      text: `👋 أهلاً! استخدم *.أمر* لتنفيذ أي وظيفة\n📌 مثال: *.gen صورة جميلة*\n\n👈 تفضل على اليسار لرؤية كاع الأوامر!`,
-    }),
-    header: proto.Message.InteractiveMessage.Header.fromObject({
-      title: `🤖 ${settings.botName}`,
-      hasMediaAttachment: !!imageMessage,
-      imageMessage: imageMessage,
-    }),
-    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-      buttons: [
-        {
-          name: 'cta_url',
-          buttonParamsJson: JSON.stringify({
-            display_text: '📸 Instagram',
-            url: settings.instagram,
-          }),
-        },
-        {
-          name: 'cta_url',
-          buttonParamsJson: JSON.stringify({
-            display_text: '💬 WhatsApp Channel',
-            url: settings.officialChannel,
-          }),
-        },
-        {
-          name: 'quick_reply',
-          buttonParamsJson: JSON.stringify({
-            display_text: '👤 تواصل مع المطور',
-            id: '.owner',
-          }),
-        },
-      ],
-    }),
-  };
-
-  const allCards = [headerCard, ...cards];
-
-  const waMessage = generateWAMessageFromContent(
-    chatId,
-    {
-      viewOnceMessage: {
-        message: {
-          messageContextInfo: {
-            deviceListMetadata: {},
-            deviceListMetadataVersion: 2,
-          },
-          interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-            body: proto.Message.InteractiveMessage.Body.create({
-              text: `${settings.botName} — كاع الأوامر`,
-            }),
-            footer: proto.Message.InteractiveMessage.Footer.create({
-              text: `⚡ ${settings.botName} 2026 | ${settings.botOwner}`,
-            }),
-            header: proto.Message.InteractiveMessage.Header.create({
-              hasMediaAttachment: false,
-            }),
-            carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
-              cards: allCards,
-            }),
-          }),
-        },
-      },
-    },
-    { quoted: msg }
-  );
-
-  await sock.relayMessage(chatId, waMessage.message, { messageId: waMessage.key.id });
+  await sock.sendMessage(chatId, { image: photo, caption: fullText }, { quoted: msg });
   await sock.sendMessage(chatId, { react: { text: '⚡', key: msg.key } });
 };
+
