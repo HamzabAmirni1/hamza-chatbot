@@ -1726,31 +1726,69 @@
         <div id="pair-panel-wa">
           <div class="pairing-box">
             <div class="pairing-icon"><i class="fab fa-whatsapp" style="font-size: 40px; color: var(--accent);"></i></div>
-            <div class="pairing-title">أدخل رقم الهاتف</div>
-            <div class="pairing-desc">أدخل الرقم الدولي بدون + لتلقي كود الإقران على هاتفك</div>
+            <div class="pairing-title" id="wa-panel-title">ربط واتساب جديد</div>
+            
+            <!-- Connection Mode Sub-Tabs -->
+            <div style="display:flex;gap:8px;margin:16px 0 20px;background:rgba(255,255,255,0.03);padding:6px;border-radius:14px;border:1px solid var(--border);">
+              <button id="wa-mode-pair" onclick="switchWAMode('pair')" style="flex:1;background:var(--card2);color:white;border:none;padding:10px 14px;border-radius:10px;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;font-size:13px;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fas fa-key"></i> كود الإقران
+              </button>
+              <button id="wa-mode-qr" onclick="switchWAMode('qr')" style="flex:1;background:transparent;color:var(--text-muted);border:none;padding:10px 14px;border-radius:10px;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;font-size:13px;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fas fa-qrcode"></i> رمز QR مباشرة
+              </button>
+            </div>
 
             <div id="alert-pairing" class="alert"></div>
 
-            <div class="form-group">
-              <label class="form-label">رقم الهاتف (مثال: 212612345678)</label>
-              <input type="tel" id="pairing-number" class="form-input" placeholder="212XXXXXXXXX" style="text-align:center;font-size:18px;letter-spacing:2px;" />
-            </div>
+            <!-- Pairing Code Mode Container -->
+            <div id="wa-input-pair-container">
+              <div class="pairing-desc">أدخل الرقم الدولي بدون + لتلقي كود الإقران على هاتفك</div>
+              <div class="form-group">
+                <label class="form-label">رقم الهاتف (مثال: 212612345678)</label>
+                <input type="tel" id="pairing-number" class="form-input" placeholder="212XXXXXXXXX" style="text-align:center;font-size:18px;letter-spacing:2px;" />
+              </div>
 
-            <button class="btn btn-primary" id="pairing-btn" onclick="requestPairingCode()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
-              <i class="fas fa-key"></i> طلب كود الإقران
-            </button>
+              <button class="btn btn-primary" id="pairing-btn" onclick="requestPairingCode()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
+                <i class="fas fa-key"></i> طلب كود الإقران
+              </button>
 
-            <!-- Code display -->
-            <div class="pairing-code-display" id="pairing-code-display">
-              <div class="code-label"><i class="fas fa-lock"></i> كود الإقران الخاص بك</div>
-              <div class="code-value" id="code-value">----</div>
-              <div class="code-timer" id="code-timer">أدخل الكود خلال دقيقتين</div>
-              <div style="margin-top:16px;">
-                <button class="btn btn-danger" id="cancel-pairing-btn" onclick="cancelPairingRequest()" style="width:100%;justify-content:center;">
-                  <i class="fas fa-times-circle"></i> إلغاء الطلب
-                </button>
+              <!-- Code display -->
+              <div class="pairing-code-display" id="pairing-code-display">
+                <div class="code-label"><i class="fas fa-lock"></i> كود الإقران الخاص بك</div>
+                <div class="code-value" id="code-value">----</div>
+                <div class="code-timer" id="code-timer">أدخل الكود خلال دقيقتين</div>
+                <div style="margin-top:16px;">
+                  <button class="btn btn-danger" id="cancel-pairing-btn" onclick="cancelPairingRequest()" style="width:100%;justify-content:center;">
+                    <i class="fas fa-times-circle"></i> إلغاء الطلب
+                  </button>
+                </div>
               </div>
             </div>
+
+            <!-- QR Code Mode Container -->
+            <div id="wa-input-qr-container" style="display:none;">
+              <div class="pairing-desc">اضغط أدناه لتوليد رمز QR ثوانٍ قليلة ثم امسحه بكاميرا واتساب على هاتفك</div>
+              
+              <button class="btn btn-primary" id="qr-btn" onclick="requestQRCode()" style="width:100%;justify-content:center;font-size:16px;padding:16px;background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 4px 15px rgba(37,211,102,0.3);">
+                <i class="fas fa-qrcode"></i> توليد رمز QR للربط
+              </button>
+
+              <!-- QR display -->
+              <div class="pairing-code-display" id="qr-code-display" style="padding:20px;margin:20px 0;text-align:center;">
+                <div class="code-label" id="qr-status-text" style="margin-bottom:14px;font-size:13px;font-weight:600;"><i class="fas fa-spinner fa-spin"></i> جاري الاتصال بالسيرفر وتوليد الرمز...</div>
+                <div style="background:white;padding:16px;border-radius:16px;display:inline-block;margin:0 auto 12px;box-shadow:0 10px 30px rgba(0,0,0,0.25);">
+                  <img id="qr-image" src="" alt="QR Code" style="display:none;width:210px;height:210px;border-radius:8px;" />
+                  <div id="qr-placeholder" style="width:210px;height:210px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:13px;border-radius:8px;font-weight:600;">انتظر الرمز...</div>
+                </div>
+                <div class="code-timer" id="qr-timer" style="margin-top:8px;font-size:12px;">امسح الرمز خلال دقيقتين لتأكيد الاتصال</div>
+                <div style="margin-top:16px;">
+                  <button class="btn btn-danger" id="cancel-qr-btn" onclick="cancelQRRequest()" style="width:100%;justify-content:center;">
+                    <i class="fas fa-times-circle"></i> إلغاء الطلب
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -1812,9 +1850,9 @@
         <div class="card" id="pair-instructions-wa">
           <div class="card-header">
             <div class="card-icon yellow"><i class="fas fa-info-circle"></i></div>
-            <div class="card-title">كيفية الإقران (واتساب)</div>
+            <div class="card-title" id="wa-instructions-title">كيفية الإقران (واتساب)</div>
           </div>
-          <div class="steps">
+          <div class="steps" id="wa-steps-pair">
             <div class="step">
               <div class="step-num">1</div>
               <div class="step-text">أدخل رقم هاتفك الكامل مع كود الدولة <strong>بدون +</strong> (مثال: 212612345678)</div>
@@ -1834,6 +1872,28 @@
             <div class="step">
               <div class="step-num">5</div>
               <div class="step-text">أدخل <strong>كود الإقران</strong> الذي يظهر هنا لتأكيد التوصيل</div>
+            </div>
+          </div>
+          <div class="steps" id="wa-steps-qr" style="display:none;">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">اضغط على <strong>"توليد رمز QR للربط"</strong></div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">انتظر ثوانٍ معدودة حتى يظهر رمز الـ QR على الشاشة</div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">افتح تطبيق واتساب على هاتفك ودخل إلى <strong>الأجهزة المرتبطة</strong></div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-text">اضغط <strong>"ربط جهاز"</strong> ووجّه كاميرا الهاتف نحو الرمز لمسحه</div>
+            </div>
+            <div class="step">
+              <div class="step-num">5</div>
+              <div class="step-text">سيتم ربط البوت بحسابك مباشرة بنجاح! 🎉</div>
             </div>
           </div>
         </div>
@@ -3822,6 +3882,156 @@
       document.getElementById('sessions-list').innerHTML = `
         <div class="alert alert-error show"><i class="fas fa-exclamation-circle"></i> تعذر تحميل الجلسات</div>`;
     }
+  }
+
+  let qrActiveId = null;
+  let qrPollInterval = null;
+
+  function switchWAMode(mode) {
+    const pairBtn = document.getElementById('wa-mode-pair');
+    const qrBtn = document.getElementById('wa-mode-qr');
+    const pairContainer = document.getElementById('wa-input-pair-container');
+    const qrContainer = document.getElementById('wa-input-qr-container');
+    const stepsPair = document.getElementById('wa-steps-pair');
+    const stepsQr = document.getElementById('wa-steps-qr');
+    const insTitle = document.getElementById('wa-instructions-title');
+
+    if (mode === 'pair') {
+      pairBtn.style.background = 'var(--card2)';
+      pairBtn.style.color = 'white';
+      qrBtn.style.background = 'transparent';
+      qrBtn.style.color = 'var(--text-muted)';
+      pairContainer.style.display = 'block';
+      qrContainer.style.display = 'none';
+      stepsPair.style.display = 'block';
+      stepsQr.style.display = 'none';
+      if (insTitle) insTitle.textContent = 'كيفية الإقران (واتساب)';
+    } else {
+      qrBtn.style.background = 'var(--card2)';
+      qrBtn.style.color = 'white';
+      pairBtn.style.background = 'transparent';
+      pairBtn.style.color = 'var(--text-muted)';
+      pairContainer.style.display = 'none';
+      qrContainer.style.display = 'block';
+      stepsPair.style.display = 'none';
+      stepsQr.style.display = 'block';
+      if (insTitle) insTitle.textContent = 'كيفية الربط بـ QR (واتساب)';
+    }
+  }
+
+  async function requestQRCode() {
+    const alert = document.getElementById('alert-pairing');
+    const btn = document.getElementById('qr-btn');
+    const display = document.getElementById('qr-code-display');
+    const qrImage = document.getElementById('qr-image');
+    const qrPlaceholder = document.getElementById('qr-placeholder');
+    const qrStatusText = document.getElementById('qr-status-text');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> جاري الطلب...';
+    display.classList.add('visible');
+    qrImage.style.display = 'none';
+    qrPlaceholder.style.display = 'flex';
+    qrPlaceholder.textContent = 'جاري الاتصال بالسيرفر...';
+    qrStatusText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري بدء الجلسة وتوليد رمز QR...';
+    showAlert(alert, 'info', '⏳ جاري بدء جلسة ربط بـ QR code...');
+
+    try {
+      const res = await fetch('/api/qr-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+
+      if (data.success && data.id) {
+        qrActiveId = data.id;
+        showAlert(alert, 'success', '✅ تم بدء الجلسة! انتظر ظهور رمز QR لمسحه');
+        
+        let secs = 120;
+        const timer = document.getElementById('qr-timer');
+        clearInterval(qrPollInterval);
+        
+        qrPollInterval = setInterval(async () => {
+          secs--;
+          timer.textContent = `⏱️ ينتهي الطلب خلال ${secs} ثانية`;
+          if (secs <= 0) {
+            clearInterval(qrPollInterval);
+            timer.textContent = '❌ انتهت صلاحية الطلب - أعد المحاولة';
+            cancelQRRequest();
+            return;
+          }
+
+          try {
+            const statusRes = await fetch(`/api/qr-status?id=${qrActiveId}`);
+            const statusData = await statusRes.json();
+
+            if (statusData.success) {
+              if (statusData.status === 'qr' && statusData.qr) {
+                qrPlaceholder.style.display = 'none';
+                qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encodeURIComponent(statusData.qr)}`;
+                qrImage.style.display = 'block';
+                qrStatusText.innerHTML = '<i class="fas fa-qrcode"></i> رمز QR جاهز! امسحه بكاميرا واتساب';
+              } else if (statusData.status === 'connected') {
+                clearInterval(qrPollInterval);
+                showAlert(alert, 'success', `🎉 تم ربط واتساب بنجاح! رقم الحساب: +${statusData.phone}`);
+                qrStatusText.innerHTML = '<i class="fas fa-check-circle" style="color:var(--accent);"></i> تم الاتصال بنجاح!';
+                qrPlaceholder.style.display = 'flex';
+                qrPlaceholder.textContent = '✅ متصل!';
+                qrImage.style.display = 'none';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-qrcode"></i> توليد رمز QR للربط';
+                setTimeout(() => {
+                  display.classList.remove('visible');
+                  showPage('sessions');
+                }, 2000);
+              } else if (statusData.status === 'waiting') {
+                qrStatusText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري توليد رمز QR على السيرفر...';
+              } else if (statusData.status === 'closed') {
+                clearInterval(qrPollInterval);
+                showAlert(alert, 'error', '❌ تم إغلاق جلسة الربط');
+                cancelQRRequest();
+              }
+            }
+          } catch (e) {
+            console.error('Error polling QR status:', e);
+          }
+        }, 3000);
+
+      } else {
+        showAlert(alert, 'error', data.error || 'فشل بدء جلسة QR code');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-qrcode"></i> توليد رمز QR للربط';
+        display.classList.remove('visible');
+      }
+    } catch (e) {
+      showAlert(alert, 'error', 'خطأ في الاتصال بالسيرفر');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-qrcode"></i> توليد رمز QR للربط';
+      display.classList.remove('visible');
+    }
+  }
+
+  async function cancelQRRequest() {
+    clearInterval(qrPollInterval);
+    const alert = document.getElementById('alert-pairing');
+    const btn = document.getElementById('qr-btn');
+    const display = document.getElementById('qr-code-display');
+
+    if (qrActiveId) {
+      try {
+        await fetch('/api/qr-cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: qrActiveId })
+        });
+      } catch (e) { console.error(e); }
+      qrActiveId = null;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-qrcode"></i> توليد رمز QR للربط';
+    display.classList.remove('visible');
+    showAlert(alert, 'info', 'تم إلغاء طلب QR Code بنجاح');
   }
 
   // =================== PAIRING CODE ===================

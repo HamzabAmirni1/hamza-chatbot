@@ -554,14 +554,19 @@ app.post('/api/delete-wa', async (req, res) => {
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const folderName = `session_wa_${cleanPhone}`;
     
-    // Disconnect active socket
-    const activeClient = (global.clients || []).find(c => c._folderName === folderName);
+    // Disconnect active socket (matching by folder name OR resolved phone number)
+    const activeClient = (global.clients || []).find(c => {
+      const cNum = (c._num || (c.user?.id?.split(':')[0]) || '').replace(/[^0-9]/g, '');
+      return c._folderName === folderName || (cNum && cNum === cleanPhone);
+    });
+    
+    const realFolder = activeClient?._folderName || folderName;
     if (activeClient) { try { activeClient.end(); } catch (e) {} }
-    global.clients = (global.clients || []).filter(c => c._folderName !== folderName);
+    global.clients = (global.clients || []).filter(c => c._folderName !== realFolder);
     
     // Delete session from DB and file system
     const success = await db.deleteWhatsAppSession(cleanPhone);
-    const sessionPath = path.join(__dirname, 'sessions', folderName);
+    const sessionPath = path.join(__dirname, 'sessions', realFolder);
     if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
     
     res.json({ success });
@@ -785,6 +790,58 @@ app.post('/api/pair-cancel', async (req, res) => {
     let isRegistered = false;
     if (fs.existsSync(credsFile)) { try { const c = JSON.parse(fs.readFileSync(credsFile,'utf-8')); isRegistered = !!c.registered; } catch (e) {} }
     if (!isRegistered && fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// 📱 QR Code Connection Endpoints
+app.post('/api/qr-start', async (req, res) => {
+  try {
+    const qrId = `session_wa_qr_${Date.now()}`;
+    global.pendingQrs = global.pendingQrs || {};
+    global.pendingQrs[qrId] = null;
+    
+    startBot(qrId, null).catch(err => console.error(`[API/QR-Start] Error:`, err.message));
+    res.json({ success: true, id: qrId });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.get('/api/qr-status', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ success: false, error: 'ID is required' });
+    
+    const client = (global.clients || []).find(c => c._folderName === id);
+    if (client && client.user) {
+      const phone = (client.user.id.split('@')[0].split(':')[0] || client._num || '').replace(/[^0-9]/g, '');
+      return res.json({ success: true, status: 'connected', phone });
+    }
+    
+    const qr = global.pendingQrs ? global.pendingQrs[id] : null;
+    if (qr) {
+      return res.json({ success: true, status: 'qr', qr });
+    }
+    
+    if (client) {
+      return res.json({ success: true, status: 'waiting' });
+    }
+    
+    res.json({ success: true, status: 'closed' });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/qr-cancel', async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ success: false, error: 'ID is required' });
+    
+    const activeClient = (global.clients || []).find(c => c._folderName === id);
+    if (activeClient) { try { activeClient.end(); } catch (e) {} }
+    global.clients = (global.clients || []).filter(c => c._folderName !== id);
+    if (global.pendingQrs) delete global.pendingQrs[id];
+    
+    const sessionPath = path.join(__dirname, 'sessions', id);
+    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -2276,7 +2333,10 @@ async function startBot(folderName, phoneNumber) {
   const sessionDir = path.join(__dirname, "sessions", folderName);
   if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
-  let num = phoneNumber || process.env.PAIRING_NUMBER || config.pairingNumber;
+  let num = phoneNumber;
+  if (!num && !folderName.startsWith("session_wa_qr_")) {
+    num = process.env.PAIRING_NUMBER || config.pairingNumber;
+  }
   if (num) num = num.replace(/[^0-9]/g, "");
 
   // --- Load Session from Supabase ---
@@ -2392,7 +2452,12 @@ async function startBot(folderName, phoneNumber) {
   }
 
   sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect } = update;
+    const { connection, lastDisconnect, qr } = update;
+    if (qr) {
+      console.log(chalk.yellow(`🔑 [${folderName}] New QR Code generated`));
+      global.pendingQrs = global.pendingQrs || {};
+      global.pendingQrs[folderName] = qr;
+    }
     if (num) await db.updateWAStatus(num, connection || 'disconnected');
 
     if (connection === "close") {
@@ -2417,17 +2482,24 @@ async function startBot(folderName, phoneNumber) {
       }
     } else if (connection === "open") {
       console.log(chalk.green(`✅ [${folderName}] Connected!`));
+      
+      const resolvedNum = num || (sock.user?.id?.split('@')[0]?.split(':')[0]);
+      if (resolvedNum) {
+        sock._num = resolvedNum;
+        if (global.pendingQrs) delete global.pendingQrs[folderName];
+      }
+
       // ✅ Clear pairing mode on successful connection
       if (global.pairingMode) delete global.pairingMode[folderName];
       if (global.pairingCodeRequested) delete global.pairingCodeRequested[folderName];
-      if (num) delete global.pendingPairingCodes[num];
-      if (num) await db.updatePairingCode(num, null, 'connected'); // Clear code on success
+      if (resolvedNum && global.pendingPairingCodes) delete global.pendingPairingCodes[resolvedNum];
+      if (resolvedNum) await db.updatePairingCode(resolvedNum, null, 'connected'); // Clear code on success
       
       // Sync credentials to Supabase for the first time
       const credsPath = path.join(sessionDir, "creds.json");
-      if (num && fs.existsSync(credsPath)) {
+      if (resolvedNum && fs.existsSync(credsPath)) {
         const creds = fs.readJsonSync(credsPath);
-        await db.updateWhatsAppSession(num, creds);
+        await db.updateWhatsAppSession(resolvedNum, creds);
       }
       // Session backup - wrapped in try-catch to prevent crashes
       setTimeout(async () => {
@@ -2510,6 +2582,16 @@ async function startBot(folderName, phoneNumber) {
       if (chatUpdate.type !== "notify") return;
       for (const msg of chatUpdate.messages) {
         if (!msg.message || msg.key.fromMe) continue;
+
+        // Skip old messages (> 120 seconds) to avoid spam bans/unanswered blue ticks on reconnect
+        const messageTime = msg.messageTimestamp ? (typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp : parseInt(msg.messageTimestamp)) : null;
+        if (messageTime) {
+          const currentTime = Math.floor(Date.now() / 1000);
+          if (currentTime - messageTime > 120) {
+            console.log(chalk.yellow(`⏳ [WA MSG] Skipping old message from ${msg.key.remoteJid} (sent ${currentTime - messageTime}s ago)`));
+            continue;
+          }
+        }
 
         // Check if this WhatsApp bot is paused
         const cleanBotPhone = (sock.user?.id?.split(':')[0] || sock._num || '').replace(/[^0-9]/g, '');
