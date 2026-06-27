@@ -3968,7 +3968,7 @@
             if (statusData.success) {
               if (statusData.status === 'qr' && statusData.qr) {
                 qrPlaceholder.style.display = 'none';
-                qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encodeURIComponent(statusData.qr)}`;
+                qrImage.src = statusData.qr.startsWith('data:') ? statusData.qr : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encodeURIComponent(statusData.qr)}`;
                 qrImage.style.display = 'block';
                 qrStatusText.innerHTML = '<i class="fas fa-qrcode"></i> رمز QR جاهز! امسحه بكاميرا واتساب';
               } else if (statusData.status === 'connected') {

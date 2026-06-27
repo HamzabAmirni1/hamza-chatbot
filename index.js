@@ -20,6 +20,7 @@ const readline = require("readline");
 const path = require("path");
 const dns = require("dns");
 const config = require("./config");
+const QRCode = require("qrcode");
 
 // --- DNS FIX (Optional) ---
 try {
@@ -819,7 +820,8 @@ app.get('/api/qr-status', async (req, res) => {
     
     const qr = global.pendingQrs ? global.pendingQrs[id] : null;
     if (qr) {
-      return res.json({ success: true, status: 'qr', qr });
+      const qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 250 });
+      return res.json({ success: true, status: 'qr', qr: qrDataUrl });
     }
     
     if (client) {
