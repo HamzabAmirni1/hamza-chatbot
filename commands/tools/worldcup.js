@@ -107,6 +107,11 @@ function getTeamDisplayName(teamName, teamsMap) {
   return `${flag} ${arName}`;
 }
 
+const MONTHS_AR = {
+  0: 'يناير', 1: 'فبراير', 2: 'مارس', 3: 'أبريل', 4: 'ماي', 5: 'يونيو',
+  6: 'يوليو', 7: 'أغسطس', 8: 'شتمبر', 9: 'أكتوبر', 10: 'نوفمبر', 11: 'ديسمبر'
+};
+
 // Calculate Morocco Time and format both times
 function getMatchTimeDisplay(localDateStr, stadiumId) {
   if (!localDateStr) return { local: 'غير محدد', morocco: 'غير محدد' };
@@ -127,14 +132,13 @@ function getMatchTimeDisplay(localDateStr, stadiumId) {
   
   const localTimeFormatted = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   
-  const morMonth = String(moroccoDate.getUTCMonth() + 1).padStart(2, '0');
-  const morDay = String(moroccoDate.getUTCDate()).padStart(2, '0');
-  const morDateFormatted = `${morMonth}/${morDay}`;
+  const morMonthName = MONTHS_AR[moroccoDate.getUTCMonth()] || 'يونيو';
+  const morDayNum = moroccoDate.getUTCDate();
   const morTimeFormatted = `${String(moroccoDate.getUTCHours()).padStart(2, '0')}:${String(moroccoDate.getUTCMinutes()).padStart(2, '0')}`;
   
   return {
-    local: `${localTimeFormatted} (${info.zone})`,
-    morocco: `${morTimeFormatted} 🇲🇦 (${morDateFormatted})`
+    local: `${localTimeFormatted} - ${info.zone}`,
+    morocco: `${morTimeFormatted} 🇲🇦 يوم ${morDayNum} ${morMonthName}`
   };
 }
 

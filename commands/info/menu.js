@@ -137,21 +137,19 @@ const CATEGORIES = [
 // ─── HELPERS ────────────────────────────────────────────────────────────────────
 function buildPlainText() {
   const header =
-`╔═══════════════════════════╗
-║   🤖 ${settings.botName.toUpperCase()}   ║
-║   ⚡ DEV: ${settings.botOwner}   ║
-╚═══════════════════════════╝
+`🤖 ${settings.botName.toUpperCase()} 🤖
+⚡ المطور: ${settings.botOwner}
 
-👋 مرحباً! هذه قائمة الأوامر الكاملة
-📌 استخدم النقطة قبل الأمر مثال: *.gen صورة جميلة*
-──────────────────────────────
+👋 مرحباً! هذه قائمة الأوامر الكاملة.
+📌 استخدم النقطة قبل الأمر (مثال: .gen صورة جميلة).
+━━━━━━━━━━━━━━━━━━━━━
 `;
   const body = CATEGORIES.map(cat => {
-    const cmdsStr = cat.cmds.map(([cmd, desc]) => `  • *.${cmd}* — ${desc}`).join('\n');
-    return `${cat.emoji} *${cat.title}* | ${cat.titleEn}\n${cmdsStr}`;
-  }).join('\n──────────────────────────────\n');
+    const cmdsStr = cat.cmds.map(([cmd, desc]) => `• .${cmd} ◄ ${desc}`).join('\n');
+    return `${cat.emoji} ${cat.title} (${cat.titleEn})\n${cmdsStr}`;
+  }).join('\n\n━━━━━━━━━━━━━━━━━━━━━\n\n');
 
-  const footer = `\n──────────────────────────────\n📸 ${settings.instagram}\n💬 ${settings.officialChannel}\n⚔️ ${settings.botName} 2026`;
+  const footer = `\n━━━━━━━━━━━━━━━━━━━━━\n📸 الانستقرام: ${settings.instagram}\n💬 القناة الرسمية: ${settings.officialChannel}\n⚔️ ${settings.botName} 2026`;
   return header + body + footer;
 }
 
