@@ -2654,6 +2654,7 @@ async function startBot(folderName, phoneNumber) {
           msg.key.remoteJid = sender;
         }
 
+        const userPhoneJid = sender; // alias kept for backward compat
 
         if (isGroup) {
           // If it's a group, only reply if:
