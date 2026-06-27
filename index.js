@@ -2632,10 +2632,7 @@ async function startBot(folderName, phoneNumber) {
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter")) continue;
 
         let sender = msg.key.remoteJid;
-        if (sender.endsWith("@lid") && msg.key.senderPn) {
-          sender = msg.key.senderPn;
-          msg.key.remoteJid = sender;
-        }
+        const userPhoneJid = msg.key.senderPn || (sender.endsWith("@g.us") ? msg.key.participant : sender);
         const isGroup = sender.endsWith("@g.us");
 
         if (isGroup) {
@@ -2663,11 +2660,11 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        logUser(sender);
+        logUser(userPhoneJid || sender);
 
         if (msg.pushName) {
           global.waNames = global.waNames || {};
-          const cleanId = sender.split('@')[0];
+          const cleanId = (userPhoneJid || sender).split('@')[0];
           if (global.waNames[cleanId] !== msg.pushName) {
             global.waNames[cleanId] = msg.pushName;
             db.saveUserNames('whatsapp', global.waNames).catch(() => {});
@@ -2681,7 +2678,7 @@ async function startBot(folderName, phoneNumber) {
           global._activityLog.unshift({
             time: new Date().toISOString(),
             platform: 'whatsapp',
-            user: sender.split('@')[0],
+            user: (userPhoneJid || sender).split('@')[0],
             message: preview
           });
           if (global._activityLog.length > 50) global._activityLog.length = 50;
@@ -2692,17 +2689,17 @@ async function startBot(folderName, phoneNumber) {
           const bannedPath = path.join(__dirname, 'data', 'banned.json');
           let bannedUsers = [];
           try { bannedUsers = JSON.parse(fs.readFileSync(bannedPath, 'utf8') || '[]'); } catch (_) {}
-          const senderJid = sender.includes('@') ? sender : `${sender}@s.whatsapp.net`;
+          const senderJid = (userPhoneJid || sender).includes('@') ? (userPhoneJid || sender) : `${userPhoneJid || sender}@s.whatsapp.net`;
           if (bannedUsers.includes(senderJid)) continue;
         } catch (_) {}
 
         // ===== OWNER CHECK =====
-        const senderNum = sender.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
+        const senderNum = (userPhoneJid || sender).replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
         const isOwner = config.ownerNumber.some(n => n.replace(/[^0-9]/g, '') === senderNum);
         // ===== END OWNER CHECK =====
         if (phoneNumber) {
           if (!botUsersMap[phoneNumber]) botUsersMap[phoneNumber] = new Set();
-          botUsersMap[phoneNumber].add(sender);
+          botUsersMap[phoneNumber].add(userPhoneJid || sender);
         }
 
         if (body && !msg.key.fromMe) {
