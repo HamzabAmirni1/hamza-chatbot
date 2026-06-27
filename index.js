@@ -2646,8 +2646,14 @@ async function startBot(folderName, phoneNumber) {
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.includes("@newsletter")) continue;
 
         let sender = msg.key.remoteJid;
-        const userPhoneJid = msg.key.senderPn || (sender.endsWith("@g.us") ? msg.key.participant : sender);
         const isGroup = sender.endsWith("@g.us");
+
+        // WhatsApp LID privacy JID fix: replace @lid with real phone @s.whatsapp.net for sending
+        if (sender.endsWith("@lid") && msg.key.senderPn) {
+          sender = msg.key.senderPn; // e.g. 212624855939@s.whatsapp.net
+          msg.key.remoteJid = sender;
+        }
+
 
         if (isGroup) {
           // If it's a group, only reply if:
