@@ -2373,14 +2373,14 @@ async function startBot(folderName, phoneNumber) {
   const sock = makeWASocket({
     version,
     qrTimeout: undefined,
-    browser: usePairingCode ? ['Ubuntu', 'Chrome', '20.0.04'] : ["Hamza Bot", "Safari", "3.0"],
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
     logger: pino({ level: "silent" }),
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
     },
     patchMessageBeforeSending: (message) => {
-        const requiresPatch = !!(message.interactiveResponse || message.buttonsMessage || message.templateMessage || message.listMessage);
+        const requiresPatch = !!(message.interactiveMessage || message.interactiveResponse || message.buttonsMessage || message.templateMessage || message.listMessage);
         if (requiresPatch) {
             message = {
                 viewOnceMessage: {
