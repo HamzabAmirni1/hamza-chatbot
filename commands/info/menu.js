@@ -22,28 +22,7 @@ const CATEGORIES = [
     titleEn: 'AI Images',
     cmds: [
       ['gen', 'توليد صورة بـ AI'],
-      ['imagine', 'Imagine AI'],
-      ['sd', 'Stable Diffusion'],
-      ['deepimg', 'Deep Image AI'],
-      ['removebg', 'إزالة الخلفية'],
-      ['hd / upscale', 'رفع جودة الصورة'],
-      ['hdv3', 'رفع جودة V3'],
       ['colorize', 'تلوين صورة'],
-      ['sketch', 'رسم رصاص'],
-      ['wallpaper', 'خلفيات 4K'],
-      ['brat', 'Brat مع نص'],
-      ['draw', 'رسم بالذكاء'],
-      ['aiedit', 'تعديل صورة بـ AI'],
-    ],
-  },
-  {
-    emoji: '🎬',
-    title: 'AI فيديو',
-    titleEn: 'AI Video',
-    cmds: [
-      ['img2video', 'صورة إلى فيديو AI'],
-      ['aivideo / veo', 'نص إلى فيديو AI'],
-      ['grokvideo', 'Grok Video AI'],
     ],
   },
   {
@@ -59,12 +38,10 @@ const CATEGORIES = [
       ['ig', 'تحميل إنستغرام'],
       ['tiktok', 'تحميل تيكتوك'],
       ['pinterest', 'تحميل بينترست'],
-      ['spotify', 'Spotify → MP3'],
-      ['twitter', 'تحميل تويتر / X'],
-      ['capcut', 'تحميل كاب كت'],
+      ['spotify', 'Spotify إلى MP3'],
+      ['twitter', 'تحميل تويتر - X'],
       ['apk', 'تحميل تطبيق APK'],
       ['gdrive', 'تحميل Google Drive'],
-      ['lyrics', 'كلمات أغنية'],
     ],
   },
   {
@@ -91,18 +68,14 @@ const CATEGORIES = [
     cmds: [
       ['ping', 'سرعة الاستجابة'],
       ['weather', 'الطقس'],
-      ['tempmail', 'إيميل مؤقت'],
-      ['tempnum', 'رقم مؤقت للـ SMS'],
-      ['sticker / s', 'صورة → ملصق'],
-      ['tomp3', 'فيديو → MP3'],
-      ['img2pdf', 'صور → PDF'],
-      ['toimg', 'ملصق → صورة'],
-      ['tts', 'نص → صوت'],
+      ['sticker / s', 'صورة إلى ملصق'],
+      ['tomp3', 'فيديو إلى MP3'],
+      ['img2pdf', 'صور إلى PDF'],
+      ['toimg', 'ملصق إلى صورة'],
+      ['tts', 'نص إلى صوت'],
       ['qr', 'توليد QR Code'],
       ['ocr', 'استخراج نص من صورة'],
-      ['ss', 'لقطة شاشة موقع'],
       ['style', 'تزيين النصوص'],
-      ['blur', 'طمس صورة'],
       ['igfollowers', 'رشق متابعين IG'],
     ],
   },
@@ -133,6 +106,7 @@ const CATEGORIES = [
     ],
   },
 ];
+
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────────
 function buildPlainText() {
