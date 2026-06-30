@@ -209,6 +209,35 @@
       background: rgba(255, 255, 255, 0.2);
     }
 
+    /* ===== CHAT SIDEBAR STYLES ===== */
+    #chats-list-container::-webkit-scrollbar { width: 4px; }
+    #chats-list-container::-webkit-scrollbar-track { background: transparent; }
+    #chats-list-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+    #chats-list-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+    #chat-body-container::-webkit-scrollbar { width: 4px; }
+    #chat-body-container::-webkit-scrollbar-track { background: transparent; }
+    #chat-body-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+    #chat-body-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+    .chat-list-item { transition: background 0.15s, border-color 0.15s; }
+    .chat-list-item:hover { background: rgba(255,255,255,0.04) !important; }
+    .chat-list-item.active { background: rgba(255,255,255,0.07) !important; border-right-color: var(--accent) !important; }
+
+    /* Unread badge pulse */
+    @keyframes pulse-badge { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:0.7} }
+    .unread-dot { animation: pulse-badge 1.8s ease-in-out infinite; }
+
+    /* Chat bubble fade-in */
+    @keyframes bubble-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    #chat-body-container > div { animation: bubble-in 0.2s ease forwards; }
+
+    /* Responsive: stack on small screens */
+    @media (max-width: 700px) {
+      #page-devmessages .chat-split-wrapper { flex-direction: column !important; }
+      #page-devmessages .chat-split-wrapper > div:first-child { width: 100% !important; max-width: 100% !important; height: 200px !important; border-left: none !important; border-bottom: 1px solid var(--border) !important; }
+    }
+
     .nav-label {
       font-size: 10px;
       font-weight: 700;
@@ -2730,30 +2759,55 @@
       <h1><i class="fas fa-inbox" style="color:var(--blue)"></i> رسائل المستخدمين الواردة</h1>
       <p>الرسائل التي أرسلها المستخدمون باستخدام الأمر <code>.msgtodev</code> ويمكنك الرد عليها مباشرة</p>
     </div>
-    <div class="card">
-      <div class="card-header" style="justify-content:space-between;">
+    <div class="card" style="overflow:hidden; padding:0;">
+      <!-- Top bar: title + actions -->
+      <div class="card-header" style="justify-content:space-between; padding:12px 16px;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="card-icon blue"><i class="fas fa-envelope-open-text"></i></div>
           <div class="card-title">صندوق الوارد <span id="devmsg-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-secondary" onclick="clearAllDevMessages()" style="padding:8px 14px;font-size:12px;background:rgba(252,129,129,0.08);color:var(--red);border-color:rgba(252,129,129,0.25);"><i class="fas fa-trash-alt"></i> حذف الكل</button>
-          <button class="btn btn-secondary" onclick="loadDevMessages()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <!-- Filter buttons -->
+          <div style="display:flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--border);gap:3px;">
+            <button id="devmsg-filter-all" onclick="setDevMsgFilter('all')" style="padding:5px 13px;font-size:11px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:linear-gradient(135deg, var(--accent), var(--blue));color:white;transition:all 0.2s;">الكل</button>
+            <button id="devmsg-filter-unanswered" onclick="setDevMsgFilter('unanswered')" style="padding:5px 13px;font-size:11px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:transparent;color:var(--text-muted);transition:all 0.2s;">غير مُجاب</button>
+          </div>
+          <button class="btn btn-secondary" onclick="loadDevMessages()" style="padding:6px 12px;font-size:11px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+          <button class="btn btn-secondary" onclick="clearAllDevMessages()" style="padding:6px 12px;font-size:11px;background:rgba(252,129,129,0.08);color:var(--red);border-color:rgba(252,129,129,0.25);"><i class="fas fa-trash-alt"></i> حذف الكل</button>
         </div>
       </div>
-      <!-- Dev messages filter toggle bar -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.01);flex-wrap:wrap;gap:12px;">
-        <div style="display:flex;background:var(--bg);padding:4px;border-radius:10px;border:1px solid var(--border);gap:4px;">
-          <button id="devmsg-filter-all" onclick="setDevMsgFilter('all')" style="padding:6px 16px;font-size:12px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg, var(--accent), var(--blue));color:white;transition:all 0.2s;">الكل</button>
-          <button id="devmsg-filter-unanswered" onclick="setDevMsgFilter('unanswered')" style="padding:6px 16px;font-size:12px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:transparent;color:var(--text-muted);transition:all 0.2s;">غير مُجاب</button>
+
+      <!-- WhatsApp/Telegram-style split layout -->
+      <div style="display:flex; height:620px; min-height:400px; overflow:hidden; border-top:1px solid var(--border);">
+
+        <!-- LEFT SIDEBAR: Chats list -->
+        <div style="width:295px; min-width:250px; border-left:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; background:var(--card);">
+          <!-- Search bar -->
+          <div style="padding:10px 12px; border-bottom:1px solid var(--border); background:var(--card);">
+            <div style="position:relative;">
+              <i class="fas fa-search" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:11px; pointer-events:none;"></i>
+              <input id="devmsg-search" type="text" placeholder="ابحث عن محادثة..." oninput="filterChatsList()" style="width:100%; padding:7px 30px 7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; box-sizing:border-box; direction:rtl;" />
+            </div>
+          </div>
+          <!-- Conversation list -->
+          <div id="chats-list-container" style="flex:1; overflow-y:auto; direction:rtl; background:var(--card);">
+            <div style="text-align:center; padding:40px; color:var(--text-muted);">
+              <i class="fas fa-inbox" style="font-size:32px; margin-bottom:12px; display:block; opacity:0.3;"></i>
+              لا توجد محادثات حالياً.
+            </div>
+          </div>
         </div>
-        <span style="font-size:11px;color:var(--text-muted);font-weight:600;"><i class="fas fa-info-circle" style="color:var(--blue);margin-left:4px;"></i>غير المجاب يظهر أولاً تلقائياً</span>
-      </div>
-      <div id="dev-messages-list" style="padding: 20px; display: grid; gap: 16px;">
-        <div style="color:var(--text-muted);text-align:center;padding:40px;">
-          <i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
-          لا توجد رسائل واردة حالياً.
+
+        <!-- RIGHT PANEL: Active conversation -->
+        <div id="conversation-container" style="flex:1; display:flex; flex-direction:column; min-width:0; background:var(--bg);">
+          <!-- Default placeholder shown before any chat is selected -->
+          <div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center; gap:12px;">
+            <i class="fab fa-whatsapp" style="font-size:72px; color:var(--accent); opacity:0.10;"></i>
+            <h3 style="margin:0; font-weight:700; font-size:16px; color:var(--text-muted);">اختر محادثة</h3>
+            <p style="font-size:12px; margin:0; opacity:0.5;">اضغط على أي محادثة من القائمة اليسارى لفتحها والرد عليها</p>
+          </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -5879,287 +5933,400 @@
                         <button onclick="resetProfanityWarnings('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إعادة ضبط التحذيرات">
                           <i class="fas fa-redo"></i> إعادة ضبط
                         </button>
-                        <button onclick="banProfanityUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(252,129,129,0.4);background:rgba(252,129,129,0.08);color:#fc8181;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="حظر فوري">
-                          <i class="fas fa-ban"></i> حظر
-                        </button>
-                        <button onclick="unbanProfanityUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,224,94,0.4);background:rgba(246,224,94,0.08);color:#f6e05e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="رفع الحظر">
-                          <i class="fas fa-unlock"></i> رفع الحظر
-                        </button>
-                      </div>
-                    </td>
-                  </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`;
-    } catch (e) {
-      listEl.innerHTML = `<div style="color:#fc8181;text-align:center;padding:40px;"><i class="fas fa-times-circle" style="font-size:32px;margin-bottom:8px;display:block;"></i>خطأ في تحميل البيانات: ${e.message}</div>`;
-    }
-  }
-
-  async function resetProfanityWarnings(jid) {
-    if (!confirm(`هل تريد إعادة ضبط تحذيرات هذا المستخدم؟\n${jid}`)) return;
-    try {
-      const res = await fetch('/api/profanity/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
-      const data = await res.json();
-      if (data.ok) { showToast('✅ تم إعادة ضبط التحذيرات', 'success'); await loadProfanityLogs(); }
-      else showToast('❌ فشل: ' + data.error, 'error');
-    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
-  }
-
-  async function banProfanityUser(jid) {
-    if (!confirm(`هل تريد حظر هذا المستخدم فوراً؟\n${jid}`)) return;
-    try {
-      const res = await fetch('/api/profanity/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
-      const data = await res.json();
-      if (data.ok) { showToast('🚫 تم الحظر بنجاح', 'success'); await loadProfanityLogs(); }
-      else showToast('❌ فشل: ' + data.error, 'error');
-    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
-  }
-
-  // =================== BANNED USERS LIST PAGE ===================
-  async function loadBannedUsers() {
-    const listEl = document.getElementById('banned-users-list');
-    const countEl = document.getElementById('banned-count');
-    if (!listEl) return;
-    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري التحميل...</div>`;
-    try {
-      const res = await fetch('/api/banned');
-      const data = await res.json();
-      const banned = data.banned || [];
-      if (countEl) countEl.textContent = `(${banned.length} مستخدم)`;
-      if (banned.length === 0) {
-        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-user-check" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا يوجد أي مستخدم محظور حالياً.</div>`;
-        return;
-      }
-
-      const platformIcon = { wa: '🟢', tg: '✈️', fb: '🔵' };
-      const platformLabel = { wa: 'واتساب', tg: 'تيليغرام', fb: 'فيسبوك' };
-
-      listEl.innerHTML = `
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border);">
-                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
-                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المعرف / الرقم JID</th>
-                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>
-                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">إجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${banned.map(jid => {
-                let plat = 'wa';
-                let cleanNum = jid;
-                if (jid.startsWith('tg:')) {
-                  plat = 'tg';
-                  cleanNum = jid.replace('tg:', '');
-                } else if (jid.startsWith('fb:')) {
-                  plat = 'fb';
-                  cleanNum = jid.replace('fb:', '');
-                } else {
-                  cleanNum = jid.split('@')[0];
-                }
-                const platIcon = platformIcon[plat];
-                const platLbl = platformLabel[plat];
-                return `
-                  <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-                    <td style="padding:10px 12px;">${platIcon} ${platLbl}</td>
-                    <td style="padding:10px 12px;font-family:monospace;font-size:12px;">${jid}</td>
-                    <td style="padding:10px 12px;text-align:center;"><span style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:2px 8px;border-radius:4px;font-weight:700;">🚫 محظور</span></td>
-                    <td style="padding:10px 12px;">
-                      <button onclick="unbanUser('${cleanNum}','${plat}')" style="padding:5px 12px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;">
-                        <i class="fas fa-unlock"></i> إلغاء الحظر
-                      </button>
-                    </td>
-                  </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`;
-    } catch (e) {
-      listEl.innerHTML = `<div style="color:#fc8181;text-align:center;padding:40px;"><i class="fas fa-times-circle" style="font-size:32px;margin-bottom:8px;display:block;"></i>خطأ في تحميل البيانات: ${e.message}</div>`;
-    }
-  }
-
-  async function addManualBan() {
-    const platform = document.getElementById('ban-platform').value;
-    const number = document.getElementById('ban-number').value.trim();
-    if (!number) { showToast('الرجاء إدخال رقم أو معرف المستخدم', 'error'); return; }
-    try {
-      const res = await fetch('/api/ban', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ number, platform })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast('🚫 تم حظر المستخدم بنجاح', 'success');
-        document.getElementById('ban-number').value = '';
-        await loadBannedUsers();
-      } else {
-        showToast('❌ فشل: ' + data.error, 'error');
-      }
-    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
-  }
-
-  async function unbanUser(number, platform) {
-    if (!confirm(`هل تريد رفع الحظر عن هذا المستخدم؟\n${number} (${platform})`)) return;
-    try {
-      const res = await fetch('/api/unban', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ number, platform })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast('✅ تم إلغاء الحظر بنجاح', 'success');
-        await loadBannedUsers();
-        // Also refresh profanity page if active
-        const activePage = localStorage.getItem('active_page') || 'dashboard';
-        if (activePage === 'profanity') await loadProfanityLogs();
-      } else {
-        showToast('❌ فشل إلغاء الحظر: ' + data.error, 'error');
-      }
-    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
-  }
-
-
-  // =================== LEADERBOARD PAGE ===================
-  async function loadLeaderboard() {
-    const waEl = document.getElementById('leaderboard-wa');
-    const tgEl = document.getElementById('leaderboard-tg');
-    const fbEl = document.getElementById('leaderboard-fb');
-    if (!waEl || !tgEl || !fbEl) return;
-
-    waEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block;"></i>جاري التحميل...</div>`;
-    tgEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block;"></i>جاري التحميل...</div>`;
-    fbEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block;"></i>جاري التحميل...</div>`;
-
-    try {
-      const res = await fetch('/api/leaderboard');
-      const data = await res.json();
-      if (!data.ok || !data.leaderboard) {
-        throw new Error(data.error || 'Failed to fetch');
-      }
-
-      const buildTable = (users, plat) => {
-        if (!users || users.length === 0) {
-          return `<div style="text-align:center;color:var(--text-muted);padding:40px;"><i class="fas fa-user-friends" style="font-size:32px;margin-bottom:8px;display:block;opacity:0.3;"></i>لا توجد بيانات تفاعل بعد.</div>`;
-        }
-        return `
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border);text-align:right;">
-                <th style="padding:8px;color:var(--text-muted);width:50px;">الرتبة</th>
-                <th style="padding:8px;color:var(--text-muted);">المستخدم</th>
-                <th style="padding:8px;color:var(--text-muted);text-align:center;width:80px;">الرسائل</th>
-                <th style="padding:8px;color:var(--text-muted);width:120px;">آخر نشاط</th>
-                <th style="padding:8px;color:var(--text-muted);width:80px;">إجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${users.map((u, index) => {
-                const rank = index + 1;
-                const rankBadge = rank === 1 ? '👑 ' : rank === 2 ? '🥈 ' : rank === 3 ? '🥉 ' : `#${rank} `;
-                const rankColor = rank === 1 ? '#ecc94b' : rank === 2 ? '#a0aec0' : rank === 3 ? '#ed8936' : 'inherit';
-                const activeTime = new Date(u.lastActive).toLocaleDateString('ar-MA') + ' ' + new Date(u.lastActive).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'});
-                const safeName = (u.name || 'مستعمل').replace(/'/g, "\\'");
-                return `
-                  <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-                    <td style="padding:8px;font-weight:bold;color:${rankColor};">${rankBadge}</td>
-                    <td style="padding:8px;font-weight:600;">
-                      <div>${u.name || 'مستعمل'}</div>
-                      <div style="font-size:10px;color:var(--text-muted);font-family:monospace;word-break:break-all;">${u.jid.split('@')[0]}</div>
-                    </td>
-                    <td style="padding:8px;text-align:center;font-weight:800;color:var(--accent);">${u.count}</td>
-                    <td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap;">${activeTime}</td>
-                    <td style="padding:8px;">
-                      <button onclick="openProfanityMsgModal('${u.jid}','${plat}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة أو صورة">
-                        <i class="fas fa-paper-plane"></i> رسالة
-                      </button>
-                    </td>
-                  </tr>`;
-              }).join('')}
-            </tbody>
-          </table>`;
-      };
-
-      waEl.innerHTML = buildTable(data.leaderboard.whatsapp, 'wa');
-      tgEl.innerHTML = buildTable(data.leaderboard.telegram, 'tg');
-      fbEl.innerHTML = buildTable(data.leaderboard.facebook, 'fb');
-
-    } catch (e) {
-      const errHtml = `<div style="color:#fc8181;text-align:center;padding:30px;"><i class="fas fa-times-circle" style="font-size:24px;margin-bottom:8px;display:block;"></i>خطأ في تحميل المتصدرين: ${e.message}</div>`;
-      waEl.innerHTML = errHtml;
-      tgEl.innerHTML = errHtml;
-      fbEl.innerHTML = errHtml;
-    }
-  }
-
-
-  // =================== DEV MESSAGES INBOX ===================
+                        <button onclick="banProfanityUser('${u.jid}')" style="padding:4  // =================== DEV MESSAGES CHAT INBOX ===================
+  global.activeDevMsgJid = null;
+  global.devMessagesCache = [];
 
   async function loadDevMessages() {
-    const listEl = document.getElementById('dev-messages-list');
+    const listEl = document.getElementById('chats-list-container');
+    const countEl = document.getElementById('devmsg-count');
     if (!listEl) return;
-    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري التحميل...</div>`;
+
     try {
       const res = await fetch('/api/dev-messages');
       const data = await res.json();
-      const countEl = document.getElementById('devmsg-count');
-      if (!data.ok || !data.messages || data.messages.length === 0) {
-        if (countEl) countEl.textContent = '(0)';
-        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد رسائل واردة حالياً.<br><small style="font-size:12px;margin-top:8px;display:block;">يمكن للمستخدمين إرسال رسائل بالأمر <code>.msgtodev</code></small></div>`;
+      if (!data.ok || !data.messages) {
+        listEl.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red); font-size:12px;">فشل التحميل</div>`;
         return;
       }
-      
-      let msgs = [...data.messages];
-      
-      // Filter if requested
-      if (_devMsgFilter === 'unanswered') {
-        msgs = msgs.filter(m => !m.replied);
-      }
-      
-      const unreadCount = data.messages.filter(m => !m.replied).length;
-      if (countEl) {
-        if (_devMsgFilter === 'unanswered') {
-          countEl.textContent = `(${unreadCount} غير مُجاب)`;
-        } else {
-          countEl.textContent = unreadCount > 0 ? `(${unreadCount} غير مُجاب)` : `(${data.messages.length} رسالة)`;
-        }
-      }
-      
-      if (msgs.length === 0) {
-        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-check-circle" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;color:var(--accent);"></i>رائع! لا توجد رسائل بانتظار الرد حالياً.</div>`;
-        return;
-      }
-      
-      // Sort unanswered first, then by timestamp descending
-      msgs.sort((a, b) => {
-        if (!!a.replied !== !!b.replied) {
-          return a.replied ? 1 : -1; // Unanswered first
-        }
-        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-        return timeB - timeA; // Newest first
-      });
 
-      listEl.innerHTML = msgs.map(m => {
-        const platform = (m.platform || 'whatsapp').toLowerCase();
-        let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
-        if (platform === 'telegram')  { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تليجرام'; }
-        if (platform === 'facebook')  { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
-        const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleString('ar-MA') : '';
-        const replied = m.replied;
+      global.devMessagesCache = data.messages;
+      const messages = data.messages;
+
+      // Group messages by sender
+      const conversations = {};
+      for (const m of messages) {
+        const sender = m.sender;
+        if (!conversations[sender]) {
+          conversations[sender] = {
+            sender: sender,
+            senderName: m.senderName || sender,
+            platform: m.platform || 'whatsapp',
+            messages: [],
+            latestTimestamp: m.timestamp
+          };
+        }
+        conversations[sender].messages.push(m);
+        
+        const msgTime = new Date(m.timestamp).getTime();
+        const convTime = new Date(conversations[sender].latestTimestamp).getTime();
+        if (msgTime > convTime) {
+          conversations[sender].latestTimestamp = m.timestamp;
+        }
+      }
+
+      let convList = Object.values(conversations);
+
+      // Filter unanswered if requested
+      if (_devMsgFilter === 'unanswered') {
+        convList = convList.filter(c => c.messages.some(m => !m.replied));
+      }
+
+      // Sort chats by latest active message timestamp descending
+      convList.sort((a, b) => new Date(b.latestTimestamp) - new Date(a.latestTimestamp));
+
+      const unansweredCount = Object.values(conversations).filter(c => c.messages.some(m => !m.replied)).length;
+      if (countEl) {
+        countEl.textContent = unansweredCount > 0 ? `(${unansweredCount} غير مقروء)` : `(${convList.length})`;
+      }
+
+      if (convList.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:40px; color:var(--text-muted); font-size:12px;">
+            <i class="fas fa-inbox" style="font-size:32px; margin-bottom:12px; opacity:0.3;"></i>
+            لا توجد محادثات نشطة.
+          </div>`;
+        
+        // Show default placeholder on the right
+        const rightContainer = document.getElementById('conversation-container');
+        if (rightContainer) {
+          rightContainer.innerHTML = `
+            <div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center;">
+              <i class="fab fa-whatsapp" style="font-size:64px; color:var(--accent); opacity:0.15; margin-bottom:16px;"></i>
+              <h3>لا توجد محادثة محددة</h3>
+            </div>`;
+        }
+        return;
+      }
+
+      const platformIcon = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger' };
+      const platformColor = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff' };
+
+      listEl.innerHTML = convList.map(c => {
+        const plat = (c.platform || 'whatsapp').toLowerCase();
+        const pIcon = platformIcon[plat] || 'fas fa-envelope';
+        const pColor = platformColor[plat] || 'var(--text-muted)';
+        
+        // Get the absolute latest message text snippet
+        const sorted = [...c.messages].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const latestMsg = sorted[0];
+        const snippet = latestMsg.text ? (latestMsg.text.length > 30 ? latestMsg.text.substring(0, 30) + '...' : latestMsg.text) : '[ملف مرفق]';
+        const timeStr = c.latestTimestamp ? new Date(c.latestTimestamp).toLocaleDateString('ar-MA', {month:'numeric', day:'numeric'}) : '';
+        const isUnread = c.messages.some(m => !m.replied);
+        const isActive = global.activeDevMsgJid === c.sender;
+
         return `
-        <div id="devmsg-${m.id}" style="background:var(--bg);border-radius:16px;padding:18px 20px;border:1px solid var(--border);border-right:4px solid ${pColor};display:flex;flex-direction:column;gap:12px;overflow:hidden;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div style="width:36px;height:36px;border-radius:50%;background:${pColor}22;display:flex;align-items:center;justify-content:center;color:${pColor};font-size:16px;"><i class="${pIcon}"></i></div>
-              <div>
-                <div style="font-weight:700;font-size:14px;color:var(--text-main);">${m.senderName || m.sender}</div>
-                <div style="font-size:11px;color:var(--text-muted);direction:ltr;">${m.sender} · ${pLabel}</div>
+          <div class="chat-list-item${isActive ? ' active' : ''}" data-jid="${c.sender}" onclick="openConversation('${c.sender}')" style="display:flex; align-items:center; gap:12px; padding:12px; border-right:4px solid transparent; cursor:pointer; border-bottom:1px solid var(--border);">
+            <div style="width:36px; height:36px; border-radius:50%; background:${pColor}18; display:flex; align-items:center; justify-content:center; color:${pColor}; font-size:16px; flex-shrink:0;">
+              <i class="${pIcon}"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                <div class="chat-item-name" style="font-weight:700; font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.senderName || c.sender}</div>
+                <div style="font-size:10px; color:var(--text-muted); white-space:nowrap;">${timeStr}</div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; direction:rtl; text-align:right;">${snippet}</div>
+                ${isUnread ? `<div class="unread-dot" style="width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; flex-shrink:0;"></div>` : ''}
+              </div>
+              <div class="chat-item-jid" style="display:none;">${c.sender}</div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Auto-open/reload the active conversation if set
+      if (global.activeDevMsgJid) {
+        openConversation(global.activeDevMsgJid);
+      }
+
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red); text-align:center; padding:20px; font-size:12px;">خطأ: ${e.message}</div>`;
+    }
+  }
+
+  function filterChatsList() {
+    const q = document.getElementById('devmsg-search')?.value?.trim()?.toLowerCase() || '';
+    const items = document.querySelectorAll('.chat-list-item');
+    items.forEach(item => {
+      const name = item.querySelector('.chat-item-name')?.textContent?.toLowerCase() || '';
+      const jid = item.querySelector('.chat-item-jid')?.textContent?.toLowerCase() || '';
+      if (name.includes(q) || jid.includes(q)) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+
+  async function openConversation(senderJid) {
+    global.activeDevMsgJid = senderJid;
+    const container = document.getElementById('conversation-container');
+    if (!container) return;
+
+    // Highlight active chat item in sidebar
+    const items = document.querySelectorAll('.chat-list-item');
+    items.forEach(item => {
+      if (item.getAttribute('data-jid') === senderJid) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    const chats = global.devMessagesCache || [];
+    const convMsgs = chats
+      .filter(m => m.sender === senderJid)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    if (convMsgs.length === 0) {
+      container.innerHTML = `
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center;">
+          <i class="fab fa-whatsapp" style="font-size:64px; color:var(--accent); opacity:0.15; margin-bottom:16px;"></i>
+          <h3>المحادثات فارغة</h3>
+        </div>`;
+      return;
+    }
+
+    const firstMsg = convMsgs[0];
+    const platform = (firstMsg.platform || 'whatsapp').toLowerCase();
+    let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
+    if (platform === 'telegram')  { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تليجرام'; }
+    if (platform === 'facebook')  { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
+
+    container.innerHTML = `
+      <!-- Conversation Header -->
+      <div style="padding:10px 16px; border-bottom:1px solid var(--border); background:var(--card); display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:50%; background:${pColor}18; display:flex; align-items:center; justify-content:center; color:${pColor}; font-size:16px; font-weight:bold;">
+            <i class="${pIcon}"></i>
+          </div>
+          <div>
+            <div style="font-weight:700; font-size:13px; color:var(--text-main);">${firstMsg.senderName || firstMsg.sender}</div>
+            <div style="font-size:10px; color:var(--text-muted); direction:ltr; text-align:right;">${senderJid} · ${pLabel}</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary" onclick="banProfanityUser('${senderJid}')" style="padding:4px 10px; font-size:10px; border-color:rgba(252,129,129,0.3); color:#fc8181; background:rgba(252,129,129,0.05); font-family:Cairo,sans-serif;"><i class="fas fa-ban"></i> حظر</button>
+          <button class="btn btn-secondary" onclick="unbanProfanityUser('${senderJid}')" style="padding:4px 10px; font-size:10px; border-color:rgba(246,224,94,0.3); color:#f6e05e; background:rgba(246,224,94,0.05); font-family:Cairo,sans-serif;"><i class="fas fa-unlock"></i> إلغاء حظر</button>
+        </div>
+      </div>
+
+      <!-- Messages Body -->
+      <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0;">
+        ${convMsgs.map(m => {
+          const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
+          const userBubble = `
+            <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:85%; align-self:flex-start; position:relative;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted);">
+                <span>${m.senderName || 'مستخدم'}</span>
+                <span>·</span>
+                <span>${dateStr}</span>
+              </div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative;">
+                ${escapeHtml(m.text || '')}
+                <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:9px; cursor:pointer; display:none; align-items:center; justify-content:center;" class="delete-msg-btn" title="حذف الرسالة">✕</button>
+              </div>
+            </div>`;
+
+          const replyBubble = m.replied && m.replyText ? `
+            <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:85%; align-self:flex-end;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted);">
+                <span>المطور</span>
+                <span>·</span>
+                <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+              </div>
+              <div style="background:linear-gradient(135deg, rgba(99,179,237,0.12), rgba(66,153,225,0.03)); border:1px solid rgba(99,179,237,0.25); border-radius:14px 14px 2px 14px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word;">
+                ${escapeHtml(m.replyText)}
+              </div>
+            </div>` : '';
+
+          return userBubble + replyBubble;
+        }).join('')}
+      </div>
+
+      <!-- Footer / Input Form -->
+      <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--card); display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+        <div style="display:flex; gap:8px; align-items:flex-end;">
+          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4;" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
+          
+          <button onclick="sendConversationReply('${senderJid}')" class="btn btn-primary" id="chat-send-btn" style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0;">
+            <i class="fas fa-paper-plane" style="font-size:14px;"></i>
+          </button>
+        </div>
+
+        <!-- Media Bar -->
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; gap:5px;">
+            <input type="file" id="devreply-media-file-${senderJid}" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
+            
+            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'image/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:6px; color:#38bdf8; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
+              <i class="fas fa-image"></i> صورة
+            </button>
+            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'audio/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); border-radius:6px; color:#a78bfa; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
+              <i class="fas fa-music"></i> صوت
+            </button>
+            <button type="button" id="devreply-mic-btn-${senderJid}" onclick="toggleDevReplyRecording('${senderJid}')" style="padding:4px 8px; font-size:10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:6px; color:#ef4444; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
+              <i class="fas fa-microphone"></i> <span id="devreply-mic-label-${senderJid}">تسجيل</span>
+            </button>
+            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', '.pdf,.doc,.docx,.zip,.txt'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px; color:#fbbf24; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
+              <i class="fas fa-file"></i> ملف
+            </button>
+          </div>
+          
+          <div id="devreply-media-preview-${senderJid}" style="display:none; flex:1; max-width:200px;">
+            <div style="display:flex; align-items:center; gap:5px; padding:3px 6px; background:rgba(37,211,102,0.06); border:1px solid rgba(37,211,102,0.15); border-radius:6px;">
+              <i id="devreply-media-icon-${senderJid}" class="fas fa-file" style="font-size:11px; color:#25d366; flex-shrink:0;"></i>
+              <div style="flex:1; min-width:0; overflow:hidden; direction:ltr; text-align:left; font-size:9px;">
+                <div id="devreply-media-name-${senderJid}" style="font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+              </div>
+              <button type="button" onclick="clearDevReplyMedia('${senderJid}')" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:10px;"><i class="fas fa-times"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    // Hover styles to show bubble delete buttons
+    const bubbles = container.querySelectorAll('#chat-body-container > div');
+    bubbles.forEach(b => {
+      b.addEventListener('mouseenter', () => {
+        const delBtn = b.querySelector('.delete-msg-btn');
+        if (delBtn) delBtn.style.display = 'flex';
+      });
+      b.addEventListener('mouseleave', () => {
+        const delBtn = b.querySelector('.delete-msg-btn');
+        if (delBtn) delBtn.style.display = 'none';
+      });
+    });
+
+    // Auto scroll to bottom
+    const chatBody = document.getElementById('chat-body-container');
+    if (chatBody) {
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+  }
+
+  function handleChatInputKeyDown(event, senderJid) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendConversationReply(senderJid);
+    }
+  }
+
+  async function sendConversationReply(senderJid) {
+    const input = document.getElementById('chat-input-text');
+    if (!input) return;
+    const replyText = input.value.trim();
+    const mediaFile = _devReplyFiles[senderJid];
+
+    if (!replyText && !mediaFile) {
+      showToast('⚠️ اكتب ردك أو أرفق ملفاً أولاً', 'error');
+      return;
+    }
+
+    // Find the latest message for this sender to attach the reply
+    const chats = global.devMessagesCache || [];
+    const convMsgs = chats
+      .filter(m => m.sender === senderJid)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    if (convMsgs.length === 0) return;
+
+    // Find the latest unanswered message, or latest overall
+    let targetMsg = convMsgs.find(m => !m.replied);
+    if (!targetMsg) {
+      targetMsg = convMsgs[convMsgs.length - 1];
+    }
+
+    const btn = document.getElementById('chat-send-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+
+    try {
+      const body = { id: targetMsg.id, replyText };
+      if (mediaFile) {
+        body.mediaBase64 = await fileToBase64(mediaFile);
+        body.mediaType = mediaFile.type;
+        body.mediaName = mediaFile.name;
+        body.ptt = _devReplyIsRecorded[senderJid] || false;
+      }
+
+      const res = await fetch('/api/dev-messages/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ تم إرسال الرد بنجاح!', 'success');
+        input.value = '';
+        clearDevReplyMedia(senderJid);
+        
+        // Reload all dev messages, preserving active chat
+        await loadDevMessages();
+      } else {
+        showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
+      }
+    } catch(e) {
+      showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+      }
+    }
+  }
+
+  async function deleteDevMsg(id) {
+    if (!confirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
+    try {
+      const res = await fetch('/api/dev-messages/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم حذف الرسالة', 'success');
+        await loadDevMessages();
+      } else {
+        showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
+      }
+    } catch(e) {
+      showToast('❌ خطأ: ' + e.message, 'error');
+    }
+  }
+
+  async function clearAllDevMessages() {
+    if (!confirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
+    try {
+      const res = await fetch('/api/dev-messages/clear-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم حذف جميع الرسائل', 'success');
+        global.activeDevMsgJid = null;
+        await loadDevMessages();
+      } else {
+        showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
+      }
+    } catch(e) {
+      showToast('❌ خطأ: ' + e.message, 'error');
+    }
+  }font-size:11px;color:var(--text-muted);direction:ltr;">${m.sender} · ${pLabel}</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
