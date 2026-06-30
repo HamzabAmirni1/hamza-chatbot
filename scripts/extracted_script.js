@@ -121,6 +121,10 @@
   }
 
   // =================== STATE ===================
+  let manageData = null;
+  let manageTab = localStorage.getItem('manage_tab') || 'commands';
+  let logsInterval = null;
+  let allLogs = [];
   const API = ''; // Same origin
   let settingsData = {};
   let countdownInterval;
@@ -3177,11 +3181,7 @@
   }
 
   // =================== MANAGE PAGE ===================
-  let manageData = null;
-  let manageTab = localStorage.getItem('manage_tab') || 'commands';
 
-  let logsInterval = null;
-  let allLogs = [];
 
   function switchManageTab(tab) {
     manageTab = tab;

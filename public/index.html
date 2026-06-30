@@ -5814,7 +5814,7 @@
     if (existing) existing.remove();
 
     // Get message history for this user
-    const allMsgs  = global.devMessagesCache || [];
+    const allMsgs  = window.devMessagesCache || [];
     const convMsgs = allMsgs
       .filter(function(m) { return m.sender === jid; })
       .sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
@@ -6130,8 +6130,8 @@
   }
 
   // =================== DEV MESSAGES CHAT INBOX ===================
-  global.activeDevMsgJid = null;
-  global.devMessagesCache = [];
+  window.activeDevMsgJid = null;
+  window.devMessagesCache = [];
 
   async function loadDevMessages() {
     const listEl = document.getElementById('chats-list-container');
@@ -6146,7 +6146,7 @@
         return;
       }
 
-      global.devMessagesCache = data.messages;
+      window.devMessagesCache = data.messages;
       const messages = data.messages;
 
       // Group messages by sender
@@ -6219,7 +6219,7 @@
         const snippet = latestMsg.text ? (latestMsg.text.length > 30 ? latestMsg.text.substring(0, 30) + '...' : latestMsg.text) : '[ملف مرفق]';
         const timeStr = c.latestTimestamp ? new Date(c.latestTimestamp).toLocaleDateString('ar-MA', {month:'numeric', day:'numeric'}) : '';
         const isUnread = c.messages.some(m => !m.replied);
-        const isActive = global.activeDevMsgJid === c.sender;
+        const isActive = window.activeDevMsgJid === c.sender;
 
         return `
           <div class="chat-list-item${isActive ? ' active' : ''}" data-jid="${c.sender}" onclick="openConversation('${c.sender}')" style="display:flex; align-items:center; gap:12px; padding:12px; border-right:4px solid transparent; cursor:pointer; border-bottom:1px solid var(--border);">
@@ -6241,8 +6241,8 @@
       }).join('');
 
       // Auto-open/reload the active conversation if set
-      if (global.activeDevMsgJid) {
-        openConversation(global.activeDevMsgJid);
+      if (window.activeDevMsgJid) {
+        openConversation(window.activeDevMsgJid);
       }
 
     } catch(e) {
@@ -6265,7 +6265,7 @@
   }
 
   async function openConversation(senderJid) {
-    global.activeDevMsgJid = senderJid;
+    window.activeDevMsgJid = senderJid;
     const container = document.getElementById('conversation-container');
     if (!container) return;
 
@@ -6279,7 +6279,7 @@
       }
     });
 
-    const chats = global.devMessagesCache || [];
+    const chats = window.devMessagesCache || [];
     const convMsgs = chats
       .filter(m => m.sender === senderJid)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -6430,7 +6430,7 @@
     }
 
     // Find the latest message for this sender to attach the reply
-    const chats = global.devMessagesCache || [];
+    const chats = window.devMessagesCache || [];
     const convMsgs = chats
       .filter(m => m.sender === senderJid)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -6514,7 +6514,7 @@
       const data = await res.json();
       if (data.ok) {
         showToast('🗑️ تم حذف جميع الرسائل', 'success');
-        global.activeDevMsgJid = null;
+        window.activeDevMsgJid = null;
         await loadDevMessages();
       } else {
         showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
