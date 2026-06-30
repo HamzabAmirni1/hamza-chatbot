@@ -75,7 +75,11 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
     const directImg = msg.message?.imageMessage;
     const hasQuotedImg = quotedMsg?.imageMessage || quotedMsg?.documentWithCaptionMessage?.message?.imageMessage;
 
-    if (!hasQuotedImg && !directImg) {
+    const hasBuffer = extra && extra.buffer;
+    const isTelegramPhoto = msg.photo || msg.reply_to_message?.photo || msg.document || msg.reply_to_message?.document;
+    const isFacebookPhoto = extra && extra.isFacebook;
+
+    if (!hasQuotedImg && !directImg && !hasBuffer && !isTelegramPhoto && !isFacebookPhoto) {
         return await sock.sendMessage(chatId, {
             text: `╔══════════════════╗\n║  🎨 *COLORIZER AI* ║\n╚══════════════════╝\n\n📸 *الرجاء الرد على صورة بالأبيض والأسود*\n\n*الأمر:* .colorize\n\n✨ سيتم تلوينها تلقائياً بالذكاء الاصطناعي\n─────────────────────\n📸 instagram.com/hamza.amirni`,
         }, { quoted: msg });
@@ -94,12 +98,21 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
             };
         }
 
-        const buffer = await downloadMediaMessage(
-            targetMsg,
-            'buffer',
-            {},
-            { logger: pino({ level: 'silent' }) }
-        );
+        let buffer;
+        if (extra && extra.buffer) {
+            buffer = extra.buffer;
+        } else if (typeof sock.downloadMediaMessage === 'function') {
+            buffer = await sock.downloadMediaMessage(targetMsg);
+        } else {
+            buffer = await downloadMediaMessage(
+                targetMsg,
+                'buffer',
+                {},
+                { logger: pino({ level: 'silent' }) }
+            );
+        }
+
+        if (!buffer) throw new Error('تعذر تحميل الصورة');
 
         const result = await colorizeImage(buffer);
 

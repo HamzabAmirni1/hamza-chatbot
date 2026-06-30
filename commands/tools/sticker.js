@@ -80,7 +80,7 @@ async function makeSticker(buffer, mimetype) {
     }
 }
 
-module.exports = async (sock, sender, msg, args) => {
+module.exports = async (sock, sender, msg, args, extra) => {
     // Check for quoted message or direct image
     const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const directImage = msg.message?.imageMessage;
@@ -104,7 +104,11 @@ module.exports = async (sock, sender, msg, args) => {
         targetType = 'video';
     }
 
-    if (!targetType) {
+    const hasBuffer = extra && extra.buffer;
+    const isTelegramPhoto = msg.photo || msg.reply_to_message?.photo || msg.document || msg.reply_to_message?.document || msg.video || msg.reply_to_message?.video;
+    const isFacebookPhoto = extra && extra.isFacebook;
+
+    if (!targetType && !hasBuffer && !isTelegramPhoto && !isFacebookPhoto) {
         return await sock.sendMessage(sender, {
             text: `🖼️ *صانع الملصقات | Sticker Maker*\n\n` +
                   `📌 *كيفية الاستخدام:*\n` +
@@ -118,10 +122,23 @@ module.exports = async (sock, sender, msg, args) => {
     try {
         await sock.sendMessage(sender, { text: '⏳ *جاري تحويل الصورة إلى ملصق...*' }, { quoted: msg });
 
-        const media = await downloadMedia(targetMsg);
-        if (!media) throw new Error('تعذر تحميل الوسائط');
+        let mediaBuffer;
+        let mimetype = 'image/jpeg';
 
-        const stickerBuffer = await makeSticker(media.buffer, media.mimetype);
+        if (extra && extra.buffer) {
+            mediaBuffer = extra.buffer;
+            mimetype = 'image/jpeg';
+        } else if (typeof sock.downloadMediaMessage === 'function') {
+            mediaBuffer = await sock.downloadMediaMessage(targetMsg);
+            mimetype = (targetMsg.reply_to_message?.video || targetMsg.video) ? 'video/mp4' : 'image/jpeg';
+        } else {
+            const media = await downloadMedia(targetMsg);
+            if (!media) throw new Error('تعذر تحميل الوسائط');
+            mediaBuffer = media.buffer;
+            mimetype = media.mimetype;
+        }
+
+        const stickerBuffer = await makeSticker(mediaBuffer, mimetype);
 
         await sock.sendMessage(sender, {
             sticker: stickerBuffer

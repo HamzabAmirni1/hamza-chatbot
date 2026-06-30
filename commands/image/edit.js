@@ -50,12 +50,19 @@ module.exports = async (sock, chatId, msg, args, extra, userLang) => {
             }, { quoted: msg });
         }
 
-        const buffer = await downloadMediaMessage(
-            targetMsg,
-            "buffer",
-            {},
-            { logger: pino({ level: "silent" }) },
-        );
+        let buffer;
+        if (typeof sock.downloadMediaMessage === 'function') {
+            buffer = await sock.downloadMediaMessage(targetMsg);
+        } else {
+            buffer = await downloadMediaMessage(
+                targetMsg,
+                "buffer",
+                {},
+                { logger: pino({ level: "silent" }) },
+            );
+        }
+
+        if (!buffer) throw new Error("لم يتم العثور على الصورة أو فشل تحميلها.");
 
         let resultUrl;
         if (aiType === "nano") {
