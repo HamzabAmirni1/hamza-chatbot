@@ -3593,42 +3593,45 @@
   window.onload = async () => {
     updateClock();
     setInterval(updateClock, 1000);
-    
+
     const token = localStorage.getItem('auth_token');
     if (!token) {
       showLoginOverlay();
       setTimeout(() => {
-        document.getElementById('loading-overlay').classList.add('hide');
+        const ov = document.getElementById('loading-overlay');
+        if (ov) ov.classList.add('hide');
       }, 500);
       return;
     }
-    
-    await loadDashboard();
-    await loadSettings();
-    
-    // Restore active page
-    const activePage = localStorage.getItem('active_page') || 'dashboard';
-    await showPage(activePage, true);
-    
-    // Hide overlay
-    document.getElementById('loading-overlay').classList.add('hide');
-    
-    // Restore scroll position
-    const scrollTop = localStorage.getItem('scroll_top');
-    if (scrollTop) {
-      window.scrollTo(0, parseInt(scrollTop));
-    }
-    
-    // Allow scroll saving
-    setTimeout(() => {
-      isRestoringScroll = false;
-    }, 200);
 
-    window.addEventListener('scroll', () => {
-      if (!isRestoringScroll) {
-        localStorage.setItem('scroll_top', window.scrollY);
+    try {
+      await loadDashboard();
+      await loadSettings();
+
+      const activePage = localStorage.getItem('active_page') || 'dashboard';
+      await showPage(activePage, true);
+
+      const scrollTop = localStorage.getItem('scroll_top');
+      if (scrollTop) window.scrollTo(0, parseInt(scrollTop));
+
+      setTimeout(() => { isRestoringScroll = false; }, 200);
+
+      window.addEventListener('scroll', () => {
+        if (!isRestoringScroll) localStorage.setItem('scroll_top', window.scrollY);
+      });
+
+    } catch (err) {
+      console.error('[Init] فشل التحميل:', err);
+      if (err && (String(err).includes('401') || String(err).includes('Unauthorized'))) {
+        localStorage.removeItem('auth_token');
+        showLoginOverlay();
+      } else {
+        showToast('⚠️ فشل تحميل بعض البيانات — أعد تحميل الصفحة', 'error');
       }
-    });
+    } finally {
+      const ov = document.getElementById('loading-overlay');
+      if (ov) ov.classList.add('hide');
+    }
   };
 
   function updateClock() {
