@@ -6097,7 +6097,23 @@
                         <button onclick="resetProfanityWarnings('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إعادة ضبط التحذيرات">
                           <i class="fas fa-redo"></i> إعادة ضبط
                         </button>
-                        <button onclick="banProfanityUser('${u.jid}')" style="padding:4  // =================== DEV MESSAGES CHAT INBOX ===================
+                         <button onclick="banProfanityUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(252,129,129,0.4);background:rgba(252,129,129,0.08);color:#fc8181;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="حظر المستخدم"><i class="fas fa-ban"></i> حظر</button>
+                         <button onclick="unbanProfanityUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,224,94,0.4);background:rgba(246,224,94,0.08);color:#f6e05e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="رفع الحظر"><i class="fas fa-unlock"></i> رفع حظر</button>
+                       </div>
+                     </td>
+                   </tr>`
+               }).join('')}
+             </tbody>
+           </table>
+         </div>
+       </div>
+     </div>`;
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ: ${e.message}</div>`;
+    }
+  }
+
+  // =================== DEV MESSAGES CHAT INBOX ===================
   global.activeDevMsgJid = null;
   global.devMessagesCache = [];
 
@@ -6483,202 +6499,6 @@
       if (data.ok) {
         showToast('🗑️ تم حذف جميع الرسائل', 'success');
         global.activeDevMsgJid = null;
-        await loadDevMessages();
-      } else {
-        showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
-      }
-    } catch(e) {
-      showToast('❌ خطأ: ' + e.message, 'error');
-    }
-  }font-size:11px;color:var(--text-muted);direction:ltr;">${m.sender} · ${pLabel}</div>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${replied ? `<span style="background:rgba(37,211,102,0.1);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;"><i class="fas fa-check-double"></i> تم الرد</span>` : `<span style="background:rgba(246,224,94,0.1);color:var(--yellow);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;"><i class="fas fa-clock"></i> بانتظار الرد</span>`}
-              <span style="font-size:11px;color:var(--text-muted);">${dateStr}</span>
-            </div>
-          </div>
-          <div style="font-size:14px;color:var(--text-main);background:var(--card);padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${escapeHtml(m.text || '')}</div>
-          ${replied ? `<div style="font-size:12px;color:var(--text-muted);background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);padding:10px 14px;border-radius:10px;"><i class="fas fa-reply" style="color:var(--accent);margin-left:6px;"></i><strong>ردك:</strong> ${escapeHtml(m.replyText || '')}</div>` : ''}
-          <div style="display:flex;gap:8px;">
-            ${!replied ? `<button onclick="showDevReply('${m.id}')" class="btn btn-primary" data-reply-btn="${m.id}" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-reply"></i> رد على المستخدم</button>` : `<button onclick="showDevReply('${m.id}')" class="btn btn-secondary" data-reply-btn="${m.id}" style="padding:8px 16px;font-size:12px;flex:1;"><i class="fas fa-edit"></i> رد مرة أخرى</button>`}
-            <button onclick="deleteDevMsg('${m.id}')" class="btn" style="padding:8px 14px;font-size:12px;background:rgba(252,129,129,0.1);color:var(--red);border:1px solid rgba(252,129,129,0.3);"><i class="fas fa-trash"></i></button>
-          </div>
-          <div id="devmsg-reply-area-${m.id}" style="display:none; margin-top:12px; overflow:hidden;">
-            <textarea id="devmsg-reply-input-${m.id}" placeholder="اكتب ردك هنا... (اختياري إذا أرسلت ملفاً)" style="width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
-            
-            <!-- Inline Reply Media Selector -->
-            <div style="background:rgba(255,255,255,0.02);border:1px dashed var(--border);border-radius:10px;padding:10px;margin-bottom:8px;box-sizing:border-box;width:100%;">
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"><i class="fas fa-paperclip"></i> إرفاق ملف (صورة / صوت / مستند)</div>
-              <input type="file" id="devreply-media-file-${m.id}" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${m.id}', this)" />
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-                <button type="button" onclick="document.getElementById('devreply-media-file-${m.id}').click()" style="padding:5px 10px;font-size:11px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:6px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                  <i class="fas fa-image"></i> صورة
-                </button>
-                <button type="button" onclick="setDevReplyFileAccept('${m.id}', 'audio/*'); document.getElementById('devreply-media-file-${m.id}').click()" style="padding:5px 10px;font-size:11px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:6px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                  <i class="fas fa-music"></i> ملف صوتي
-                </button>
-                <button type="button" id="devreply-mic-btn-${m.id}" onclick="toggleDevReplyRecording('${m.id}')" style="padding:5px 10px;font-size:11px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                  <i class="fas fa-microphone"></i> <span id="devreply-mic-label-${m.id}">تسجيل صوت</span>
-                </button>
-                <button type="button" onclick="setDevReplyFileAccept('${m.id}', '.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('devreply-media-file-${m.id}').click()" style="padding:5px 10px;font-size:11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:6px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                  <i class="fas fa-file"></i> مستند
-                </button>
-              </div>
-              <div id="devreply-media-preview-${m.id}" style="display:none;margin-top:8px;width:100%;box-sizing:border-box;">
-                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);border-radius:6px;overflow:hidden;box-sizing:border-box;width:100%;">
-                  <i id="devreply-media-icon-${m.id}" class="fas fa-file" style="font-size:14px;color:#25d366;flex-shrink:0;"></i>
-                  <div style="flex:1;min-width:0;overflow:hidden;direction:ltr;text-align:left;">
-                    <div id="devreply-media-name-${m.id}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;direction:ltr;"></div>
-                    <div id="devreply-media-size-${m.id}" style="font-size:10px;color:var(--text-muted);direction:ltr;"></div>
-                  </div>
-                  <button type="button" onclick="clearDevReplyMedia('${m.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0;"><i class="fas fa-times"></i></button>
-                </div>
-              </div>
-            </div>
-
-            <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end;">
-              <button onclick="hideDevReply('${m.id}')" class="btn btn-secondary" style="padding:8px 16px;font-size:12px;">إلغاء</button>
-              <button onclick="sendDevReply('${m.id}')" class="btn btn-primary" id="devreply-send-btn-${m.id}" style="padding:8px 18px;font-size:12px;"><i class="fas fa-paper-plane"></i> إرسال الرد</button>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    } catch(e) {
-      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:30px;"><i class="fas fa-exclamation-triangle"></i> فشل تحميل الرسائل: ${e.message}</div>`;
-    }
-  }
-
-  function showDevReply(id) {
-    document.getElementById('devmsg-reply-area-' + id).style.display = 'block';
-    document.getElementById('devmsg-reply-input-' + id).focus();
-  }
-  function hideDevReply(id) {
-    document.getElementById('devmsg-reply-area-' + id).style.display = 'none';
-    clearDevReplyMedia(id);
-  }
-
-  async function sendDevReply(id) {
-    const input = document.getElementById('devmsg-reply-input-' + id);
-    const replyText = input.value.trim();
-    const mediaFile = _devReplyFiles[id];
-    
-    if (!replyText && !mediaFile) { showToast('⚠️ اكتب نص الرد أو أرفق ملفاً', 'error'); return; }
-    
-    const btn = document.getElementById(`devreply-send-btn-${id}`);
-    const oldHtml = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...'; }
-    
-    try {
-      const body = { id, replyText };
-      if (mediaFile) {
-        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري رفع الملف...';
-        body.mediaBase64 = await fileToBase64(mediaFile);
-        body.mediaType = mediaFile.type;
-        body.mediaName = mediaFile.name;
-        body.ptt = _devReplyIsRecorded[id] || false;
-        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
-      }
-
-      const res = await fetch('/api/dev-messages/reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast('✅ تم إرسال الرد بنجاح!', 'success');
-        // ── Update the card in-place WITHOUT destroying all reply areas ──
-        // 1. Clear the input and media attachment
-        input.value = '';
-        clearDevReplyMedia(id);
-        // 2. Restore the send button
-        if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
-        // 3. Mark the card as "replied" without re-rendering
-        const card = document.getElementById('devmsg-' + id);
-        if (card) {
-          // Update the status badge – find it by class or style content
-          const allSpans = card.querySelectorAll('span');
-          for (const sp of allSpans) {
-            if (sp.innerHTML.includes('بانتظار الرد') || sp.style.background.includes('246,224,94')) {
-              sp.style.background = 'rgba(37,211,102,0.1)';
-              sp.style.color = 'var(--accent)';
-              sp.innerHTML = '<i class="fas fa-check-double"></i> تم الرد';
-              break;
-            }
-          }
-          // Update the reply button using the data-reply-btn attribute
-          const replyBtn = card.querySelector(`[data-reply-btn="${id}"]`);
-          if (replyBtn) {
-            replyBtn.className = 'btn btn-secondary';
-            replyBtn.innerHTML = '<i class="fas fa-edit"></i> رد مرة أخرى';
-          }
-          // Add/update the "ردك:" preview section
-          const existingReplyPreview = card.querySelector('.dev-reply-preview');
-          const replyPreviewHtml = replyText
-            ? `<div class="dev-reply-preview" style="font-size:12px;color:var(--text-muted);background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);padding:10px 14px;border-radius:10px;"><i class="fas fa-reply" style="color:var(--accent);margin-left:6px;"></i><strong>ردك:</strong> ${escapeHtml(replyText)}</div>`
-            : `<div class="dev-reply-preview" style="font-size:12px;color:var(--text-muted);background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);padding:10px 14px;border-radius:10px;"><i class="fas fa-reply" style="color:var(--accent);margin-left:6px;"></i><strong>ردك:</strong> ${mediaFile ? '📎 ملف مرفق' : ''}</div>`;
-          if (existingReplyPreview) {
-            existingReplyPreview.outerHTML = replyPreviewHtml;
-          } else {
-            // Insert before the buttons row (which comes before the reply area in the HTML)
-            const btnsRow = card.querySelector(`[data-reply-btn="${id}"]`);
-            if (btnsRow && btnsRow.parentElement) {
-              btnsRow.parentElement.insertAdjacentHTML('beforebegin', replyPreviewHtml);
-            } else {
-              // Fallback: insert at end of card
-              card.insertAdjacentHTML('beforeend', replyPreviewHtml);
-            }
-          }
-          // Hide the reply area after sending
-          const replyArea = document.getElementById('devmsg-reply-area-' + id);
-          if (replyArea) replyArea.style.display = 'none';
-        }
-      } else {
-        showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
-        if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
-      }
-    } catch(e) {
-      showToast('❌ خطأ: ' + e.message, 'error');
-      if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
-    }
-  }
-
-  async function deleteDevMsg(id) {
-    if (!confirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
-    try {
-      const res = await fetch('/api/dev-messages/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast('🗑️ تم حذف الرسالة', 'success');
-        const el = document.getElementById('devmsg-' + id);
-        if (el) el.remove();
-        const listEl = document.getElementById('dev-messages-list');
-        if (listEl && !listEl.querySelector('[id^=devmsg-]')) {
-          listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-inbox" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد رسائل واردة حالياً.</div>`;
-        }
-      } else {
-        showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
-      }
-    } catch(e) {
-      showToast('❌ خطأ: ' + e.message, 'error');
-    }
-  }
-
-  async function clearAllDevMessages() {
-    if (!confirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
-    try {
-      const res = await fetch('/api/dev-messages/clear-all', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast('🗑️ تم حذف جميع الرسائل', 'success');
         await loadDevMessages();
       } else {
         showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
