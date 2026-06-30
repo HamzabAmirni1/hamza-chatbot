@@ -2075,6 +2075,50 @@ app.get('/api/errors', async (req, res) => {
   }
 });
 
+// Profanity Logs API — get all violation logs
+app.get('/api/profanity-logs', async (req, res) => {
+  try {
+    const logs = await db.getCache('profanity_logs') || [];
+    res.json({ ok: true, logs });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Profanity Reset API — reset warnings for a specific user
+app.post('/api/profanity/reset', async (req, res) => {
+  try {
+    const { jid } = req.body;
+    if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
+    await db.setCache(`profanity_warnings:${jid}`, { warnings_left: 3 });
+    // Remove from logs
+    let logs = await db.getCache('profanity_logs') || [];
+    logs = logs.filter(l => l.jid !== jid);
+    await db.setCache('profanity_logs', logs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Profanity Ban API — immediately ban a user from their jid
+app.post('/api/profanity/ban', async (req, res) => {
+  try {
+    const { jid } = req.body;
+    if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
+    const bannedPath = path.join(__dirname, 'data/banned.json');
+    let banned = [];
+    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8') || '[]'); } catch (e) {}
+    if (!banned.includes(jid)) {
+      banned.push(jid);
+      fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Refresh Names API — Bulk-fetch profile names for registered Telegram and Facebook users
 app.post('/api/refresh-names', async (req, res) => {
   try {
@@ -2738,6 +2782,18 @@ async function startBot(folderName, phoneNumber) {
         const senderNum = (userPhoneJid || sender).replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
         const isOwner = config.ownerNumber.some(n => n.replace(/[^0-9]/g, '') === senderNum);
         // ===== END OWNER CHECK =====
+
+        // Check for profanity / bad language (exclude owner)
+        if (body && !msg.key.fromMe && !isOwner) {
+          const { scanMessage, handleProfanity } = require('./lib/profanity');
+          const matchedBadWord = scanMessage(body);
+          if (matchedBadWord) {
+            const senderName = msg.pushName || sender.split('@')[0];
+            await handleProfanity('WA', sender, senderName, body, matchedBadWord, sock, msg);
+            continue;
+          }
+        }
+
         if (phoneNumber) {
           if (!botUsersMap[phoneNumber]) botUsersMap[phoneNumber] = new Set();
           botUsersMap[phoneNumber].add(userPhoneJid || sender);
