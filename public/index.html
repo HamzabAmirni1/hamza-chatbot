@@ -1563,6 +1563,9 @@
     <a class="nav-item" onclick="showPage('profanity'); closeSidebarOnMobile()" id="nav-profanity">
       <i class="fas fa-exclamation-triangle" style="color:#fc8181;"></i> <span style="color:#fc8181;">مخالفو الآداب</span>
     </a>
+    <a class="nav-item" onclick="showPage('banned'); closeSidebarOnMobile()" id="nav-banned">
+      <i class="fas fa-user-slash" style="color:#e53e3e;"></i> <span style="color:#e53e3e;">إدارة الحظر</span>
+    </a>
     <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage">
       <i class="fas fa-sliders-h"></i> <span>إدارة شاملة</span>
     </a>
@@ -2614,6 +2617,54 @@
     </div>
   </div>
 
+  <!-- =================== BANNED USERS PAGE =================== -->
+  <div class="page" id="page-banned">
+    <div class="page-header">
+      <h1><i class="fas fa-user-slash" style="color:#e53e3e"></i> إدارة قائمة الحظر</h1>
+      <p>حظر مستخدمين يدوياً أو عرض قائمة المحظورين وإلغاء حظرهم</p>
+    </div>
+
+    <!-- Quick Ban Form -->
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(229,62,62,0.12);color:#e53e3e;"><i class="fas fa-user-plus"></i></div>
+        <div class="card-title">حظر مستخدم جديد</div>
+      </div>
+      <div style="padding:20px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label style="font-size:11px; color:var(--text-muted); font-weight:700;">المنصة</label>
+          <select id="ban-platform" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:Cairo,sans-serif; min-width:120px;">
+            <option value="whatsapp">واتساب</option>
+            <option value="telegram">تيليغرام</option>
+            <option value="facebook">فيسبوك</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; flex:1; min-width:200px;">
+          <label style="font-size:11px; color:var(--text-muted); font-weight:700;">الرقم أو الـ ID</label>
+          <input type="text" id="ban-number" placeholder="مثال: 212600000000 أو 12345678" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:monospace; font-size:13px;">
+        </div>
+        <button class="btn btn-primary" onclick="addManualBan()" style="margin-top:20px; padding:10px 24px; font-weight:700;"><i class="fas fa-ban"></i> حظر المستخدم</button>
+      </div>
+    </div>
+
+    <!-- Banned List -->
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="card-icon" style="background:rgba(229,62,62,0.12);color:#e53e3e;"><i class="fas fa-list"></i></div>
+          <div class="card-title">المستخدمون المحظورون حالياً <span id="banned-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadBannedUsers()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div id="banned-users-list" style="padding:20px;">
+        <div style="color:var(--text-muted);text-align:center;padding:40px;">
+          <i class="fas fa-user-check" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+          لا يوجد أي مستخدم محظور حالياً.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- =================== DEV MESSAGES PAGE =================== -->
   <div class="page" id="page-devmessages">
     <div class="page-header">
@@ -3516,6 +3567,7 @@
     else if (page === 'contacts') await loadContacts();
     else if (page === 'devmessages') await loadDevMessages();
     else if (page === 'profanity') await loadProfanityLogs();
+    else if (page === 'banned') await loadBannedUsers();
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -3553,6 +3605,7 @@
       else if (activePage === 'contacts') await loadContacts();
       else if (activePage === 'devmessages') await loadDevMessages();
       else if (activePage === 'profanity') await loadProfanityLogs();
+      else if (activePage === 'banned') await loadBannedUsers();
       
       showToast('✅ تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
@@ -5617,6 +5670,85 @@
   }
 
   // =================== PROFANITY VIOLATORS PAGE ===================
+
+  // Modal for sending message to violator
+  function openProfanityMsgModal(jid, platform, name) {
+    let existing = document.getElementById('profanity-msg-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'profanity-msg-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+    modal.innerHTML = `
+      <div style="background:var(--card-bg);border-radius:16px;padding:28px;width:100%;max-width:480px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <div>
+            <div style="font-size:16px;font-weight:700;">📤 إرسال رسالة</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${name} — ${jid}</div>
+          </div>
+          <button onclick="document.getElementById('profanity-msg-modal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <textarea id="pmsg-text" placeholder="اكتب رسالتك هنا..." style="width:100%;min-height:100px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-family:Cairo,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text-muted);">
+            <i class="fas fa-image" style="color:var(--blue);"></i> إرفاق صورة
+            <input type="file" id="pmsg-photo" accept="image/*" style="display:none;" onchange="document.getElementById('pmsg-photo-name').textContent=this.files[0]?.name||''">
+          </label>
+          <span id="pmsg-photo-name" style="font-size:11px;color:var(--text-muted);"></span>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('profanity-msg-modal').remove()" style="padding:8px 18px;border:1px solid var(--border);background:none;color:var(--text-muted);border-radius:8px;cursor:pointer;font-family:Cairo,sans-serif;">إلغاء</button>
+          <button id="pmsg-send-btn" onclick="sendProfanityMessage('${jid}','${platform}')" style="padding:8px 20px;background:linear-gradient(135deg,var(--accent),var(--blue));color:white;border:none;border-radius:8px;cursor:pointer;font-family:Cairo,sans-serif;font-weight:700;">
+            <i class="fas fa-paper-plane"></i> إرسال
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  async function sendProfanityMessage(jid, platform) {
+    const text = document.getElementById('pmsg-text')?.value?.trim();
+    const fileInput = document.getElementById('pmsg-photo');
+    const file = fileInput?.files?.[0];
+    if (!text && !file) { showToast('اكتب رسالة أو اختر صورة', 'error'); return; }
+    const btn = document.getElementById('pmsg-send-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...'; }
+    try {
+      let body = { jid, platform, message: text };
+      if (file) {
+        const b64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        body.mediaBase64 = b64;
+        body.mediaType = file.type;
+        body.mediaName = file.name;
+      }
+      const res = await fetch('/api/profanity/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم إرسال الرسالة بنجاح', 'success'); document.getElementById('profanity-msg-modal')?.remove(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال'; }
+  }
+
+  async function unbanProfanityUser(jid) {
+    // Derive number/platform for unban
+    let number = jid, platform = 'whatsapp';
+    if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
+    else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
+    else if (jid.includes('@')) { number = jid.split('@')[0]; }
+    if (!confirm(`هل تريد رفع الحظر عن هذا المستخدم؟\n${jid}`)) return;
+    try {
+      const res = await fetch('/api/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); await loadProfanityLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
   async function loadProfanityLogs() {
     const listEl = document.getElementById('profanity-list');
     const countEl = document.getElementById('profanity-count');
@@ -5631,12 +5763,11 @@
         listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد مخالفات مسجلة حالياً. ✅</div>`;
         return;
       }
-      // Group by JID to show latest + warning count
+      // Group by JID
       const grouped = {};
       for (const log of logs) {
         if (!grouped[log.jid]) grouped[log.jid] = { ...log, count: 0 };
         grouped[log.jid].count++;
-        // Keep the most recent entry's warnings_left
         if (new Date(log.timestamp) >= new Date(grouped[log.jid].timestamp)) {
           grouped[log.jid].warnings_left = log.warnings_left;
           grouped[log.jid].timestamp = log.timestamp;
@@ -5645,6 +5776,7 @@
       const users = Object.values(grouped);
       const platformIcon = { WA: '🟢', TG: '✈️', FB: '🔵' };
       const platformLabel = { WA: 'واتساب', TG: 'تيليغرام', FB: 'فيسبوك' };
+      const platKey = { WA: 'WA', TG: 'TG', FB: 'FB' };
       listEl.innerHTML = `
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -5653,10 +5785,10 @@
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمة</th>
-                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المخالفات</th>
-                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">تحذيرات متبقية</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">مخالفات</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">تحذيرات</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">آخر مخالفة</th>
-                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">إجراء</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;min-width:260px;">إجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -5665,19 +5797,33 @@
                 const wColor = wLeft <= 0 ? '#fc8181' : wLeft === 1 ? '#f6a623' : '#68d391';
                 const wLabel = wLeft <= 0 ? '🚫 محظور' : `${wLeft} / 3`;
                 const ts = new Date(u.timestamp).toLocaleString('ar-MA');
-                const safeJid = encodeURIComponent(u.jid);
+                const pkey = u.platform;
+                const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
                 return `
                   <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-                    <td style="padding:10px 12px;">${platformIcon[u.platform] || '❓'} ${platformLabel[u.platform] || u.platform}</td>
-                    <td style="padding:10px 12px;font-family:monospace;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="${u.jid}">${u.name}<br><span style="color:var(--text-muted);font-size:10px;">${u.jid}</span></td>
-                    <td style="padding:10px 12px;"><code style="background:rgba(252,129,129,0.12);color:#fc8181;padding:2px 6px;border-radius:4px;">${u.bad_word}</code></td>
+                    <td style="padding:10px 12px;white-space:nowrap;">${platformIcon[pkey] || '❓'} ${platformLabel[pkey] || pkey}</td>
+                    <td style="padding:10px 12px;font-size:12px;max-width:150px;">
+                      <div style="font-weight:600;">${u.name || '—'}</div>
+                      <div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">${u.jid}</div>
+                    </td>
+                    <td style="padding:10px 12px;"><code style="background:rgba(252,129,129,0.12);color:#fc8181;padding:2px 7px;border-radius:4px;">${u.bad_word}</code></td>
                     <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--purple);">${u.count}</td>
                     <td style="padding:10px 12px;text-align:center;font-weight:700;color:${wColor};">${wLabel}</td>
-                    <td style="padding:10px 12px;color:var(--text-muted);font-size:11px;">${ts}</td>
+                    <td style="padding:10px 12px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${ts}</td>
                     <td style="padding:10px 12px;">
-                      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        <button onclick="resetProfanityWarnings('${u.jid}')" style="padding:4px 10px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;" title="إعادة ضبط التحذيرات"><i class="fas fa-redo"></i> إعادة ضبط</button>
-                        <button onclick="banProfanityUser('${u.jid}')" style="padding:4px 10px;font-size:11px;border:1px solid rgba(252,129,129,0.4);background:rgba(252,129,129,0.08);color:#fc8181;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;" title="حظر فوري"><i class="fas fa-ban"></i> حظر</button>
+                      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                        <button onclick="openProfanityMsgModal('${u.jid}','${pkey}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة أو صورة">
+                          <i class="fas fa-paper-plane"></i> رسالة
+                        </button>
+                        <button onclick="resetProfanityWarnings('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إعادة ضبط التحذيرات">
+                          <i class="fas fa-redo"></i> إعادة ضبط
+                        </button>
+                        <button onclick="banProfanityUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(252,129,129,0.4);background:rgba(252,129,129,0.08);color:#fc8181;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="حظر فوري">
+                          <i class="fas fa-ban"></i> حظر
+                        </button>
+                        <button onclick="unbanProfanityUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,224,94,0.4);background:rgba(246,224,94,0.08);color:#f6e05e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="رفع الحظر">
+                          <i class="fas fa-unlock"></i> رفع الحظر
+                        </button>
                       </div>
                     </td>
                   </tr>`;
@@ -5709,6 +5855,114 @@
       else showToast('❌ فشل: ' + data.error, 'error');
     } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
   }
+
+  // =================== BANNED USERS LIST PAGE ===================
+  async function loadBannedUsers() {
+    const listEl = document.getElementById('banned-users-list');
+    const countEl = document.getElementById('banned-count');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري التحميل...</div>`;
+    try {
+      const res = await fetch('/api/banned');
+      const data = await res.json();
+      const banned = data.banned || [];
+      if (countEl) countEl.textContent = `(${banned.length} مستخدم)`;
+      if (banned.length === 0) {
+        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-user-check" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا يوجد أي مستخدم محظور حالياً.</div>`;
+        return;
+      }
+
+      const platformIcon = { wa: '🟢', tg: '✈️', fb: '🔵' };
+      const platformLabel = { wa: 'واتساب', tg: 'تيليغرام', fb: 'فيسبوك' };
+
+      listEl.innerHTML = `
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المعرف / الرقم JID</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">إجراء</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${banned.map(jid => {
+                let plat = 'wa';
+                let cleanNum = jid;
+                if (jid.startsWith('tg:')) {
+                  plat = 'tg';
+                  cleanNum = jid.replace('tg:', '');
+                } else if (jid.startsWith('fb:')) {
+                  plat = 'fb';
+                  cleanNum = jid.replace('fb:', '');
+                } else {
+                  cleanNum = jid.split('@')[0];
+                }
+                const platIcon = platformIcon[plat];
+                const platLbl = platformLabel[plat];
+                return `
+                  <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+                    <td style="padding:10px 12px;">${platIcon} ${platLbl}</td>
+                    <td style="padding:10px 12px;font-family:monospace;font-size:12px;">${jid}</td>
+                    <td style="padding:10px 12px;text-align:center;"><span style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:2px 8px;border-radius:4px;font-weight:700;">🚫 محظور</span></td>
+                    <td style="padding:10px 12px;">
+                      <button onclick="unbanUser('${cleanNum}','${plat}')" style="padding:5px 12px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;">
+                        <i class="fas fa-unlock"></i> إلغاء الحظر
+                      </button>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (e) {
+      listEl.innerHTML = `<div style="color:#fc8181;text-align:center;padding:40px;"><i class="fas fa-times-circle" style="font-size:32px;margin-bottom:8px;display:block;"></i>خطأ في تحميل البيانات: ${e.message}</div>`;
+    }
+  }
+
+  async function addManualBan() {
+    const platform = document.getElementById('ban-platform').value;
+    const number = document.getElementById('ban-number').value.trim();
+    if (!number) { showToast('الرجاء إدخال رقم أو معرف المستخدم', 'error'); return; }
+    try {
+      const res = await fetch('/api/ban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number, platform })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🚫 تم حظر المستخدم بنجاح', 'success');
+        document.getElementById('ban-number').value = '';
+        await loadBannedUsers();
+      } else {
+        showToast('❌ فشل: ' + data.error, 'error');
+      }
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function unbanUser(number, platform) {
+    if (!confirm(`هل تريد رفع الحظر عن هذا المستخدم؟\n${number} (${platform})`)) return;
+    try {
+      const res = await fetch('/api/unban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number, platform })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ تم إلغاء الحظر بنجاح', 'success');
+        await loadBannedUsers();
+        // Also refresh profanity page if active
+        const activePage = localStorage.getItem('active_page') || 'dashboard';
+        if (activePage === 'profanity') await loadProfanityLogs();
+      } else {
+        showToast('❌ فشل إلغاء الحظر: ' + data.error, 'error');
+      }
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
 
   // =================== DEV MESSAGES INBOX ===================
   async function loadDevMessages() {
