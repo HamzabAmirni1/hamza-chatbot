@@ -5046,6 +5046,45 @@
   const _devReplyRecorders = {};
   const _devReplyRecordTimers = {};
 
+  function updateDevMsgActionBtn(senderJid) {
+    const input = document.getElementById('chat-input-text');
+    const btn = document.getElementById('chat-send-btn');
+    if (!input || !btn) return;
+    
+    if (_devReplyRecorders[senderJid] && _devReplyRecorders[senderJid].state === 'recording') {
+      btn.innerHTML = '<i class="fas fa-stop" style="color: white; font-size: 14px;"></i>';
+      btn.style.background = '#ef4444';
+      return;
+    }
+    
+    const text = input.value.trim();
+    const hasFile = !!_devReplyFiles[senderJid];
+    
+    if (text.length > 0 || hasFile) {
+      btn.innerHTML = '<i class="fas fa-paper-plane" style="color: white; font-size: 14px;"></i>';
+      btn.style.background = 'linear-gradient(135deg,var(--accent),var(--blue))';
+    } else {
+      btn.innerHTML = '<i class="fas fa-microphone" style="color: white; font-size: 14px;"></i>';
+      btn.style.background = '#25d366';
+    }
+  }
+
+  function handleDevMsgActionClick(senderJid) {
+    const input = document.getElementById('chat-input-text');
+    const text = input ? input.value.trim() : '';
+    
+    if (_devReplyRecorders[senderJid] && _devReplyRecorders[senderJid].state === 'recording') {
+      toggleDevReplyRecording(senderJid);
+      return;
+    }
+    
+    if (text.length > 0 || _devReplyFiles[senderJid]) {
+      sendConversationReply(senderJid);
+    } else {
+      toggleDevReplyRecording(senderJid);
+    }
+  }
+
   let _devMsgFilter = 'all';
 
   async function setDevMsgFilter(filter) {
@@ -5079,6 +5118,7 @@
     _devReplyFiles[id] = file;
     _devReplyIsRecorded[id] = false;
     showDevReplyMediaPreview(id, file);
+    updateDevMsgActionBtn(id);
   }
 
   function showDevReplyMediaPreview(id, file) {
@@ -5122,6 +5162,7 @@
     if (preview) preview.style.display = 'none';
     const oldAudio = document.getElementById(`devreply-audio-preview-player-${id}`);
     if (oldAudio) oldAudio.remove();
+    updateDevMsgActionBtn(id);
   }
 
   async function toggleDevReplyRecording(id) {
@@ -5158,9 +5199,11 @@
         _devReplyIsRecorded[id] = true;
         showDevReplyMediaPreview(id, audioFile);
         showToast('🎤 تم حفظ التسجيل بنجاح', 'success');
+        updateDevMsgActionBtn(id);
       };
 
       recorder.start();
+      updateDevMsgActionBtn(id);
       btn.style.background = '#ef4444';
       btn.style.color = '#fff';
       label.textContent = '🔴 إيقاف (00:00)';
@@ -5799,6 +5842,45 @@
   let _popupChatRecorder = null;
   let _popupChatChunks   = [];
 
+  function updatePopupActionBtn(jid) {
+    const input = document.getElementById('popup-chat-input');
+    const btn = document.getElementById('popup-send-btn');
+    if (!input || !btn) return;
+    
+    if (_popupChatRecorder && _popupChatRecorder.state === 'recording') {
+      btn.innerHTML = '<i class="fas fa-stop" style="color: white;"></i>';
+      btn.style.background = '#ef4444';
+      return;
+    }
+    
+    const text = input.value.trim();
+    const hasFile = !!_popupChatFiles[jid];
+    
+    if (text.length > 0 || hasFile) {
+      btn.innerHTML = '<i class="fas fa-paper-plane" style="color: white;"></i>';
+      btn.style.background = 'linear-gradient(135deg,var(--accent),var(--blue))';
+    } else {
+      btn.innerHTML = '<i class="fas fa-microphone" style="color: white;"></i>';
+      btn.style.background = '#25d366';
+    }
+  }
+
+  function handlePopupActionClick(jid, platform) {
+    const input = document.getElementById('popup-chat-input');
+    const text = input ? input.value.trim() : '';
+    
+    if (_popupChatRecorder && _popupChatRecorder.state === 'recording') {
+      togglePopupRecording(jid);
+      return;
+    }
+    
+    if (text.length > 0 || _popupChatFiles[jid]) {
+      sendPopupChatMsg(jid, platform);
+    } else {
+      togglePopupRecording(jid);
+    }
+  }
+
   function openProfanityMsgModal(jid, platform, name) {
     let existing = document.getElementById('chat-popup-modal');
     if (existing) existing.remove();
@@ -5824,14 +5906,14 @@
       convMsgs.forEach(function(m) {
         var t = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour:'2-digit', minute:'2-digit'}) : '';
         bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
-          + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;">' + (m.senderName || '\u0645\u0633\u062a\u062e\u062f\u0645') + ' \u00b7 ' + t + '</div>'
-          + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(m.text || '') + '</div>'
+          + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">' + (m.senderName || '\u0645\u0633\u062a\u062e\u062f\u0645') + ' \u00b7 ' + t + '</div>'
+          + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.text || '') + '</div>'
           + '</div>';
         if (m.replied && m.replyText) {
           var rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : '';
           bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;">'
-            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + rt + '</div>'
-            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(m.replyText) + '</div>'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + rt + '</div>'
+            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.replyText) + '</div>'
             + '</div>';
         }
       });
@@ -5859,21 +5941,20 @@
       + '</div>'
 
       // ── Chat Body ──
-      + '<div id="popup-chat-body" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background-image:radial-gradient(var(--border) 0.5px,transparent 0);background-size:16px 16px;min-height:0;">'
+      + '<div id="popup-chat-body" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background-image:radial-gradient(var(--border) 0.5px,transparent 0);background-size:16px 16px;min-height:0;direction:ltr;">'
       +   bubblesHtml
       + '</div>'
 
       // ── Footer ──
       + '<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--card);display:flex;flex-direction:column;gap:7px;flex-shrink:0;">'
       +   '<div style="display:flex;gap:8px;align-items:flex-end;">'
-      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u0633\u0627\u0644\u062a\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')}"></textarea>'
-      +     '<button id="popup-send-btn" onclick="sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')" style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--blue));border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;"><i class="fas fa-paper-plane"></i></button>'
+      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u0633\u0627\u0644\u062a\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;" oninput="updatePopupActionBtn(\'' + jid + '\')" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')}"></textarea>'
+      +     '<button id="popup-send-btn" onclick="handlePopupActionClick(\'' + jid + '\',\'' + platform + '\')" style="width:42px;height:42px;border-radius:50%;background:#25d366;border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;box-shadow:0 2px 8px rgba(37,211,102,0.35);transition:all 0.2s;"><i class="fas fa-microphone"></i></button>'
       +   '</div>'
       +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
       +     '<input type="file" id="popup-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onPopupMediaChange(\'' + jid + '\',this)" />'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'image/*\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:6px;color:#38bdf8;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-image"></i> \u0635\u0648\u0631\u0629</button>'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'audio/*\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:6px;color:#a78bfa;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-music"></i> \u0635\u0648\u062a</button>'
-      +     '<button type="button" id="popup-mic-btn" onclick="togglePopupRecording(\'' + jid + '\')" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-microphone"></i> <span id="popup-mic-label">\u062a\u0633\u062c\u064a\u0644</span></button>'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'.pdf,.doc,.docx,.zip,.txt\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:6px;color:#fbbf24;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-file"></i> \u0645\u0644\u0641</button>'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'video/*\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:6px;color:#34d399;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-video"></i> \u0641\u064a\u062f\u064a\u0648</button>'
       +     '<div id="popup-media-preview" style="display:none;flex:1;max-width:180px;">'
@@ -5883,8 +5964,10 @@
       +         '<button type="button" onclick="clearPopupMedia(\'' + jid + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;"><i class="fas fa-times"></i></button>'
       +       '</div>'
       +     '</div>'
+      +     '</div>'
       +   '</div>'
       + '</div>'
+      + '<button id="popup-mic-btn" style="display:none;"><span id="popup-mic-label"></span></button>'
       + '</div>';
 
     document.body.appendChild(modal);
@@ -5912,6 +5995,7 @@
       else if (file.type.startsWith('video/'))  iconEl.className = 'fas fa-video';
       else                                       iconEl.className = 'fas fa-file';
     }
+    updatePopupActionBtn(jid);
   }
 
   function clearPopupMedia(jid) {
@@ -5921,6 +6005,7 @@
     if (preview) preview.style.display = 'none';
     var fi = document.getElementById('popup-media-file');
     if (fi) fi.value = '';
+    updatePopupActionBtn(jid);
   }
 
   async function togglePopupRecording(jid) {
@@ -5944,10 +6029,12 @@
           if (nameEl)  nameEl.textContent = '\u0631\u0633\u0627\u0644\u0629 \u0635\u0648\u062a\u064a\u0629';
           if (iconEl)  iconEl.className = 'fas fa-microphone';
           stream.getTracks().forEach(function(t) { t.stop(); });
+          updatePopupActionBtn(jid);
         };
         _popupChatRecorder.start();
         if (micBtn)   micBtn.style.background = 'rgba(239,68,68,0.22)';
         if (micLabel) micLabel.textContent = '\u0625\u064a\u0642\u0627\u0641';
+        updatePopupActionBtn(jid);
       } catch (e) {
         showToast('\u274c \u0641\u0634\u0644 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u0645\u064a\u0643\u0631\u0648\u0641\u0648\u0646', 'error');
       }
@@ -5956,6 +6043,7 @@
       _popupChatRecorder = null;
       if (micBtn)   micBtn.style.background = 'rgba(239,68,68,0.08)';
       if (micLabel) micLabel.textContent = '\u062a\u0633\u062c\u064a\u0644';
+      updatePopupActionBtn(jid);
     }
   }
 
@@ -6327,17 +6415,17 @@
       </div>
 
       <!-- Messages Body -->
-      <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0;">
+      <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0; direction:ltr;">
         ${convMsgs.map(m => {
           const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
           const userBubble = `
             <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:85%; align-self:flex-start; position:relative;">
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted);">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted); direction:rtl;">
                 <span>${m.senderName || 'مستخدم'}</span>
                 <span>·</span>
                 <span>${dateStr}</span>
               </div>
-              <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative;">
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right;">
                 ${escapeHtml(m.text || '')}
                 <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:9px; cursor:pointer; display:none; align-items:center; justify-content:center;" class="delete-msg-btn" title="حذف الرسالة">✕</button>
               </div>
@@ -6345,12 +6433,12 @@
 
           const replyBubble = m.replied && m.replyText ? `
             <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:85%; align-self:flex-end;">
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted);">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted); direction:rtl;">
                 <span>المطور</span>
                 <span>·</span>
                 <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
               </div>
-              <div style="background:linear-gradient(135deg, rgba(99,179,237,0.12), rgba(66,153,225,0.03)); border:1px solid rgba(99,179,237,0.25); border-radius:14px 14px 2px 14px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word;">
+              <div style="background:linear-gradient(135deg, rgba(99,179,237,0.12), rgba(66,153,225,0.03)); border:1px solid rgba(99,179,237,0.25); border-radius:14px 14px 2px 14px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right;">
                 ${escapeHtml(m.replyText)}
               </div>
             </div>` : '';
@@ -6362,10 +6450,10 @@
       <!-- Footer / Input Form -->
       <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--card); display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
         <div style="display:flex; gap:8px; align-items:flex-end;">
-          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4;" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
+          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4;" oninput="updateDevMsgActionBtn('${senderJid}')" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
           
-          <button onclick="sendConversationReply('${senderJid}')" class="btn btn-primary" id="chat-send-btn" style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0;">
-            <i class="fas fa-paper-plane" style="font-size:14px;"></i>
+          <button onclick="handleDevMsgActionClick('${senderJid}')" id="chat-send-btn" style="width:42px; height:42px; border-radius:50%; background:#25d366; border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0; font-size:18px; box-shadow:0 2px 8px rgba(37,211,102,0.35); transition:all 0.2s;">
+            <i class="fas fa-microphone" style="font-size:16px;"></i>
           </button>
         </div>
 
@@ -6380,7 +6468,7 @@
             <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'audio/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); border-radius:6px; color:#a78bfa; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
               <i class="fas fa-music"></i> صوت
             </button>
-            <button type="button" id="devreply-mic-btn-${senderJid}" onclick="toggleDevReplyRecording('${senderJid}')" style="padding:4px 8px; font-size:10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:6px; color:#ef4444; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
+            <button type="button" id="devreply-mic-btn-${senderJid}" onclick="toggleDevReplyRecording('${senderJid}')" style="display:none; padding:4px 8px; font-size:10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:6px; color:#ef4444; cursor:pointer; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
               <i class="fas fa-microphone"></i> <span id="devreply-mic-label-${senderJid}">تسجيل</span>
             </button>
             <button type="button" onclick="setDevReplyFileAccept('${senderJid}', '.pdf,.doc,.docx,.zip,.txt'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px; color:#fbbf24; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
