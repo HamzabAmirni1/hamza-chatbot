@@ -5835,7 +5835,102 @@
 
   // =================== PROFANITY VIOLATORS PAGE ===================
 
-  // Modal for sending message to violator
+  // =================== TTS ENGINE (Web Speech API - Google Voices) ===================
+  let _ttsUtterance = null;
+  let _ttsVoices = [];
+  let _ttsSelectedVoiceName = '';
+  let _ttsSpeaking = false;
+
+  function _ttsLoadVoices() {
+    _ttsVoices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  }
+  if (window.speechSynthesis) {
+    speechSynthesis.addEventListener('voiceschanged', _ttsLoadVoices);
+    _ttsLoadVoices();
+  }
+
+  function ttsGetVoices(lang) {
+    // prefer voices that include lang code, fallback to all
+    const all = speechSynthesis.getVoices();
+    return all.filter(v => lang ? v.lang.startsWith(lang) : true);
+  }
+
+  function ttsPopulateSelect(selectEl, lang) {
+    if (!selectEl) return;
+    const voices = ttsGetVoices(lang || 'ar');
+    const fallback = voices.length === 0 ? ttsGetVoices('') : voices;
+    selectEl.innerHTML = fallback.map(v =>
+      `<option value="${v.name}" ${v.name === _ttsSelectedVoiceName ? 'selected' : ''}>${v.name} (${v.lang})</option>`
+    ).join('');
+    if (fallback.length > 0 && !_ttsSelectedVoiceName) {
+      _ttsSelectedVoiceName = fallback[0].name;
+    }
+  }
+
+  function ttsOnVoiceChange(selectEl) {
+    if (selectEl) _ttsSelectedVoiceName = selectEl.value;
+  }
+
+  function speakText(text, lang) {
+    if (!window.speechSynthesis) {
+      showToast('\u274c \u0627\u0644\u0645\u062a\u0635\u0641\u062d \u0644\u0627 \u064a\u062f\u0639\u0645 TTS', 'error');
+      return;
+    }
+    speechSynthesis.cancel();
+    _ttsSpeaking = false;
+
+    // update all speak buttons to default
+    document.querySelectorAll('.tts-speak-btn').forEach(b => {
+      b.innerHTML = '\ud83d\udd0a';
+      b.style.background = 'rgba(37,211,102,0.1)';
+      b.style.color = '#25d366';
+    });
+
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = lang || 'ar-SA';
+
+    // pick best matching voice
+    const allVoices = speechSynthesis.getVoices();
+    let voice = allVoices.find(v => v.name === _ttsSelectedVoiceName);
+    if (!voice) voice = allVoices.find(v => v.lang.startsWith(lang || 'ar'));
+    if (voice) utt.voice = voice;
+
+    utt.rate = 0.9;
+    utt.pitch = 1;
+    utt.volume = 1;
+
+    _ttsUtterance = utt;
+    _ttsSpeaking = true;
+    speechSynthesis.speak(utt);
+
+    utt.onend = function() { _ttsSpeaking = false; };
+    utt.onerror = function() { _ttsSpeaking = false; };
+  }
+
+  function stopSpeaking() {
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    _ttsSpeaking = false;
+    document.querySelectorAll('.tts-speak-btn').forEach(b => {
+      b.innerHTML = '\ud83d\udd0a';
+      b.style.background = 'rgba(37,211,102,0.1)';
+      b.style.color = '#25d366';
+    });
+  }
+
+  function ttsSetupSelect(selectId, lang) {
+    setTimeout(function() {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      ttsPopulateSelect(sel, lang);
+      if (window.speechSynthesis) {
+        speechSynthesis.addEventListener('voiceschanged', function() {
+          ttsPopulateSelect(sel, lang);
+        });
+      }
+    }, 200);
+  }
+  // =================== END TTS ENGINE ===================
+
   // =================== FULL CONVERSATION POPUP MODAL ===================
   let _popupChatFiles    = {};
   let _popupChatRecorded = {};
@@ -5905,15 +6000,23 @@
     } else {
       convMsgs.forEach(function(m) {
         var t = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour:'2-digit', minute:'2-digit'}) : '';
+        var safeText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
         bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
           + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">' + (m.senderName || '\u0645\u0633\u062a\u062e\u062f\u0645') + ' \u00b7 ' + t + '</div>'
+          + '<div style="display:flex;align-items:flex-end;gap:5px;">'
           + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.text || '') + '</div>'
+          + '<button class="tts-speak-btn" onclick="speakText(\'' + safeText + '\', \'ar\')" title="\u0627\u0633\u062a\u0645\u0639" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">\ud83d\udd0a</button>'
+          + '</div>'
           + '</div>';
         if (m.replied && m.replyText) {
           var rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : '';
+          var safeReply = (m.replyText || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
           bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;">'
             + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + rt + '</div>'
+            + '<div style="display:flex;align-items:flex-end;gap:5px;flex-direction:row-reverse;">'
             + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.replyText) + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeReply + '\', \'ar\')" title="\u0627\u0633\u062a\u0645\u0639" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">\ud83d\udd0a</button>'
+            + '</div>'
             + '</div>';
         }
       });

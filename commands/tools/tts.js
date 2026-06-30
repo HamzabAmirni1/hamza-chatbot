@@ -1,7 +1,6 @@
 /**
  * 🎙️ TEXT TO SPEECH (TTS)
- * Adapted from silana-lite-ofc-master (tts.js)
- * Converts text to a voice note using Google Speech API
+ * Uses Google Translate TTS (free, no API key needed)
  * Usage: .tts النص | رمز_اللغة
  * Example: .tts مرحبا بك | ar
  */
@@ -9,23 +8,23 @@
 const axios = require('axios');
 const config = require('../../config');
 
-// Supported languages (subset of most common ones)
+// Supported languages
 const VOICES = [
-    { name: 'Arabic', lang: 'ar' },
-    { name: 'English US', lang: 'en_US' },
-    { name: 'English UK', lang: 'en_GB' },
-    { name: 'French', lang: 'fr_FR' },
-    { name: 'Spanish', lang: 'es_ES' },
-    { name: 'German', lang: 'de_DE' },
-    { name: 'Italian', lang: 'it_IT' },
-    { name: 'Russian', lang: 'ru_RU' },
-    { name: 'Turkish', lang: 'tr_TR' },
-    { name: 'Japanese', lang: 'ja_JP' },
-    { name: 'Korean', lang: 'ko_KR' },
-    { name: 'Chinese', lang: 'zh_CN_#Hans' },
-    { name: 'Portuguese BR', lang: 'pt_BR' },
-    { name: 'Hindi', lang: 'hi_IN' },
-    { name: 'Indonesian', lang: 'id_ID' },
+    { name: 'العربية',        lang: 'ar' },
+    { name: 'English US',    lang: 'en' },
+    { name: 'Français',      lang: 'fr' },
+    { name: 'Español',       lang: 'es' },
+    { name: 'Deutsch',       lang: 'de' },
+    { name: 'Italiano',      lang: 'it' },
+    { name: 'Português BR',  lang: 'pt' },
+    { name: 'Русский',       lang: 'ru' },
+    { name: 'Türkçe',        lang: 'tr' },
+    { name: '日本語',          lang: 'ja' },
+    { name: '한국어',          lang: 'ko' },
+    { name: '中文',            lang: 'zh-CN' },
+    { name: 'हिन्दी',          lang: 'hi' },
+    { name: 'Bahasa',        lang: 'id' },
+    { name: 'دارجة / Darija', lang: 'ar' },
 ];
 
 function getVoice(val) {
@@ -33,36 +32,50 @@ function getVoice(val) {
     const lower = val.toLowerCase().trim();
     return (
         VOICES.find(v => v.lang.toLowerCase() === lower) ||
-        VOICES.find(v => v.name.toLowerCase() === lower) ||
+        VOICES.find(v => v.name.toLowerCase().includes(lower)) ||
         VOICES[0]
     );
 }
 
-async function generateTTS(text, lang = 'ar', speed = 1, pitch = 1) {
-    const voice = getVoice(lang);
-    const baseUrl = 'https://www.google.com/speech-api/v2/synthesize';
-    const key = 'AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw';
+/**
+ * Google Translate TTS — free, no API key needed
+ * Max ~200 chars per request; we chunk longer texts
+ */
+async function fetchGoogleTTS(text, lang) {
+    const encoded = encodeURIComponent(text);
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${lang}&client=tw-ob&ttsspeed=0.9`;
 
-    const calcSpeed = speed <= 1 ? speed / 2 : 0.5 + (speed - 1) / 4 * 0.5;
-    const calcPitch = Math.min(pitch / 2, 1);
-
-    const params = {
-        key,
-        text: text.trim(),
-        lang: voice.lang,
-        enc: 'mpeg',
-        client: 'chromium',
-        speed: calcSpeed.toString(),
-        pitch: calcPitch.toString(),
-    };
-
-    const res = await axios.get(baseUrl, {
-        params,
+    const res = await axios.get(url, {
         responseType: 'arraybuffer',
-        timeout: 15000,
+        timeout: 20000,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+                          'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+                          'Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://translate.google.com/',
+        },
     });
 
     return Buffer.from(res.data);
+}
+
+/**
+ * Split long text into chunks ≤ 200 chars at word boundaries
+ */
+function chunkText(text, maxLen = 190) {
+    const words = text.split(' ');
+    const chunks = [];
+    let current = '';
+    for (const word of words) {
+        if ((current + ' ' + word).trim().length <= maxLen) {
+            current = (current + ' ' + word).trim();
+        } else {
+            if (current) chunks.push(current);
+            current = word;
+        }
+    }
+    if (current) chunks.push(current);
+    return chunks;
 }
 
 module.exports = async (sock, sender, msg, args) => {
@@ -70,26 +83,25 @@ module.exports = async (sock, sender, msg, args) => {
 
     // Show help if no text
     if (!fullText) {
-        const langList = VOICES.map((v, i) => `  ${i}. ${v.name} → \`${v.lang}\``).join('\n');
+        const langList = VOICES.map((v, i) => `  ${i + 1}. ${v.name} → \`${v.lang}\``).join('\n');
         return await sock.sendMessage(sender, {
             text: `🎙️ *تحويل النص إلى صوت | TTS*\n\n` +
                   `📌 *الاستخدام:*\n` +
                   `*.tts النص | رمز_اللغة*\n\n` +
                   `📌 *أمثلة:*\n` +
                   `• .tts مرحبا بك في البوت\n` +
-                  `• .tts Hello World | en_US\n` +
-                  `• .tts Bonjour | fr_FR\n\n` +
+                  `• .tts Hello World | en\n` +
+                  `• .tts Bonjour | fr\n` +
+                  `• .tts مرحبا | ar\n\n` +
                   `🌍 *اللغات المتاحة:*\n${langList}\n\n` +
                   `⚔️ ${config.botName}`
         }, { quoted: msg });
     }
 
-    // Parse: text | lang | speed | pitch
+    // Parse: text | lang
     const parts = fullText.split('|');
     const textInput = parts[0].trim();
     const langInput = parts[1] ? parts[1].trim() : 'ar';
-    const speedInput = parts[2] ? parseFloat(parts[2].trim()) : 1;
-    const pitchInput = parts[3] ? parseFloat(parts[3].trim()) : 1;
 
     if (!textInput) {
         return await sock.sendMessage(sender, {
@@ -97,31 +109,48 @@ module.exports = async (sock, sender, msg, args) => {
         }, { quoted: msg });
     }
 
-    try {
-        await sock.sendMessage(sender, { text: '🎙️ *جاري تحويل النص إلى صوت...*' }, { quoted: msg });
+    const voice = getVoice(langInput);
 
-        const audioBuffer = await generateTTS(textInput, langInput, speedInput, pitchInput);
+    try {
+        await sock.sendMessage(sender, {
+            text: `🎙️ *جاري تحويل النص إلى صوت...*\n🌍 اللغة: *${voice.name}*`
+        }, { quoted: msg });
+
+        // If text is short enough, fetch directly; otherwise chunk it
+        let audioBuffer;
+        if (textInput.length <= 190) {
+            audioBuffer = await fetchGoogleTTS(textInput, voice.lang);
+        } else {
+            const chunks = chunkText(textInput);
+            const buffers = [];
+            for (const chunk of chunks) {
+                const buf = await fetchGoogleTTS(chunk, voice.lang);
+                buffers.push(buf);
+            }
+            audioBuffer = Buffer.concat(buffers);
+        }
 
         if (!audioBuffer || audioBuffer.length === 0) {
             throw new Error('لم يتم استقبال أي صوت.');
         }
 
-        const voice = getVoice(langInput);
+        // Send as voice note (ptt)
         await sock.sendMessage(sender, {
             audio: audioBuffer,
-            mimetype: 'audio/mp4',
-            ptt: true  // Send as voice note
+            mimetype: 'audio/mpeg',
+            ptt: true,
         }, { quoted: msg });
 
-        // Send a caption message
         await sock.sendMessage(sender, {
-            text: `✅ *تم التحويل بنجاح*\n🌍 اللغة: *${voice.name}*\n📝 "${textInput.slice(0, 50)}${textInput.length > 50 ? '...' : ''}"\n⚔️ ${config.botName}`
-        }, { quoted: msg });
+            text: `✅ *تم التحويل بنجاح*\n🌍 *${voice.name}*\n📝 "${textInput.slice(0, 60)}${textInput.length > 60 ? '...' : ''}"\n⚔️ ${config.botName}`
+        });
 
     } catch (err) {
         console.error('[TTS Error]:', err.message);
+
+        // Fallback error message
         await sock.sendMessage(sender, {
-            text: `❌ *فشل تحويل النص إلى صوت*\nتأكد من صحة رمز اللغة (مثال: ar, en_US, fr_FR)\n⚔️ ${config.botName}`
+            text: `❌ *فشل تحويل النص إلى صوت*\n\nتحقق من:\n• صحة رمز اللغة (مثال: ar, en, fr)\n• عدم تجاوز النص الحد المسموح\n\n⚔️ ${config.botName}`
         }, { quoted: msg });
     }
 };
