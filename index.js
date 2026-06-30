@@ -2157,38 +2157,47 @@ app.post('/api/profanity/ban', async (req, res) => {
 // Profanity Message API — send a message (text or image) to a violating user
 app.post('/api/profanity/message', async (req, res) => {
   try {
-    const { jid, platform, message, mediaBase64, mediaType, mediaName } = req.body;
+    const { jid, platform, message, mediaBase64, mediaType, mediaName, ptt } = req.body;
     if (!jid || !platform || (!message && !mediaBase64)) {
       return res.status(400).json({ ok: false, error: 'jid, platform, and message or media required' });
     }
 
     const mediaBuffer = mediaBase64 ? Buffer.from(mediaBase64, 'base64') : null;
-    const fileName = mediaName || 'image.jpg';
+    const fileName = mediaName || 'file';
     const isImage = mediaType && mediaType.startsWith('image/');
     const isAudio = mediaType && (mediaType.startsWith('audio/') || mediaType === 'video/ogg');
     const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
-    const formattedMsg = `╔═══════════════════════╗\n║   📢 رسالة من مطور البوت   ║\n╚═══════════════════════╝\n\n${message || '📎 ملف مرفق'}\n\n━━━━━━━━━━━━━━━━━━━━━━━\n👤 المطور: حمزة اعمرني 🇲🇦`;
+    const isDoc   = mediaBuffer && !isImage && !isAudio && !isVideo;
+
+    const headerText = `╔═══════════════════════╗\n║   📢 رسالة من مطور البوت   ║\n╚═══════════════════════╝\n\n`;
+    const footerText = `\n\n━━━━━━━━━━━━━━━━━━━━━━━\n👤 المطور: حمزة اعمرني 🇲🇦`;
+    const formattedMsg = message ? `${headerText}${message}${footerText}` : `📎 ملف مرفق`;
 
     const plat = platform.toLowerCase();
     let sent = false;
 
+    // ─── WhatsApp ──────────────────────────────────────────────────────────
     if (plat === 'wa' || plat === 'whatsapp') {
       const clients = global.clients || [];
       const sock = clients.find(c => c?.user) || clients[0];
       if (!sock) return res.status(500).json({ ok: false, error: 'لا توجد جلسة واتساب نشطة' });
       const targetJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+
       if (mediaBuffer && isImage) {
         await sock.sendMessage(targetJid, { image: mediaBuffer, caption: formattedMsg, mimetype: mediaType });
       } else if (mediaBuffer && isAudio) {
-        await sock.sendMessage(targetJid, { audio: mediaBuffer, mimetype: mediaType, ptt: false });
+        await sock.sendMessage(targetJid, { audio: mediaBuffer, mimetype: mediaType, ptt: !!ptt });
         if (message) await sock.sendMessage(targetJid, { text: formattedMsg });
       } else if (mediaBuffer && isVideo) {
         await sock.sendMessage(targetJid, { video: mediaBuffer, caption: formattedMsg, mimetype: mediaType });
+      } else if (mediaBuffer && isDoc) {
+        await sock.sendMessage(targetJid, { document: mediaBuffer, fileName, mimetype: mediaType || 'application/octet-stream', caption: formattedMsg });
       } else {
         await sock.sendMessage(targetJid, { text: formattedMsg });
       }
       sent = true;
 
+    // ─── Telegram ─────────────────────────────────────────────────────────
     } else if (plat === 'tg' || plat === 'telegram') {
       const botTokens = Object.keys(global.telegramBots || {});
       if (config.telegramToken && !botTokens.includes(config.telegramToken)) botTokens.push(config.telegramToken);
@@ -2198,6 +2207,16 @@ app.post('/api/profanity/message', async (req, res) => {
           if (botInstance) {
             if (mediaBuffer && isImage) {
               await botInstance.sendPhoto(jid, mediaBuffer, { caption: formattedMsg }, { filename: fileName, contentType: mediaType });
+            } else if (mediaBuffer && isAudio) {
+              if (ptt) {
+                await botInstance.sendVoice(jid, mediaBuffer, { caption: message || '' });
+              } else {
+                await botInstance.sendAudio(jid, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+              }
+            } else if (mediaBuffer && isVideo) {
+              await botInstance.sendVideo(jid, mediaBuffer, { caption: formattedMsg });
+            } else if (mediaBuffer && isDoc) {
+              await botInstance.sendDocument(jid, mediaBuffer, { caption: formattedMsg }, { filename: fileName, contentType: mediaType || 'application/octet-stream' });
             } else {
               await botInstance.sendMessage(jid, formattedMsg);
             }
@@ -2209,22 +2228,29 @@ app.post('/api/profanity/message', async (req, res) => {
         } catch (e) { console.error('[Profanity Msg] TG send error:', e.message); }
       }
 
+    // ─── Facebook ─────────────────────────────────────────────────────────
     } else if (plat === 'fb' || plat === 'facebook') {
       const pageTokens = Object.values(global.fbPageTokens || {});
       if (config.fbPageAccessToken && !pageTokens.includes(config.fbPageAccessToken)) pageTokens.push(config.fbPageAccessToken);
-      const { sendFacebookMessage } = require('./lib/facebook');
+      const { sendFacebookMessage, sendFacebookMedia } = require('./lib/facebook');
       const cleanJid = jid.replace('fb:', '');
       for (const pageToken of pageTokens) {
         try {
-          await sendFacebookMessage(cleanJid, formattedMsg, pageToken);
+          if (mediaBuffer && isImage && typeof sendFacebookMedia === 'function') {
+            await sendFacebookMedia(cleanJid, mediaBuffer, mediaType || 'image/jpeg', pageToken);
+            if (message) await sendFacebookMessage(cleanJid, formattedMsg, pageToken);
+          } else {
+            await sendFacebookMessage(cleanJid, formattedMsg, pageToken);
+          }
           sent = true; break;
         } catch (e) { console.error('[Profanity Msg] FB send error:', e.message); }
       }
     }
 
-    if (!sent) return res.status(500).json({ ok: false, error: 'فشل إرسال الرسالة' });
+    if (!sent) return res.status(500).json({ ok: false, error: 'فشل إرسال الرسالة — تأكد من تشغيل البوت على المنصة المحددة' });
     res.json({ ok: true });
   } catch (e) {
+    console.error('[Profanity Msg] Error:', e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
