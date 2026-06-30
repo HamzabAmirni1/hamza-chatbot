@@ -60,7 +60,7 @@ const { startFbPostScheduler } = require("./lib/fbScheduler");
 const { startTelegramBot } = require("./lib/telegram");
 const { handleFacebookMessage } = require("./lib/facebook");
 const { startTrafficInterval, getStats: getTrafficStats } = require("./lib/trafficBooster");
-const { ALL_COMMANDS, NLC_KEYWORDS, isQuestionOrInquiry } = require('./lib/commandMap');
+const { ALL_COMMANDS, NLC_KEYWORDS, isQuestionOrInquiry, handleAutoDownload } = require('./lib/commandMap');
 const { checkSubscriptionGate, getSubscriptionMessage, getWelcomeMessage } = require('./lib/subscription');
 
 const bodyParser = require("body-parser");
@@ -2823,52 +2823,34 @@ async function startBot(folderName, phoneNumber) {
         const isMediaMsg = msg.message?.imageMessage || msg.message?.documentMessage;
 
         if (isMediaMsg) {
-          // Image/audio/document received → analyze ONLY, skip all NLC/command keyword matching
+          // Image received → silently save to context history; do NOT auto-analyze or reply
           try {
-            const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
-              msg.message.imageMessage || msg.message.audioMessage || msg.message.documentMessage,
-              msg.message.imageMessage ? 'image' : (msg.message.audioMessage ? 'audio' : 'document')
-            );
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-
-            try { await sock.sendPresenceUpdate('composing', sender); } catch (_) {}
-            let response = "";
-
             if (msg.message.imageMessage) {
-              const userQ = body || "Please analyze this image. If it contains text or a task, solve it in its original language.";
-              response = await ai.analyzeImage(buffer, msg.message.imageMessage.mimetype || "image/jpeg", userQ);
-              // Save context so follow-up questions work
-              try { await addToHistory(sender, "user", userQ, { buffer, mime: 'image/jpeg' }); } catch (_) {}
-            } else if (msg.message.documentMessage) {
-              response = await ai.analyzeDocument(buffer, msg.message.documentMessage.mimetype, body || "Analyze this");
-            }
-
-            if (response) {
-              try { await sock.readMessages([msg.key]); } catch (_) {}
-              try { await addToHistory(sender, "assistant", response); } catch (_) {}
-              try {
-                await sock.sendMessage(sender, { text: `🤖 *مساعد حمزة اعمرني:*\\n\\n${response}` }, { quoted: msg });
-              } catch (msgErr) {
-                await sock.sendMessage(sender, { text: `🤖 *مساعد حمزة اعمرني:*\\n\\n${response}` });
+              const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
+                msg.message.imageMessage, 'image'
+              );
+              let buffer = Buffer.from([]);
+              for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+              if (buffer && buffer.length > 0) {
+                try { await addToHistory(sender, "user", body || "[Image]", { buffer, mime: 'image/jpeg' }); } catch (_) {}
               }
             }
           } catch (mediaErr) {
             const isConnClosed = mediaErr?.output?.statusCode === 428 || mediaErr?.message?.includes('Connection Closed');
-            if (!isConnClosed) console.error('[Media Handler Error]:', mediaErr.message);
+            if (!isConnClosed) console.error('[Media Save Error]:', mediaErr.message);
           }
           continue; // ← HARD STOP: never fall through to NLC or text AI
         }
 
         if (isRawImage || isRawVideo) {
-          // Fallback: imageMessage that didn't pass the isMediaMsg check (edge case)
+          // Fallback: imageMessage/videoMessage — silently save to context history
           try {
-            try { await sock.readMessages([msg.key]); } catch (_) {}
-            const analyze = require('./commands/ai/analyze');
-            const buffer = isRawImage ? await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) }) : null;
-            const mime = isRawImage ? msg.message.imageMessage.mimetype : msg.message.videoMessage.mimetype;
-            const caption = isRawImage ? msg.message.imageMessage.caption : msg.message.videoMessage.caption;
-            await analyze(sock, sender, msg, caption ? caption.split(" ") : [], { type, isVideo: isRawVideo, buffer, mime, caption }, "ar");
+            if (isRawImage) {
+              const buffer = await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) });
+              if (buffer && buffer.length > 0) {
+                try { await addToHistory(sender, "user", body || "[Image]", { buffer, mime: 'image/jpeg' }); } catch (_) {}
+              }
+            }
           } catch (err) {}
           continue;
         }
@@ -2919,6 +2901,13 @@ async function startBot(folderName, phoneNumber) {
 
         // If chatbot is disabled globally, skip AI chat responses (read fresh config every time)
         if (require('./config').enableChatbot === 'false') continue;
+
+        // --- PRIORITY 2.5: AUTO-DOWNLOAD (social media links sent as plain text) ---
+        if (body && !isCommand) {
+          const waExtra = { getAutoGPTResponse, addToHistory, delayPromise, getUptime, proto, generateWAMessageContent, generateWAMessageFromContent, commandUsage, commandErrors };
+          const downloaded = await handleAutoDownload(body, sock, sender, msg, waExtra);
+          if (downloaded) continue;
+        }
 
         // --- PRIORITY 3: TEXT AI (pure text messages only) ---
         {
