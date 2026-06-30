@@ -1,0 +1,386 @@
+﻿diff --git a/public/index.html b/public/index.html
+index 38f896e8..dd59d2b3 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -2329,7 +2329,33 @@
+         </div>
+         <div class="form-group">
+           <label class="form-label">Ïº┘äÏ▒Ï│Ïº┘äÏ® (┘èÏ»Ï╣┘à Ï¬┘åÏ│┘è┘é ┘êÏºÏ¬Ï│ÏºÏ¿ *Ï║Ïº┘à┘é* _┘àÏºÏª┘ä_)</label>
+-          <textarea id="broadcast-msg" class="form-input" rows="7" placeholder="Ïº┘âÏ¬Ï¿ Ï▒Ï│Ïº┘äÏ¬┘â ┘ç┘åÏº..." style="resize:vertical;"></textarea>
++          <textarea id="broadcast-msg" class="form-input" rows="5" placeholder="Ïº┘âÏ¬Ï¿ Ï▒Ï│Ïº┘äÏ¬┘â ┘ç┘åÏº... (ÏºÏ«Ï¬┘èÏºÏ▒┘è ÏÑÏ░Ïº ÏúÏ▒Ï│┘äÏ¬ ┘à┘ä┘ü)" style="resize:vertical;"></textarea>
++        </div>
++        <!-- Media Attachment for Broadcast -->
++        <div style="background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:12px;padding:12px;margin-bottom:16px;">
++          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"><i class="fas fa-paperclip"></i> ÏÑÏ▒┘üÏº┘é ┘à┘ä┘ü (ÏÁ┘êÏ▒Ï® / ÏÁ┘êÏ¬ / ┘àÏ│Ï¬┘åÏ») ÔÇö ÏºÏ«Ï¬┘èÏºÏ▒┘è</div>
++          <input type="file" id="broadcast-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onBroadcastMediaChange(this)" />
++          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
++            <button type="button" onclick="document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:8px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:6px;">
++              <i class="fas fa-image"></i> ÏÁ┘êÏ▒Ï®
++            </button>
++            <button type="button" onclick="setBroadcastFileAccept('audio/*'); document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:6px;">
++              <i class="fas fa-microphone"></i> ÏÁ┘êÏ¬
++            </button>
++            <button type="button" onclick="setBroadcastFileAccept('.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('broadcast-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:8px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:6px;">
++              <i class="fas fa-file"></i> ┘àÏ│Ï¬┘åÏ»
++            </button>
++          </div>
++          <div id="broadcast-media-preview" style="display:none;">
++            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);border-radius:8px;">
++              <i id="broadcast-media-icon" class="fas fa-file" style="font-size:18px;color:#25d366;"></i>
++              <div style="flex:1;min-width:0;">
++                <div id="broadcast-media-name" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
++                <div id="broadcast-media-size" style="font-size:11px;color:var(--text-muted);"></div>
++              </div>
++              <button type="button" onclick="clearBroadcastMedia()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;"><i class="fas fa-times"></i></button>
++            </div>
++          </div>
+         </div>
+         <div style="background:rgba(246,224,94,0.08);border:1px solid rgba(246,224,94,0.2);border-radius:12px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--yellow);">
+           <i class="fas fa-exclamation-triangle"></i> Ï│Ï¬┘ÅÏ▒Ï│┘ä ┘äÏ¼┘à┘èÏ╣ Ïº┘ä┘àÏ│Ï¬Ï«Ï»┘à┘è┘å Ïº┘ä┘àÏ│Ï¼┘ä┘è┘å ┘ü┘è Ïº┘ä┘à┘åÏÁÏ® Ïº┘ä┘àÏ¡Ï»Ï»Ï® ÔÇö Ï¬Ïú┘âÏ» ┘à┘å Ïº┘ä┘àÏ¡Ï¬┘ê┘ë ┘éÏ¿┘ä Ïº┘äÏÑÏ▒Ï│Ïº┘ä
+@@ -3022,14 +3048,41 @@
+ 
+   <!-- Direct Message Modal -->
+   <div id="direct-message-modal" class="custom-modal-overlay hide">
+-    <div class="custom-modal" style="max-width: 450px;">
++    <div class="custom-modal" style="max-width: 500px;">
+       <div class="custom-modal-header">
+         <i class="fas fa-paper-plane custom-modal-icon" style="color: var(--blue);"></i>
+         <span class="custom-modal-title">ÏÑÏ▒Ï│Ïº┘ä Ï▒Ï│Ïº┘äÏ® ┘àÏ¿ÏºÏ┤Ï▒Ï®</span>
+       </div>
+       <div class="custom-modal-body">
+-        <div style="font-size:13px; margin-bottom: 10px;">ÏÑÏ▒Ï│Ïº┘ä ÏÑ┘ä┘ë: <span id="dm-recipient-name" style="font-weight: 700; color: var(--accent);"></span> (<span id="dm-recipient-phone" style="font-family: monospace;"></span>)</div>
+-        <textarea id="dm-message-text" class="form-input" rows="4" placeholder="Ïº┘âÏ¬Ï¿ Ï▒Ï│Ïº┘äÏ¬┘â ┘ç┘åÏº..." style="resize:vertical; width:100%; box-sizing:border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: 'Cairo', sans-serif; font-size:14px; outline:none;"></textarea>
++        <div style="font-size:13px; margin-bottom: 12px;">ÏÑÏ▒Ï│Ïº┘ä ÏÑ┘ä┘ë: <span id="dm-recipient-name" style="font-weight: 700; color: var(--accent);"></span> (<span id="dm-recipient-phone" style="font-family: monospace;"></span>)</div>
++        <!-- Message Text -->
++        <textarea id="dm-message-text" class="form-input" rows="3" placeholder="Ïº┘âÏ¬Ï¿ Ï▒Ï│Ïº┘äÏ¬┘â ┘ç┘åÏº... (ÏºÏ«Ï¬┘èÏºÏ▒┘è ÏÑÏ░Ïº ÏúÏ▒Ï│┘äÏ¬ ┘à┘ä┘ü)" style="resize:vertical; width:100%; box-sizing:border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: 'Cairo', sans-serif; font-size:14px; outline:none; margin-bottom:12px;"></textarea>
++        <!-- Media Attachment -->
++        <div style="background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:12px;padding:12px;">
++          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"><i class="fas fa-paperclip"></i> ÏÑÏ▒┘üÏº┘é ┘à┘ä┘ü (ÏÁ┘êÏ▒Ï® / ÏÁ┘êÏ¬ / ┘àÏ│Ï¬┘åÏ»)</div>
++          <input type="file" id="dm-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDmMediaChange(this)" />
++          <div style="display:flex;gap:8px;flex-wrap:wrap;">
++            <button type="button" onclick="document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:8px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:6px;">
++              <i class="fas fa-image"></i> ÏÁ┘êÏ▒Ï®
++            </button>
++            <button type="button" onclick="setDmFileAccept('audio/*'); document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#a78bfa;cursor:pointer;display:flex;align-items:center;gap:6px;">
++              <i class="fas fa-microphone"></i> ÏÁ┘êÏ¬
++            </button>
++            <button type="button" onclick="setDmFileAccept('.pdf,.doc,.docx,.zip,.txt,application/*'); document.getElementById('dm-media-file').click()" style="padding:7px 14px;font-size:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:8px;color:#fbbf24;cursor:pointer;display:flex;align-items:center;gap:6px;">
++              <i class="fas fa-file"></i> ┘àÏ│Ï¬┘åÏ»
++            </button>
++          </div>
++          <div id="dm-media-preview" style="margin-top:10px;display:none;">
++            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);border-radius:8px;">
++              <i id="dm-media-icon" class="fas fa-file" style="font-size:18px;color:#25d366;"></i>
++              <div style="flex:1;min-width:0;">
++                <div id="dm-media-name" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
++                <div id="dm-media-size" style="font-size:11px;color:var(--text-muted);"></div>
++              </div>
++              <button type="button" onclick="clearDmMedia()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;"><i class="fas fa-times"></i></button>
++            </div>
++          </div>
++        </div>
+         <div id="dm-alert" class="alert" style="margin-top: 10px; display: none;"></div>
+       </div>
+       <div class="custom-modal-footer">
+@@ -4220,6 +4273,7 @@
+   function openDirectMessageModal(num, platform, name) {
+     _dmTargetNumber = num;
+     _dmTargetPlatform = platform;
++    clearDmMedia();
+     
+     document.getElementById('dm-recipient-name').textContent = name || '┘àÏ│Ï¬Ï«Ï»┘à';
+     document.getElementById('dm-recipient-phone').textContent = num;
+@@ -4246,13 +4300,14 @@
+ 
+   async function submitDirectMessage() {
+     const message = document.getElementById('dm-message-text').value.trim();
++    const mediaFile = _dmMediaFile;
+     const alertEl = document.getElementById('dm-alert');
+     const sendBtn = document.getElementById('dm-send-btn');
+     
+-    if (!message) {
++    if (!message && !mediaFile) {
+       alertEl.style.display = 'block';
+       alertEl.className = 'alert alert-error';
+-      alertEl.textContent = 'ÔÜá´©Å ┘èÏ▒Ï¼┘ë ┘âÏ¬ÏºÏ¿Ï® Ïº┘äÏ▒Ï│Ïº┘äÏ® Ïú┘ê┘äÏº┘ï';
++      alertEl.textContent = 'ÔÜá´©Å ┘èÏ▒Ï¼┘ë ┘âÏ¬ÏºÏ¿Ï® Ï▒Ï│Ïº┘äÏ® Ïú┘ê ÏÑÏ▒┘üÏº┘é ┘à┘ä┘ü';
+       return;
+     }
+     
+@@ -4261,14 +4316,25 @@
+     alertEl.style.display = 'none';
+     
+     try {
++      const body = {
++        number: _dmTargetNumber,
++        platform: _dmTargetPlatform,
++        message: message
++      };
++
++      if (mediaFile) {
++        sendBtn.textContent = 'Ï¼ÏºÏ▒┘è Ï▒┘üÏ╣ Ïº┘ä┘à┘ä┘ü...';
++        body.mediaBase64 = await fileToBase64(mediaFile);
++        body.mediaType = mediaFile.type;
++        body.mediaName = mediaFile.name;
++        body.caption = message;
++        sendBtn.textContent = 'Ï¼ÏºÏ▒┘è Ïº┘äÏÑÏ▒Ï│Ïº┘ä...';
++      }
++
+       const res = await fetch('/api/send-message', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({
+-          number: _dmTargetNumber,
+-          platform: _dmTargetPlatform,
+-          message: message
+-        })
++        body: JSON.stringify(body)
+       });
+       const data = await res.json();
+       if (data.ok) {
+@@ -4464,87 +4530,179 @@
+ 
+       _anCmdData = cmdData; // cache for platform tab switching
+ 
+-      const users = usersData.users || [];
+-      const log   = actData.log   || [];
++      const users = usersData.u  // =================== MEDIA FILE HELPERS ===================
++
++  // State for DM media
++  let _dmMediaFile = null;
++
++  function setDmFileAccept(accept) {
++    document.getElementById('dm-media-file').accept = accept;
++  }
++
++  function onDmMediaChange(input) {
++    const file = input.files && input.files[0];
++    if (!file) return;
++    _dmMediaFile = file;
++    const preview = document.getElementById('dm-media-preview');
++    const icon = document.getElementById('dm-media-icon');
++    const nameEl = document.getElementById('dm-media-name');
++    const sizeEl = document.getElementById('dm-media-size');
++    preview.style.display = 'block';
++    nameEl.textContent = file.name;
++    sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
++    if (file.type.startsWith('image/')) {
++      icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
++    } else if (file.type.startsWith('audio/')) {
++      icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
++    } else if (file.type.startsWith('video/')) {
++      icon.className = 'fas fa-video'; icon.style.color = '#34d399';
++    } else {
++      icon.className = 'fas fa-file-alt'; icon.style.color = '#fbbf24';
++    }
++  }
+ 
+-      // ---- KPI Cards ----
+-      const waUsers = users.filter(u => u.platform === 'whatsapp').length;
+-      const tgUsers = users.filter(u => u.platform === 'telegram').length;
+-      const fbUsers = users.filter(u => u.platform === 'facebook').length;
+-      const totalUsers = users.length;
++  function clearDmMedia() {
++    _dmMediaFile = null;
++    document.getElementById('dm-media-file').value = '';
++    document.getElementById('dm-media-preview').style.display = 'none';
++  }
++
++  // State for broadcast media
++  let _broadcastMediaFile = null;
+ 
+-      document.getElementById('an-total-users').textContent = totalUsers;
+-      const elWa = document.getElementById('an-wa-count'); if (elWa) elWa.textContent = waUsers;
+-      const elTg = document.getElementById('an-tg-count'); if (elTg) elTg.textContent = tgUsers;
+-      const elFb = document.getElementById('an-fb-count'); if (elFb) elFb.textContent = fbUsers;
++  function setBroadcastFileAccept(accept) {
++    document.getElementById('broadcast-media-file').accept = accept;
++  }
+ 
+-      // Total messages = sum of all cmd counts across platforms
+-      const allStats = cmdData.platformStats || { whatsapp:{}, telegram:{}, facebook:{} };
+-      const totalMsgs = Object.values(allStats).reduce((sum, pl) =>
+-        sum + Object.values(pl).reduce((s, v) => s + v, 0), 0);
+-      document.getElementById('an-total-msgs').textContent = totalMsgs > 0 ? totalMsgs.toLocaleString('ar') : log.length;
++  function onBroadcastMediaChange(input) {
++    const file = input.files && input.files[0];
++    if (!file) return;
++    _broadcastMediaFile = file;
++    const preview = document.getElementById('broadcast-media-preview');
++    const icon = document.getElementById('broadcast-media-icon');
++    const nameEl = document.getElementById('broadcast-media-name');
++    const sizeEl = document.getElementById('broadcast-media-size');
++    preview.style.display = 'block';
++    nameEl.textContent = file.name;
++    sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
++    if (file.type.startsWith('image/')) {
++      icon.className = 'fas fa-image'; icon.style.color = '#38bdf8';
++    } else if (file.type.startsWith('audio/')) {
++      icon.className = 'fas fa-music'; icon.style.color = '#a78bfa';
++    } else if (file.type.startsWith('video/')) {
++      icon.className = 'fas fa-video'; icon.style.color = '#34d399';
++    } else {
++      icon.className = 'fas fa-file-alt'; icon.style.color = '#fbbf24';
++    }
++  }
+ 
+-      const topCmds = (cmdData.topCommands || []);
+-      const usedUniqueCommands = Object.keys(cmdData.stats || {}).length;
+-      document.getElementById('an-cmds-used').textContent = usedUniqueCommands;
+-      document.getElementById('an-top-cmd').textContent = topCmds[0] ? '.' + topCmds[0].cmd + ' ├ù' + topCmds[0].count : 'ÔÇö';
++  function clearBroadcastMedia() {
++    _broadcastMediaFile = null;
++    document.getElementById('broadcast-media-file').value = '';
++    document.getElementById('broadcast-media-preview').style.display = 'none';
++  }
+ 
+-      // ---- Platform chart ----
+-      renderAnPlatformChart(waUsers, tgUsers, fbUsers, totalUsers);
++  // Convert File to base64
++  function fileToBase64(file) {
++    return new Promise((resolve, reject) => {
++      const reader = new FileReader();
++      reader.onload = () => resolve(reader.result.split(',')[1]);
++      reader.onerror = reject;
++      reader.readAsDataURL(file);
++    });
++  }
+ 
+-      // ---- Activity strip ----
+-      renderAnActivityStrip(log);
++  // =================== BROADCAST ===================
+ 
+-      // ---- Top commands chart ----
+-      renderAnCmds('all');
++  async function sendBroadcast() {
++    const msg = document.getElementById('broadcast-msg').value.trim();
++    const platform = document.getElementById('broadcast-platform').value;
++    const mediaFile = _broadcastMediaFile;
++    if (!msg && !mediaFile) { showToast('Ïº┘âÏ¬Ï¿ Ï▒Ï│Ïº┘äÏ® Ïú┘ê ÏúÏ▒┘ü┘é ┘à┘ä┘üÏº┘ï Ïú┘ê┘äÏº┘ï', 'error'); return; }
++    if (!await showConfirm('ÏÑÏ▒Ï│Ïº┘ä ┘çÏ░┘ç Ïº┘äÏ▒Ï│Ïº┘äÏ® ┘ä┘ä┘àÏ│Ï¬┘ä┘à┘è┘å Ïº┘ä┘àÏ¡Ï»Ï»┘è┘åÏƒ')) return;
+ 
+-      // ---- Activity feed ----
+-      renderAnActivityFeed(log);
++    const alert = document.getElementById('broadcast-alert');
++    showAlert(alert, 'info', 'ÔÅ│ Ï¼ÏºÏ▒┘è Ï¬Ï¡ÏÂ┘èÏ▒ Ïº┘ä┘à┘ä┘ü...');
+ 
+-    } catch(e) {
+-      console.error('[Analytics]', e);
+-      showToast('ÔØî Ï«ÏÀÏú ┘ü┘è Ï¬Ï¡┘à┘è┘ä Analytics', 'error');
+-    } finally {
+-      if (icon) icon.classList.remove('fa-spin');
++    // Show live progress panel
++    let progressPanel = document.getElementById('bc-progress-panel');
++    if (!progressPanel) {
++      progressPanel = document.createElement('div');
++      progressPanel.id = 'bc-progress-panel';
++      progressPanel.style.cssText = 'margin-top:16px;padding:16px;background:rgba(0,0,0,0.25);border-radius:14px;border:1px solid rgba(255,255,255,0.07);';
++      document.getElementById('broadcast-alert').parentNode.insertBefore(progressPanel, document.getElementById('broadcast-alert').nextSibling);
+     }
+-  }
+ 
+-  function renderAnPlatformChart(wa, tg, fb, total) {
+-    const el = document.getElementById('an-platform-chart');
+-    if (!el) return;
+-    const items = [
+-      { label: 'WhatsApp', count: wa, color: '#25d366', icon: 'fab fa-whatsapp' },
+-      { label: 'Telegram', count: tg, color: '#38bdf8', icon: 'fab fa-telegram-plane' },
+-      { label: 'Facebook', count: fb, color: '#0084ff', icon: 'fab fa-facebook-messenger' },
+-    ];
+-    const max = Math.max(wa, tg, fb, 1);
+-    el.innerHTML = items.map(item => {
+-      const pct = Math.round((item.count / max) * 100);
+-      const share = total > 0 ? Math.round((item.count / total) * 100) : 0;
+-      return `
+-        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);">
+-          <div style="width:36px;height:36px;border-radius:10px;background:${item.color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+-            <i class="${item.icon}" style="color:${item.color};font-size:18px;"></i>
+-          </div>
+-          <div style="flex:1;min-width:0;">
+-            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+-              <span style="font-weight:700;font-size:13px;">${item.label}</span>
+-              <span style="font-weight:800;font-size:14px;color:${item.color};">${item.count} <small style="font-size:11px;color:var(--text-muted);">(${share}%)</small></span>
++    try {
++      // Build request body
++      const body = { message: msg, platform };
++      if (mediaFile) {
++        showAlert(alert, 'info', 'ÔÅ│ Ï¼ÏºÏ▒┘è Ï▒┘üÏ╣ Ïº┘ä┘à┘ä┘ü...');
++        body.mediaBase64 = await fileToBase64(mediaFile);
++        body.mediaType = mediaFile.type;
++        body.mediaName = mediaFile.name;
++        body.caption = msg;
++      }
++      showAlert(alert, 'info', 'ÔÅ│ Ï¼ÏºÏ▒┘è Ï¿Ï»Ïí Ïº┘äÏÑÏ▒Ï│Ïº┘ä...');
++
++      const res = await fetch('/api/broadcast', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify(body)
++      });
++      const data = await res.json();
++
++      if (!data.ok) {
++        showAlert(alert, 'error', data.error || '┘üÏ┤┘ä Ïº┘äÏÑÏ▒Ï│Ïº┘ä');
++        return;
++      }
++
++      // Start polling progress
++      showAlert(alert, 'info', `­ƒôí Ïº┘äÏ¿Ï½ ┘èÏ╣┘à┘ä ┘ü┘è Ïº┘äÏ«┘ä┘ü┘èÏ®... (${data.total} ┘àÏ│Ï¬Ï«Ï»┘à)`);
++      document.getElementById('broadcast-msg').value = '';
++      clearBroadcastMedia();
++      document.getElementById('broadcast-last').textContent = new Date().toLocaleTimeString('ar-MA');
++
++      let pollInterval = setInterval(async () => {
++        try {
++          const pr = await fetch('/api/broadcast/progress');
++          const p = await pr.json();
++
++          const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
++          const barColor = p.running ? '#6ee7b7' : (p.failed > 0 ? '#f87171' : '#34d399');
++
++          progressPanel.innerHTML = `
++            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
++              <span style="font-size:13px;font-weight:700;color:var(--text);">
++                ${p.running ? '­ƒôí Ï¼ÏºÏ▒┘è Ïº┘äÏÑÏ▒Ï│Ïº┘ä...' : 'Ô£à Ïº┘âÏ¬┘à┘ä Ïº┘äÏ¿Ï½'}
++              </span>
++              <span style="font-size:13px;color:var(--text-muted);">${p.done}/${p.total} ÔÇö Ô£à ${p.sent} ÔØî ${p.failed}</span>
+             </div>
+-            <div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;">
+-              <div style="width:${pct}%;height:100%;background:${item.color};border-radius:6px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);"></div>
++            <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:12px;">
++              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.4s ease;"></div>
+             </div>
+-          </div>
+-        </div>`;
+-    }).join('');
+-  }
++            <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
++              ${(p.log || []).map(entry => `
++                <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:8px;">
++                  <span>${entry.icon || '­ƒô¿'}</span>
++                  <span style="flex:1;color:${entry.ok ? 'var(--text)' : '#f87171'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.name}</span>
++                  <span style="color:var(--text-muted);font-size:11px;">${entry.platform}</span>
++                  <span style="${entry.ok ? 'color:#34d399' : 'color:#f87171'}">${entry.ok ? 'Ô£à' : 'ÔØî'}</span>
++                  <span style="color:var(--text-muted);font-size:10px;white-space:nowrap;">${entry.time}</span>
++                </div>
++              `).join('')}
++            </div>`;
+ 
+-  function renderAnActivityStrip(log) {
+-    const el = document.getElementById('an-activity-strip');
+-    if (!el) return;
+-    if (!log.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">┘äÏº ┘è┘êÏ¼Ï» ┘åÏ┤ÏºÏÀ</div>'; return; }
++          if (!p.running) {
++            clearInterval(pollInterval);
++            const statusColor = p.failed === 0 ? 'success' : 'warning';
++            showAlert(alert, statusColor, `Ô£à Ïº┘âÏ¬┘à┘ä Ïº┘äÏ¿Ï½: ${p.sent} ┘êÏÁ┘äÏ¬Ïî ${p.failed} ┘üÏ┤┘äÏ¬ ┘à┘å ${p.total}`);
++          }
++        } catch (_) {}
++      }, 800);
+ 
+-    // Group by day (last 7 unique days)
++    } catch(e) { showAlert(alert, 'error', 'Ï«ÏÀÏú ┘ü┘è Ïº┘äÏºÏ¬ÏÁÏº┘ä'); }
++  }Group by day (last 7 unique days)
+     const byDay = {};
+     log.forEach(e => {
+       const d = new Date(e.time).toLocaleDateString('ar-MA', { month:'short', day:'numeric' });

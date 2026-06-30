@@ -424,6 +424,11 @@ app.post('/api/login', (req, res) => {
   }
 });
 
+app.post('/api/log-client-error', (req, res) => {
+  console.error('❌ [Client Error Logged]:', req.body);
+  res.json({ ok: true });
+});
+
 app.get('/api/status', async (req, res) => {
   try {
     const sessions = (global.clients || []).map(sock => {
