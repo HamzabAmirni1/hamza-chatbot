@@ -1566,6 +1566,9 @@
     <a class="nav-item" onclick="showPage('banned'); closeSidebarOnMobile()" id="nav-banned">
       <i class="fas fa-user-slash" style="color:#e53e3e;"></i> <span style="color:#e53e3e;">إدارة الحظر</span>
     </a>
+    <a class="nav-item" onclick="showPage('leaderboard'); closeSidebarOnMobile()" id="nav-leaderboard">
+      <i class="fas fa-trophy" style="color:#ecc94b;"></i> <span style="color:#ecc94b;">لوحة المتصدرين</span>
+    </a>
     <a class="nav-item" onclick="showPage('manage'); closeSidebarOnMobile()" id="nav-manage">
       <i class="fas fa-sliders-h"></i> <span>إدارة شاملة</span>
     </a>
@@ -2665,6 +2668,59 @@
     </div>
   </div>
 
+
+  <!-- =================== LEADERBOARD PAGE =================== -->
+  <div class="page" id="page-leaderboard">
+    <div class="page-header">
+      <h1><i class="fas fa-trophy" style="color:#ecc94b"></i> المتصدرين والأكثر تفاعلاً</h1>
+      <p>المستخدمون الأكثر إرسالاً للرسائل وتفاعلاً مع البوت لكل منصة على حدة</p>
+    </div>
+
+    <!-- Leaderboard Cards Row -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+      
+      <!-- WhatsApp Card -->
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="card-icon" style="background:rgba(72,187,120,0.12); color:#48bb78;"><i class="fab fa-whatsapp"></i></div>
+            <div class="card-title">🟢 الأكثر نشاطاً في واتساب</div>
+          </div>
+        </div>
+        <div id="leaderboard-wa" style="padding:15px; min-height:150px;">
+          <div style="text-align:center; color:var(--text-muted); padding:30px;">جاري التحميل...</div>
+        </div>
+      </div>
+
+      <!-- Telegram Card -->
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="card-icon" style="background:rgba(66,153,225,0.12); color:#4299e1;"><i class="fab fa-telegram-plane"></i></div>
+            <div class="card-title">✈️ الأكثر نشاطاً في تيليغرام</div>
+          </div>
+        </div>
+        <div id="leaderboard-tg" style="padding:15px; min-height:150px;">
+          <div style="text-align:center; color:var(--text-muted); padding:30px;">جاري التحميل...</div>
+        </div>
+      </div>
+
+      <!-- Facebook Card -->
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="card-icon" style="background:rgba(49,130,206,0.12); color:#3182ce;"><i class="fab fa-facebook-f"></i></div>
+            <div class="card-title">🔵 الأكثر نشاطاً في فيسبوك</div>
+          </div>
+        </div>
+        <div id="leaderboard-fb" style="padding:15px; min-height:150px;">
+          <div style="text-align:center; color:var(--text-muted); padding:30px;">جاري التحميل...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- =================== DEV MESSAGES PAGE =================== -->
   <div class="page" id="page-devmessages">
     <div class="page-header">
@@ -3568,6 +3624,7 @@
     else if (page === 'devmessages') await loadDevMessages();
     else if (page === 'profanity') await loadProfanityLogs();
     else if (page === 'banned') await loadBannedUsers();
+    else if (page === 'leaderboard') await loadLeaderboard();
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -3606,6 +3663,7 @@
       else if (activePage === 'devmessages') await loadDevMessages();
       else if (activePage === 'profanity') await loadProfanityLogs();
       else if (activePage === 'banned') await loadBannedUsers();
+      else if (activePage === 'leaderboard') await loadLeaderboard();
       
       showToast('✅ تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
@@ -5964,7 +6022,74 @@
   }
 
 
+  // =================== LEADERBOARD PAGE ===================
+  async function loadLeaderboard() {
+    const waEl = document.getElementById('leaderboard-wa');
+    const tgEl = document.getElementById('leaderboard-tg');
+    const fbEl = document.getElementById('leaderboard-fb');
+    if (!waEl || !tgEl || !fbEl) return;
+
+    waEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block;"></i>جاري التحميل...</div>`;
+    tgEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block;"></i>جاري التحميل...</div>`;
+    fbEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block;"></i>جاري التحميل...</div>`;
+
+    try {
+      const res = await fetch('/api/leaderboard');
+      const data = await res.json();
+      if (!data.ok || !data.leaderboard) {
+        throw new Error(data.error || 'Failed to fetch');
+      }
+
+      const buildTable = (users) => {
+        if (!users || users.length === 0) {
+          return `<div style="text-align:center;color:var(--text-muted);padding:40px;"><i class="fas fa-user-friends" style="font-size:32px;margin-bottom:8px;display:block;opacity:0.3;"></i>لا توجد بيانات تفاعل بعد.</div>`;
+        }
+        return `
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);text-align:right;">
+                <th style="padding:8px;color:var(--text-muted);width:50px;">الرتبة</th>
+                <th style="padding:8px;color:var(--text-muted);">المستخدم</th>
+                <th style="padding:8px;color:var(--text-muted);text-align:center;width:80px;">الرسائل</th>
+                <th style="padding:8px;color:var(--text-muted);width:120px;">آخر نشاط</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map((u, index) => {
+                const rank = index + 1;
+                const rankBadge = rank === 1 ? '👑 ' : rank === 2 ? '🥈 ' : rank === 3 ? '🥉 ' : `#${rank} `;
+                const rankColor = rank === 1 ? '#ecc94b' : rank === 2 ? '#a0aec0' : rank === 3 ? '#ed8936' : 'inherit';
+                const activeTime = new Date(u.lastActive).toLocaleDateString('ar-MA') + ' ' + new Date(u.lastActive).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'});
+                return `
+                  <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+                    <td style="padding:8px;font-weight:bold;color:${rankColor};">${rankBadge}</td>
+                    <td style="padding:8px;font-weight:600;">
+                      <div>${u.name || 'مستعمل'}</div>
+                      <div style="font-size:10px;color:var(--text-muted);font-family:monospace;word-break:break-all;">${u.jid.split('@')[0]}</div>
+                    </td>
+                    <td style="padding:8px;text-align:center;font-weight:800;color:var(--accent);">${u.count}</td>
+                    <td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap;">${activeTime}</td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`;
+      };
+
+      waEl.innerHTML = buildTable(data.leaderboard.whatsapp);
+      tgEl.innerHTML = buildTable(data.leaderboard.telegram);
+      fbEl.innerHTML = buildTable(data.leaderboard.facebook);
+
+    } catch (e) {
+      const errHtml = `<div style="color:#fc8181;text-align:center;padding:30px;"><i class="fas fa-times-circle" style="font-size:24px;margin-bottom:8px;display:block;"></i>خطأ في تحميل المتصدرين: ${e.message}</div>`;
+      waEl.innerHTML = errHtml;
+      tgEl.innerHTML = errHtml;
+      fbEl.innerHTML = errHtml;
+    }
+  }
+
+
   // =================== DEV MESSAGES INBOX ===================
+
   async function loadDevMessages() {
     const listEl = document.getElementById('dev-messages-list');
     if (!listEl) return;

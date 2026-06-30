@@ -86,6 +86,45 @@ global._cmdStats = {};
 global._cmdStatsByPlatform = { whatsapp: {}, telegram: {}, facebook: {} };
 global._activeBots = {};
 
+// Banned list global state and database persistent sync
+global.bannedUsersCache = [];
+global.syncBannedList = async (list) => {
+  global.bannedUsersCache = list;
+  const bannedPath = path.join(__dirname, 'data', 'banned.json');
+  try {
+    fs.ensureDirSync(path.dirname(bannedPath));
+    fs.writeFileSync(bannedPath, JSON.stringify(list, null, 2));
+    await db.setCache('banned_users', list);
+  } catch (e) {
+    console.error('[Banned Users] Sync error:', e.message);
+  }
+};
+
+(async () => {
+  try {
+    // Wait for Supabase initialization to complete if needed
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    const cachedBans = await db.getCache('banned_users');
+    const bannedPath = path.join(__dirname, 'data', 'banned.json');
+    if (cachedBans && Array.isArray(cachedBans)) {
+      global.bannedUsersCache = cachedBans;
+      fs.ensureDirSync(path.dirname(bannedPath));
+      fs.writeFileSync(bannedPath, JSON.stringify(cachedBans, null, 2));
+    } else {
+      if (fs.existsSync(bannedPath)) {
+        global.bannedUsersCache = JSON.parse(fs.readFileSync(bannedPath, 'utf8') || '[]');
+        await db.setCache('banned_users', global.bannedUsersCache);
+      } else {
+        global.bannedUsersCache = [];
+      }
+    }
+    console.log(`[Banned Users] Initialized persistent banned list with ${global.bannedUsersCache.length} users.`);
+  } catch (e) {
+    console.error('[Banned Users] Init error:', e.message);
+  }
+})();
+
+
 global.trackCommand = (command, platform) => {
   if (!global._cmdStats) global._cmdStats = {};
   if (!global._cmdStatsByPlatform) global._cmdStatsByPlatform = { whatsapp: {}, telegram: {}, facebook: {} };
@@ -946,14 +985,10 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.post('/api/ban', (req, res) => {
+app.post('/api/ban', async (req, res) => {
   try {
     const { number, platform } = req.body;
     if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
-    const bannedPath = path.join(__dirname, 'data/banned.json');
-    if (!fs.existsSync(path.dirname(bannedPath))) fs.mkdirSync(path.dirname(bannedPath), { recursive: true });
-    let banned = [];
-    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8')); } catch (e) { banned = []; }
     
     let jid = '';
     const cleanNum = number.trim();
@@ -966,19 +1001,19 @@ app.post('/api/ban', (req, res) => {
       jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
     }
     
-    if (!banned.includes(jid)) banned.push(jid);
-    fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
+    let banned = [...(global.bannedUsersCache || [])];
+    if (!banned.includes(jid)) {
+      banned.push(jid);
+      await global.syncBannedList(banned);
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
-app.post('/api/unban', (req, res) => {
+app.post('/api/unban', async (req, res) => {
   try {
     const { number, platform } = req.body;
     if (!number) return res.status(400).json({ ok: false, error: 'رقم مطلوب' });
-    const bannedPath = path.join(__dirname, 'data/banned.json');
-    let banned = [];
-    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8')); } catch (e) { banned = []; }
     
     let jid = '';
     const cleanNum = number.trim();
@@ -991,11 +1026,13 @@ app.post('/api/unban', (req, res) => {
       jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
     }
     
+    let banned = [...(global.bannedUsersCache || [])];
     banned = banned.filter(b => b !== jid && b !== cleanNum && b !== `tg:${cleanNum}` && b !== `fb:${cleanNum}`);
-    fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
+    await global.syncBannedList(banned);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
+
 
 app.post('/api/delete-all-users', async (req, res) => {
   try {
@@ -2106,12 +2143,10 @@ app.post('/api/profanity/ban', async (req, res) => {
   try {
     const { jid } = req.body;
     if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
-    const bannedPath = path.join(__dirname, 'data/banned.json');
-    let banned = [];
-    try { banned = JSON.parse(fs.readFileSync(bannedPath, 'utf-8') || '[]'); } catch (e) {}
+    let banned = [...(global.bannedUsersCache || [])];
     if (!banned.includes(jid)) {
       banned.push(jid);
-      fs.writeFileSync(bannedPath, JSON.stringify(banned, null, 2));
+      await global.syncBannedList(banned);
     }
     res.json({ ok: true });
   } catch (e) {
@@ -2189,6 +2224,19 @@ app.post('/api/profanity/message', async (req, res) => {
 
     if (!sent) return res.status(500).json({ ok: false, error: 'فشل إرسال الرسالة' });
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Leaderboard API — returns top users for each platform
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const { getTopUsers } = require('./lib/leaderboard');
+    const wa = await getTopUsers('whatsapp', 30);
+    const tg = await getTopUsers('telegram', 30);
+    const fb = await getTopUsers('facebook', 30);
+    res.json({ ok: true, leaderboard: { whatsapp: wa, telegram: tg, facebook: fb } });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -2846,11 +2894,8 @@ async function startBot(folderName, phoneNumber) {
 
         // Check if user is banned
         try {
-          const bannedPath = path.join(__dirname, 'data', 'banned.json');
-          let bannedUsers = [];
-          try { bannedUsers = JSON.parse(fs.readFileSync(bannedPath, 'utf8') || '[]'); } catch (_) {}
           const senderJid = (userPhoneJid || sender).includes('@') ? (userPhoneJid || sender) : `${userPhoneJid || sender}@s.whatsapp.net`;
-          if (bannedUsers.includes(senderJid)) continue;
+          if (global.bannedUsersCache && global.bannedUsersCache.includes(senderJid)) continue;
         } catch (_) {}
 
         // ===== OWNER CHECK =====
@@ -2867,6 +2912,13 @@ async function startBot(folderName, phoneNumber) {
             await handleProfanity('WA', sender, senderName, body, matchedBadWord, sock, msg);
             continue;
           }
+        }
+
+        // Increment message count for leaderboard
+        if (body && !msg.key.fromMe) {
+          const { incrementUser } = require('./lib/leaderboard');
+          const senderName = msg.pushName || sender.split('@')[0];
+          incrementUser('whatsapp', (userPhoneJid || sender), senderName);
         }
 
         if (phoneNumber) {
