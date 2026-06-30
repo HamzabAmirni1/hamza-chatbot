@@ -6043,7 +6043,7 @@
         throw new Error(data.error || 'Failed to fetch');
       }
 
-      const buildTable = (users) => {
+      const buildTable = (users, plat) => {
         if (!users || users.length === 0) {
           return `<div style="text-align:center;color:var(--text-muted);padding:40px;"><i class="fas fa-user-friends" style="font-size:32px;margin-bottom:8px;display:block;opacity:0.3;"></i>لا توجد بيانات تفاعل بعد.</div>`;
         }
@@ -6055,6 +6055,7 @@
                 <th style="padding:8px;color:var(--text-muted);">المستخدم</th>
                 <th style="padding:8px;color:var(--text-muted);text-align:center;width:80px;">الرسائل</th>
                 <th style="padding:8px;color:var(--text-muted);width:120px;">آخر نشاط</th>
+                <th style="padding:8px;color:var(--text-muted);width:80px;">إجراء</th>
               </tr>
             </thead>
             <tbody>
@@ -6063,6 +6064,7 @@
                 const rankBadge = rank === 1 ? '👑 ' : rank === 2 ? '🥈 ' : rank === 3 ? '🥉 ' : `#${rank} `;
                 const rankColor = rank === 1 ? '#ecc94b' : rank === 2 ? '#a0aec0' : rank === 3 ? '#ed8936' : 'inherit';
                 const activeTime = new Date(u.lastActive).toLocaleDateString('ar-MA') + ' ' + new Date(u.lastActive).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'});
+                const safeName = (u.name || 'مستعمل').replace(/'/g, "\\'");
                 return `
                   <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
                     <td style="padding:8px;font-weight:bold;color:${rankColor};">${rankBadge}</td>
@@ -6072,15 +6074,20 @@
                     </td>
                     <td style="padding:8px;text-align:center;font-weight:800;color:var(--accent);">${u.count}</td>
                     <td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap;">${activeTime}</td>
+                    <td style="padding:8px;">
+                      <button onclick="openProfanityMsgModal('${u.jid}','${plat}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة أو صورة">
+                        <i class="fas fa-paper-plane"></i> رسالة
+                      </button>
+                    </td>
                   </tr>`;
               }).join('')}
             </tbody>
           </table>`;
       };
 
-      waEl.innerHTML = buildTable(data.leaderboard.whatsapp);
-      tgEl.innerHTML = buildTable(data.leaderboard.telegram);
-      fbEl.innerHTML = buildTable(data.leaderboard.facebook);
+      waEl.innerHTML = buildTable(data.leaderboard.whatsapp, 'wa');
+      tgEl.innerHTML = buildTable(data.leaderboard.telegram, 'tg');
+      fbEl.innerHTML = buildTable(data.leaderboard.facebook, 'fb');
 
     } catch (e) {
       const errHtml = `<div style="color:#fc8181;text-align:center;padding:30px;"><i class="fas fa-times-circle" style="font-size:24px;margin-bottom:8px;display:block;"></i>خطأ في تحميل المتصدرين: ${e.message}</div>`;
