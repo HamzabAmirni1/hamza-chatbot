@@ -2698,6 +2698,33 @@ async function startBot(folderName, phoneNumber) {
           if (global._activityLog.length > 50) global._activityLog.length = 50;
         } catch (_) {}
 
+        // --- Intercept Audio / Voice Messages for Voice-to-Voice Chatbot ---
+        let isVoiceQuery = false;
+        if (type === "audioMessage") {
+          try {
+            const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
+              msg.message.audioMessage,
+              'audio'
+            );
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            const transcribed = await ai.transcribeAudio(buffer, "audio/ogg");
+            if (transcribed) {
+              body = transcribed;
+              isVoiceQuery = true;
+              console.log(chalk.cyan(`🎤 Voice query transcribed: "${body}"`));
+            } else {
+              // Transcription returned empty — notify user so message is not silently dropped
+              await sock.sendMessage(sender, { text: "❌ لم أتمكن من فهم الرسالة الصوتية. جرب إرسال نص بدلاً." }, { quoted: msg });
+              continue;
+            }
+          } catch (err) {
+            console.error('[Voice Transcription Error]:', err.message);
+            await sock.sendMessage(sender, { text: "❌ خطأ في معالجة الصوت. حاول مرة أخرى." }, { quoted: msg }).catch(() => {});
+            continue;
+          }
+        }
+
         // Check if user is banned
         try {
           const bannedPath = path.join(__dirname, 'data', 'banned.json');
@@ -2723,26 +2750,7 @@ async function startBot(folderName, phoneNumber) {
           }
         }
 
-        // --- Intercept Audio / Voice Messages for Voice-to-Voice Chatbot ---
-        let isVoiceQuery = false;
-        if (type === "audioMessage") {
-          try {
-            const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
-              msg.message.audioMessage,
-              'audio'
-            );
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-            const transcribed = await ai.transcribeAudio(buffer, "audio/ogg");
-            if (transcribed) {
-              body = transcribed;
-              isVoiceQuery = true;
-              console.log(chalk.cyan(`🎙️ Voice query transcribed: "${body}"`));
-            }
-          } catch (err) {
-            console.error('[Voice Transcription Error]:', err.message);
-          }
-        }
+
 
         try { await sock.sendPresenceUpdate("available", sender); } catch (_) {}
         try { await sock.sendPresenceUpdate("composing", sender); } catch (_) {}
@@ -2902,11 +2910,15 @@ async function startBot(folderName, phoneNumber) {
         // If chatbot is disabled globally, skip AI chat responses (read fresh config every time)
         if (require('./config').enableChatbot === 'false') continue;
 
-        // --- PRIORITY 2.5: AUTO-DOWNLOAD (social media links sent as plain text) ---
+        // --- PRIORITY 2.5: AUTO-DOWNLOAD (TikTok, CapCut, Twitter only — FB/IG/YT handled by handleAutoDL above) ---
         if (body && !isCommand) {
-          const waExtra = { getAutoGPTResponse, addToHistory, delayPromise, getUptime, proto, generateWAMessageContent, generateWAMessageFromContent, commandUsage, commandErrors };
-          const downloaded = await handleAutoDownload(body, sock, sender, msg, waExtra);
-          if (downloaded) continue;
+          const lowerForDL = body.toLowerCase();
+          const isTikTokCapcutTwitter = /tiktok\.com|capcut\.com|twitter\.com|x\.com/.test(lowerForDL);
+          if (isTikTokCapcutTwitter) {
+            const waExtra = { getAutoGPTResponse, addToHistory, delayPromise, getUptime, proto, generateWAMessageContent, generateWAMessageFromContent, commandUsage, commandErrors };
+            const downloaded = await handleAutoDownload(body, sock, sender, msg, waExtra);
+            if (downloaded) continue;
+          }
         }
 
         // --- PRIORITY 3: TEXT AI (pure text messages only) ---
