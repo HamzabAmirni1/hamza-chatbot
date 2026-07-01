@@ -1592,6 +1592,9 @@
     <a class="nav-item" onclick="showPage('profanity'); closeSidebarOnMobile()" id="nav-profanity">
       <i class="fas fa-exclamation-triangle" style="color:#fc8181;"></i> <span style="color:#fc8181;">مخالفو الآداب</span>
     </a>
+    <a class="nav-item" onclick="showPage('ibhaya'); closeSidebarOnMobile()" id="nav-ibhaya">
+      <i class="fas fa-eye-slash" style="color:#e53e3e;"></i> <span style="color:#e53e3e;">مخالفو الإباحية</span>
+    </a>
     <a class="nav-item" onclick="showPage('banned'); closeSidebarOnMobile()" id="nav-banned">
       <i class="fas fa-user-slash" style="color:#e53e3e;"></i> <span style="color:#e53e3e;">إدارة الحظر</span>
     </a>
@@ -2128,6 +2131,13 @@
       </div>
       <div class="toggle-row">
         <div class="toggle-info">
+          <div class="toggle-title">تفعيل ميزة تحويل النص إلى صوت (TTS)</div>
+          <div class="toggle-desc">تفعيل أو تعطيل أمر .say و .tts في البوت</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="s-enableTTS" /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
           <div class="toggle-title">نشر مشاريع GitHub الشائعة</div>
           <div class="toggle-desc">نشر تلقائي لأشهر المشاريع الشائعة (Trending) على فيسبوك وتليجرام</div>
         </div>
@@ -2641,6 +2651,41 @@
         <button class="btn btn-secondary" onclick="loadProfanityLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
       </div>
       <div id="profanity-list" style="padding:20px;">
+        <div style="color:var(--text-muted);text-align:center;padding:40px;">
+          <i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+          لا توجد مخالفات مسجلة حالياً. ✅
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== IBHAYA PAGE =================== -->
+  <div class="page" id="page-ibhaya">
+    <div class="page-header">
+      <h1><i class="fas fa-eye-slash" style="color:#e53e3e"></i> مخالفو الإباحية</h1>
+      <p>المستخدمون الذين طلبوا محتوى إباحي (porno, sex, ibhaya...) — يتم كشفهم تلقائياً وحظرهم بعد 3 تحذيرات</p>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="card-icon" style="background:rgba(229,62,62,0.12);color:#e53e3e;"><i class="fas fa-shield-alt"></i></div>
+          <div class="card-title">الكلمات المحظورة <span id="ibhaya-words-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadIbhayaWords()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div id="ibhaya-words-list" style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:6px;max-height:180px;overflow-y:auto;">
+        <span style="color:var(--text-muted);font-size:12px;">جاري التحميل...</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="card-icon" style="background:rgba(229,62,62,0.12);color:#e53e3e;"><i class="fas fa-ban"></i></div>
+          <div class="card-title">سجل المخالفات <span id="ibhaya-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadIbhayaLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+      </div>
+      <div id="ibhaya-list" style="padding:20px;">
         <div style="color:var(--text-muted);text-align:center;padding:40px;">
           <i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
           لا توجد مخالفات مسجلة حالياً. ✅
@@ -3686,6 +3731,7 @@
     else if (page === 'contacts') await loadContacts();
     else if (page === 'devmessages') await loadDevMessages();
     else if (page === 'profanity') await loadProfanityLogs();
+    else if (page === 'ibhaya') { await loadIbhayaWords(); await loadIbhayaLogs(); }
     else if (page === 'banned') await loadBannedUsers();
     else if (page === 'leaderboard') await loadLeaderboard();
 
@@ -3725,6 +3771,7 @@
       else if (activePage === 'contacts') await loadContacts();
       else if (activePage === 'devmessages') await loadDevMessages();
       else if (activePage === 'profanity') await loadProfanityLogs();
+      else if (activePage === 'ibhaya') { await loadIbhayaWords(); await loadIbhayaLogs(); }
       else if (activePage === 'banned') await loadBannedUsers();
       else if (activePage === 'leaderboard') await loadLeaderboard();
       
@@ -4354,6 +4401,7 @@
       document.getElementById('s-enablePrayerScheduler').checked = data.enablePrayerScheduler !== 'false';
       document.getElementById('s-enableDuasScheduler').checked = data.enableDuasScheduler !== 'false';
       document.getElementById('s-enableRamadanScheduler').checked = data.enableRamadanScheduler !== 'false';
+      document.getElementById('s-enableTTS').checked = data.enableTTS === 'true';
       document.getElementById('s-enableGithubAutoPoster').checked = data.enableGithubAutoPoster !== 'false';
       document.getElementById('s-enableAutoDL').checked = data.enableAutoDL !== 'false';
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
@@ -4474,6 +4522,7 @@
       enablePrayerScheduler: document.getElementById('s-enablePrayerScheduler').checked ? 'true' : 'false',
       enableDuasScheduler: document.getElementById('s-enableDuasScheduler').checked ? 'true' : 'false',
       enableRamadanScheduler: document.getElementById('s-enableRamadanScheduler').checked ? 'true' : 'false',
+      enableTTS: document.getElementById('s-enableTTS').checked ? 'true' : 'false',
       enableGithubAutoPoster: document.getElementById('s-enableGithubAutoPoster').checked ? 'true' : 'false',
       enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
@@ -6305,6 +6354,140 @@
          </div>
        </div>
      </div>`;
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ: ${e.message}</div>`;
+    }
+  }
+
+  // =================== IBHAYA VIOLATORS PAGE ===================
+
+  async function loadIbhayaWords() {
+    const listEl = document.getElementById('ibhaya-words-list');
+    const countEl = document.getElementById('ibhaya-words-count');
+    if (!listEl) return;
+    try {
+      const res = await fetch('/api/ibhaya-words');
+      const data = await res.json();
+      const words = data.words || [];
+      if (countEl) countEl.textContent = `(${words.length} كلمة)`;
+      listEl.innerHTML = words.map(w =>
+        `<code style="background:rgba(229,62,62,0.1);color:#e53e3e;padding:3px 8px;border-radius:6px;font-size:11px;">${escapeHtml(w)}</code>`
+      ).join('');
+    } catch (e) {
+      listEl.innerHTML = `<span style="color:var(--red);font-size:12px;">خطأ: ${e.message}</span>`;
+    }
+  }
+
+  async function resetIbhayaWarnings(jid) {
+    if (!confirm(`إعادة ضبط تحذيرات الإباحية لهذا المستخدم؟\n${jid}`)) return;
+    try {
+      const res = await fetch('/api/ibhaya/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم إعادة ضبط التحذيرات', 'success'); await loadIbhayaLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function banIbhayaUser(jid) {
+    if (!confirm(`حظر هذا المستخدم فوراً؟\n${jid}`)) return;
+    try {
+      const res = await fetch('/api/ibhaya/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم الحظر', 'success'); await loadIbhayaLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function unbanIbhayaUser(jid) {
+    let number = jid, platform = 'whatsapp';
+    if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
+    else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
+    else if (jid.includes('@')) { number = jid.split('@')[0]; }
+    if (!confirm(`رفع الحظر عن هذا المستخدم؟\n${jid}`)) return;
+    try {
+      const res = await fetch('/api/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); await loadIbhayaLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function loadIbhayaLogs() {
+    const listEl = document.getElementById('ibhaya-list');
+    const countEl = document.getElementById('ibhaya-count');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري التحميل...</div>`;
+    try {
+      const res = await fetch('/api/ibhaya-logs');
+      const data = await res.json();
+      const logs = data.logs || [];
+      if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
+      if (logs.length === 0) {
+        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد مخالفات مسجلة حالياً. ✅</div>`;
+        return;
+      }
+      const grouped = {};
+      for (const log of logs) {
+        if (!grouped[log.jid]) grouped[log.jid] = { ...log, count: 0 };
+        grouped[log.jid].count++;
+        if (new Date(log.timestamp) >= new Date(grouped[log.jid].timestamp)) {
+          grouped[log.jid].warnings_left = log.warnings_left;
+          grouped[log.jid].timestamp = log.timestamp;
+        }
+      }
+      const users = Object.values(grouped);
+      const platformIcon = { WA: '🟢', TG: '✈️', FB: '🔵' };
+      const platformLabel = { WA: 'واتساب', TG: 'تيليغرام', FB: 'فيسبوك' };
+      listEl.innerHTML = `
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمة</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">مخالفات</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">تحذيرات</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">آخر مخالفة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;min-width:260px;">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map(u => {
+                const wLeft = u.warnings_left;
+                const wColor = wLeft <= 0 ? '#fc8181' : wLeft === 1 ? '#f6a623' : '#68d391';
+                const wLabel = wLeft <= 0 ? '🚫 محظور' : `${wLeft} / 3`;
+                const ts = new Date(u.timestamp).toLocaleString('ar-MA');
+                const pkey = u.platform;
+                const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
+                return `
+                  <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+                    <td style="padding:10px 12px;white-space:nowrap;">${platformIcon[pkey] || '❓'} ${platformLabel[pkey] || pkey}</td>
+                    <td style="padding:10px 12px;font-size:12px;max-width:150px;">
+                      <div style="font-weight:600;">${escapeHtml(u.name || '—')}</div>
+                      <div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">${u.jid}</div>
+                    </td>
+                    <td style="padding:10px 12px;"><code style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:2px 7px;border-radius:4px;">${escapeHtml(u.bad_word || '')}</code></td>
+                    <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--purple);">${u.count}</td>
+                    <td style="padding:10px 12px;text-align:center;font-weight:700;color:${wColor};">${wLabel}</td>
+                    <td style="padding:10px 12px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${ts}</td>
+                    <td style="padding:10px 12px;">
+                      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                        <button onclick="openProfanityMsgModal('${u.jid}','${pkey}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة">
+                          <i class="fas fa-paper-plane"></i> رسالة
+                        </button>
+                        <button onclick="resetIbhayaWarnings('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إعادة ضبط التحذيرات">
+                          <i class="fas fa-redo"></i> إعادة ضبط
+                        </button>
+                        <button onclick="banIbhayaUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(252,129,129,0.4);background:rgba(252,129,129,0.08);color:#fc8181;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="حظر المستخدم"><i class="fas fa-ban"></i> حظر</button>
+                        <button onclick="unbanIbhayaUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,224,94,0.4);background:rgba(246,224,94,0.08);color:#f6e05e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="رفع الحظر"><i class="fas fa-unlock"></i> رفع حظر</button>
+                      </div>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
     } catch(e) {
       listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ: ${e.message}</div>`;
     }

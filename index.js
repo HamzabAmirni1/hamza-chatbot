@@ -740,7 +740,7 @@ app.post('/api/settings', (req, res) => {
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
       'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
       'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
-      'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL'
+      'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS'
     ];
     const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls'];
     for (const key of strFields) {
@@ -2260,6 +2260,57 @@ app.post('/api/profanity/message', async (req, res) => {
   }
 });
 
+// Ibhaya (adult content) Logs API
+app.get('/api/ibhaya-logs', async (req, res) => {
+  try {
+    const logs = await db.getCache('ibhaya_logs') || [];
+    res.json({ ok: true, logs });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Ibhaya Reset API — reset warnings for a specific user
+app.post('/api/ibhaya/reset', async (req, res) => {
+  try {
+    const { jid } = req.body;
+    if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
+    await db.setCache(`ibhaya_warnings:${jid}`, { warnings_left: 3 });
+    let logs = await db.getCache('ibhaya_logs') || [];
+    logs = logs.filter(l => l.jid !== jid);
+    await db.setCache('ibhaya_logs', logs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Ibhaya Ban API
+app.post('/api/ibhaya/ban', async (req, res) => {
+  try {
+    const { jid } = req.body;
+    if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
+    let banned = [...(global.bannedUsersCache || [])];
+    if (!banned.includes(jid)) {
+      banned.push(jid);
+      await global.syncBannedList(banned);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Ibhaya Words API — list blocked keywords
+app.get('/api/ibhaya-words', async (req, res) => {
+  try {
+    const { IBHAYA_WORDS } = require('./lib/ibhaya');
+    res.json({ ok: true, words: IBHAYA_WORDS, count: IBHAYA_WORDS.length });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Leaderboard API — returns top users for each platform
 app.get('/api/leaderboard', async (req, res) => {
   try {
@@ -2941,6 +2992,13 @@ async function startBot(folderName, phoneNumber) {
           if (matchedBadWord) {
             const senderName = msg.pushName || sender.split('@')[0];
             await handleProfanity('WA', sender, senderName, body, matchedBadWord, sock, msg);
+            continue;
+          }
+          const { scanMessage: scanIbhaya, handleIbhaya } = require('./lib/ibhaya');
+          const matchedIbhaya = scanIbhaya(body);
+          if (matchedIbhaya) {
+            const senderName = msg.pushName || sender.split('@')[0];
+            await handleIbhaya('WA', sender, senderName, body, matchedIbhaya, sock, msg);
             continue;
           }
         }

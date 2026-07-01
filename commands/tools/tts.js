@@ -79,6 +79,13 @@ function chunkText(text, maxLen = 190) {
 }
 
 module.exports = async (sock, sender, msg, args) => {
+    // ── Feature flag: disabled until owner enables it ──
+    if (config.enableTTS !== 'true') {
+        return await sock.sendMessage(sender, {
+            text: `⚠️ *أمر TTS غير مفعّل حالياً.*\n\nيمكن للمطور تفعيله عند الحاجة.\n⚔️ ${config.botName}`
+        }, { quoted: msg });
+    }
+
     const fullText = args.join(' ');
 
     // Show help if no text

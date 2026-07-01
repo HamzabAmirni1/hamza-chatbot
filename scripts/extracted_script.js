@@ -902,6 +902,7 @@
       document.getElementById('s-enablePrayerScheduler').checked = data.enablePrayerScheduler !== 'false';
       document.getElementById('s-enableDuasScheduler').checked = data.enableDuasScheduler !== 'false';
       document.getElementById('s-enableRamadanScheduler').checked = data.enableRamadanScheduler !== 'false';
+      document.getElementById('s-enableTTS').checked = data.enableTTS === 'true';
       document.getElementById('s-enableGithubAutoPoster').checked = data.enableGithubAutoPoster !== 'false';
       document.getElementById('s-enableAutoDL').checked = data.enableAutoDL !== 'false';
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
@@ -1022,6 +1023,7 @@
       enablePrayerScheduler: document.getElementById('s-enablePrayerScheduler').checked ? 'true' : 'false',
       enableDuasScheduler: document.getElementById('s-enableDuasScheduler').checked ? 'true' : 'false',
       enableRamadanScheduler: document.getElementById('s-enableRamadanScheduler').checked ? 'true' : 'false',
+      enableTTS: document.getElementById('s-enableTTS').checked ? 'true' : 'false',
       enableGithubAutoPoster: document.getElementById('s-enableGithubAutoPoster').checked ? 'true' : 'false',
       enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),

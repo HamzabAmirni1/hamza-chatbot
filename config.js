@@ -113,9 +113,10 @@ const settings = {
     trafficUrls: ['https://hamzaamirni.netlify.app'],
     enablePrayerScheduler: 'true',
     enableDuasScheduler: 'true',
-    enableRamadanScheduler: 'true',
+    enableRamadanScheduler: 'false',
     enableGithubAutoPoster: 'true',
     enableAutoDL: 'true',
+    enableTTS: 'false',
 };
 
 module.exports = settings;
