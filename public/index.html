@@ -2408,70 +2408,60 @@
     </div>
   </div>
 
-  <!-- =================== BOT STATS MODAL =================== -->
-  <style>
-    #bsm-inner { max-width: 860px; margin: 20px auto; background: var(--card); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; animation: bubble-in 0.22s ease; }
-    #bsm-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; padding: 16px 20px 0; }
-    #bsm-mid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px 20px; }
-    @media (max-width: 640px) {
-      #bsm-inner { margin: 8px auto; border-radius: 14px; }
-      #bsm-kpis { grid-template-columns: 1fr 1fr; }
-      #bsm-mid { grid-template-columns: 1fr; }
-    }
-  </style>
-  <div id="bot-stats-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;" onclick="if(event.target===this)closeBotStatsModal()">
-    <div id="bsm-inner">
-      <!-- Header -->
-      <div id="bsm-header" style="padding:16px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);">
-        <div id="bsm-icon" style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.2);"></div>
-        <div style="flex:1;min-width:0;">
-          <div id="bsm-name" style="font-size:16px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-          <div id="bsm-sub" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
+  <!-- =================== BOT DETAILS PAGE =================== -->
+  <div class="page" id="page-bot-details">
+    <!-- Header with Back Button -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onclick="showPage('subscribers')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; display:flex; align-items:center; gap:6px; font-family:Cairo,sans-serif;"><i class="fas fa-arrow-right"></i> عودة للبوتات</button>
+        <div id="bsm-icon" style="width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; color:white;"></div>
+        <div>
+          <h1 id="bsm-name" style="margin:0; font-size:18px; font-weight:900; color:var(--text-main);"></h1>
+          <p id="bsm-sub" style="margin:2px 0 0; font-size:11px; color:var(--text-muted);"></p>
         </div>
-        <button onclick="closeBotStatsModal()" style="width:34px;height:34px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-times"></i></button>
       </div>
+    </div>
 
-      <!-- KPIs -->
-      <div id="bsm-kpis">
-        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
-          <div id="bsm-total" style="font-size:24px;font-weight:900;color:#a78bfa;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">إجمالي</div>
-        </div>
-        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
-          <div id="bsm-24h" style="font-size:24px;font-weight:900;color:#25d366;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">نشط 24س</div>
-        </div>
-        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
-          <div id="bsm-7d" style="font-size:24px;font-weight:900;color:#38bdf8;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">نشط 7 أيام</div>
-        </div>
-        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
-          <div id="bsm-banned" style="font-size:24px;font-weight:900;color:#fc8181;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">محظورون</div>
-        </div>
+    <!-- KPIs -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-bottom:20px;">
+      <div style="text-align:center; background:var(--card); border-radius:12px; padding:16px 8px; border:1px solid var(--border);">
+        <div id="bsm-total" style="font-size:26px; font-weight:900; color:#a78bfa;">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">إجمالي المشتركين</div>
       </div>
+      <div style="text-align:center; background:var(--card); border-radius:12px; padding:16px 8px; border:1px solid var(--border);">
+        <div id="bsm-24h" style="font-size:26px; font-weight:900; color:#25d366;">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">نشط 24س</div>
+      </div>
+      <div style="text-align:center; background:var(--card); border-radius:12px; padding:16px 8px; border:1px solid var(--border);">
+        <div id="bsm-7d" style="font-size:26px; font-weight:900; color:#38bdf8;">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">نشط 7 أيام</div>
+      </div>
+      <div style="text-align:center; background:var(--card); border-radius:12px; padding:16px 8px; border:1px solid var(--border);">
+        <div id="bsm-banned" style="font-size:26px; font-weight:900; color:#fc8181;">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">محظورون</div>
+      </div>
+    </div>
 
-      <!-- Chart + Commands -->
-      <div id="bsm-mid">
-        <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border);">
-          <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:10px;"><i class="fas fa-chart-bar" style="color:#a78bfa;margin-left:5px;"></i>نشاط آخر 14 يوم</div>
-          <div id="bsm-chart" style="display:flex;align-items:flex-end;gap:3px;height:70px;direction:ltr;"></div>
-          <div id="bsm-chart-labels" style="display:flex;gap:3px;margin-top:4px;direction:ltr;overflow:hidden;"></div>
-        </div>
-        <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border);">
-          <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px;"><i class="fas fa-terminal" style="color:#38bdf8;margin-left:5px;"></i>أكثر الأوامر استخداماً</div>
-          <div id="bsm-cmds" style="display:flex;flex-direction:column;gap:5px;max-height:110px;overflow-y:auto;"></div>
-        </div>
+    <!-- Chart + Commands -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:20px;">
+      <div style="background:var(--card); border-radius:12px; padding:16px; border:1px solid var(--border);">
+        <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:12px;"><i class="fas fa-chart-bar" style="color:#a78bfa; margin-left:6px;"></i>نشاط آخر 14 يوم</div>
+        <div id="bsm-chart" style="display:flex; align-items:flex-end; gap:4px; height:80px; direction:ltr;"></div>
+        <div id="bsm-chart-labels" style="display:flex; gap:4px; margin-top:4px; direction:ltr; overflow:hidden;"></div>
       </div>
+      <div style="background:var(--card); border-radius:12px; padding:16px; border:1px solid var(--border); overflow:hidden;">
+        <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:10px;"><i class="fas fa-terminal" style="color:#38bdf8; margin-left:6px;"></i>أكثر الأوامر استخداماً</div>
+        <div id="bsm-cmds" style="display:flex; flex-direction:column; gap:6px; max-height:120px; overflow-y:auto;"></div>
+      </div>
+    </div>
 
-      <!-- Users List -->
-      <div style="padding:0 20px 18px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <span><i class="fas fa-users" style="color:#25d366;margin-left:5px;"></i>المستخدمون نشاطاً</span>
-          <input type="text" id="bsm-search" placeholder="بحث باسم أو رقم..." oninput="filterBsmUsers()" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:Cairo,sans-serif;font-size:11px;width:160px;">
-        </div>
-        <div id="bsm-users" style="display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto;"></div>
+    <!-- Users List -->
+    <div style="background:var(--card); border-radius:12px; padding:16px; border:1px solid var(--border);">
+      <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <span><i class="fas fa-users" style="color:#25d366; margin-left:6px;"></i>قائمة المشتركين نشاطاً</span>
+        <input type="text" id="bsm-search" placeholder="بحث باسم أو رقم..." oninput="filterBsmUsers()" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-main); font-family:Cairo,sans-serif; font-size:11px; width:180px;">
       </div>
+      <div id="bsm-users" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px; max-height:450px; overflow-y:auto; padding-top:2px;"></div>
     </div>
   </div>
 
@@ -4848,12 +4838,12 @@
   }
 
   async function openBotStatsModal(platform, name, subText, connected) {
-    const modal = document.getElementById('bot-stats-modal');
-    if (!modal) return;
-
     _bsmPlatform = platform;
     _bsmUsers = [];
     document.getElementById('bsm-search').value = '';
+
+    // Show the details page
+    showPage('bot-details');
 
     // Set initial display
     const iconEl = document.getElementById('bsm-icon');
@@ -4866,9 +4856,7 @@
     document.getElementById('bsm-name').textContent = name;
     document.getElementById('bsm-sub').innerHTML = `${subText} &nbsp;·&nbsp; <span style="color:${connected ? '#25d366' : '#fc8181'};"><i class="fas fa-circle" style="font-size:6px;vertical-align:middle;margin-left:3px;"></i>${connected ? 'نشط الآن' : 'غير متصل'}</span>`;
 
-    modal.style.display = 'block';
-
-    // Show loading indicators inside modal
+    // Show loading indicators inside page
     document.getElementById('bsm-total').textContent = '—';
     document.getElementById('bsm-24h').textContent = '—';
     document.getElementById('bsm-7d').textContent = '—';
@@ -4876,7 +4864,7 @@
     document.getElementById('bsm-chart').innerHTML = `<div style="color:var(--text-muted);font-size:11px;width:100%;text-align:center;padding-top:30px;">جاري جلب إحصائيات النشاط...</div>`;
     document.getElementById('bsm-chart-labels').innerHTML = '';
     document.getElementById('bsm-cmds').innerHTML = `<div style="color:var(--text-muted);font-size:11px;padding:10px;">جاري جلب الأوامر...</div>`;
-    document.getElementById('bsm-users').innerHTML = `<div style="color:var(--text-muted);font-size:11px;text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin"></i> جاري تحميل قائمة المستخدمين...</div>`;
+    document.getElementById('bsm-users').innerHTML = `<div style="color:var(--text-muted);font-size:11px;text-align:center;grid-column:1/-1;padding:40px;"><i class="fas fa-spinner fa-spin"></i> جاري تحميل قائمة المستخدمين...</div>`;
 
     try {
       const res = await fetch(`/api/bot-stats/${platform}`);
@@ -4919,13 +4907,8 @@
 
     } catch (e) {
       console.error(e);
-      document.getElementById('bsm-users').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:40px;">⚠️ فشل تحميل الإحصائيات: ${e.message}</div>`;
+      document.getElementById('bsm-users').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;grid-column:1/-1;padding:40px;">⚠️ فشل تحميل الإحصائيات: ${e.message}</div>`;
     }
-  }
-
-  function closeBotStatsModal() {
-    const modal = document.getElementById('bot-stats-modal');
-    if (modal) modal.style.display = 'none';
   }
 
   function renderBsmUsers() {
@@ -4938,7 +4921,7 @@
     });
 
     if (filtered.length === 0) {
-      container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:11px;">لا يوجد مستخدمون يطابقون البحث</div>`;
+      container.innerHTML = `<div style="text-align:center;grid-column:1/-1;padding:30px;color:var(--text-muted);font-size:11px;">لا يوجد مستخدمون يطابقون البحث</div>`;
       return;
     }
 
@@ -4955,13 +4938,13 @@
       const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
       const isBanned = u.banned;
 
-      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;background:var(--card);border:1px solid var(--border);transition:background 0.15s;">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,${col},${col}88);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--border);transition:all 0.2s;">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,${col},${col}88);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayName}${isBanned ? ' <span style="color:#fc8181;font-size:9px;">(محظور)</span>' : ''}</div>
-          <div style="font-size:9px;color:var(--text-muted);">آخر ظهور: ${lastSeen}</div>
+          <div style="font-size:9px;color:var(--text-muted);margin-top:2px;">آخر ظهور: ${lastSeen}</div>
         </div>
-        <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+        <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
           <button onclick="openDirectMessageModal('${u.id}','${_bsmPlatform}','${displayName.replace(/'/g,"\\'")}'); event.stopPropagation();" style="width:26px;height:26px;border-radius:50%;background:${bg};border:1px solid ${border};color:${col};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;" title="إرسال رسالة"><i class="fas fa-paper-plane"></i></button>
           ${!isBanned
             ? `<button onclick="quickBan('${u.id}','${_bsmPlatform}'); setTimeout(() => openBotStatsModal('${_bsmPlatform}','${document.getElementById('bsm-name').textContent}','',true), 500);" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;" title="حظر"><i class="fas fa-ban"></i></button>`
