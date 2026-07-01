@@ -2409,63 +2409,72 @@
   </div>
 
   <!-- =================== BOT STATS MODAL =================== -->
-  <div id="bot-stats-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;overflow-y:auto;" onclick="if(event.target===this)closeBotStatsModal()">
-    <div style="max-width:820px;margin:0 auto;background:var(--card);border-radius:20px;border:1px solid var(--border);overflow:hidden;animation:bubble-in 0.25s ease;">
-      <!-- Modal Header -->
-      <div id="bsm-header" style="padding:20px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
-        <div id="bsm-icon" style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;flex-shrink:0;"></div>
-        <div style="flex:1;">
-          <div id="bsm-name" style="font-size:18px;font-weight:900;color:var(--text);"></div>
-          <div id="bsm-sub" style="font-size:12px;color:var(--text-muted);margin-top:3px;"></div>
+  <style>
+    #bsm-inner { max-width: 860px; margin: 20px auto; background: var(--card); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; animation: bubble-in 0.22s ease; }
+    #bsm-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; padding: 16px 20px 0; }
+    #bsm-mid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px 20px; }
+    @media (max-width: 640px) {
+      #bsm-inner { margin: 8px auto; border-radius: 14px; }
+      #bsm-kpis { grid-template-columns: 1fr 1fr; }
+      #bsm-mid { grid-template-columns: 1fr; }
+    }
+  </style>
+  <div id="bot-stats-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;" onclick="if(event.target===this)closeBotStatsModal()">
+    <div id="bsm-inner">
+      <!-- Header -->
+      <div id="bsm-header" style="padding:16px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);">
+        <div id="bsm-icon" style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.2);"></div>
+        <div style="flex:1;min-width:0;">
+          <div id="bsm-name" style="font-size:16px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div id="bsm-sub" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
         </div>
-        <button onclick="closeBotStatsModal()" style="width:36px;height:36px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button>
+        <button onclick="closeBotStatsModal()" style="width:34px;height:34px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-times"></i></button>
       </div>
 
       <!-- KPIs -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:20px 24px 0;">
-        <div style="text-align:center;background:var(--bg);border-radius:12px;padding:14px 8px;border:1px solid var(--border);">
-          <div id="bsm-total" style="font-size:28px;font-weight:900;color:#a78bfa;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">إجمالي</div>
+      <div id="bsm-kpis">
+        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
+          <div id="bsm-total" style="font-size:24px;font-weight:900;color:#a78bfa;">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">إجمالي</div>
         </div>
-        <div style="text-align:center;background:var(--bg);border-radius:12px;padding:14px 8px;border:1px solid var(--border);">
-          <div id="bsm-24h" style="font-size:28px;font-weight:900;color:#25d366;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">نشط 24س</div>
+        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
+          <div id="bsm-24h" style="font-size:24px;font-weight:900;color:#25d366;">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">نشط 24س</div>
         </div>
-        <div style="text-align:center;background:var(--bg);border-radius:12px;padding:14px 8px;border:1px solid var(--border);">
-          <div id="bsm-7d" style="font-size:28px;font-weight:900;color:#38bdf8;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">نشط 7 أيام</div>
+        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
+          <div id="bsm-7d" style="font-size:24px;font-weight:900;color:#38bdf8;">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">نشط 7 أيام</div>
         </div>
-        <div style="text-align:center;background:var(--bg);border-radius:12px;padding:14px 8px;border:1px solid var(--border);">
-          <div id="bsm-banned" style="font-size:28px;font-weight:900;color:#fc8181;">—</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">محظورون</div>
-        </div>
-      </div>
-
-      <!-- Activity Chart + Top Commands -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 24px;">
-        <!-- Chart -->
-        <div style="background:var(--bg);border-radius:12px;padding:16px;border:1px solid var(--border);">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px;"><i class="fas fa-chart-bar" style="color:#a78bfa;margin-left:6px;"></i>نشاط آخر 14 يوم</div>
-          <div id="bsm-chart" style="display:flex;align-items:flex-end;gap:4px;height:80px;direction:ltr;"></div>
-          <div id="bsm-chart-labels" style="display:flex;gap:4px;margin-top:4px;direction:ltr;overflow:hidden;"></div>
-        </div>
-        <!-- Top Commands -->
-        <div style="background:var(--bg);border-radius:12px;padding:16px;border:1px solid var(--border);overflow:hidden;">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;"><i class="fas fa-terminal" style="color:#38bdf8;margin-left:6px;"></i>أكثر الأوامر استخداماً</div>
-          <div id="bsm-cmds" style="display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;"></div>
+        <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px;border:1px solid var(--border);">
+          <div id="bsm-banned" style="font-size:24px;font-weight:900;color:#fc8181;">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">محظورون</div>
         </div>
       </div>
 
-      <!-- Recent Users List -->
-      <div style="padding:0 24px 20px;">
-        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-          <span><i class="fas fa-users" style="color:#25d366;margin-left:6px;"></i>آخر المستخدمين نشاطاً</span>
-          <input type="text" id="bsm-search" placeholder="بحث..." oninput="filterBsmUsers()" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:Cairo,sans-serif;font-size:11px;width:140px;">
+      <!-- Chart + Commands -->
+      <div id="bsm-mid">
+        <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border);">
+          <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:10px;"><i class="fas fa-chart-bar" style="color:#a78bfa;margin-left:5px;"></i>نشاط آخر 14 يوم</div>
+          <div id="bsm-chart" style="display:flex;align-items:flex-end;gap:3px;height:70px;direction:ltr;"></div>
+          <div id="bsm-chart-labels" style="display:flex;gap:3px;margin-top:4px;direction:ltr;overflow:hidden;"></div>
         </div>
-        <div id="bsm-users" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;"></div>
+        <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border);">
+          <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px;"><i class="fas fa-terminal" style="color:#38bdf8;margin-left:5px;"></i>أكثر الأوامر استخداماً</div>
+          <div id="bsm-cmds" style="display:flex;flex-direction:column;gap:5px;max-height:110px;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- Users List -->
+      <div style="padding:0 20px 18px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <span><i class="fas fa-users" style="color:#25d366;margin-left:5px;"></i>المستخدمون نشاطاً</span>
+          <input type="text" id="bsm-search" placeholder="بحث باسم أو رقم..." oninput="filterBsmUsers()" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:Cairo,sans-serif;font-size:11px;width:160px;">
+        </div>
+        <div id="bsm-users" style="display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto;"></div>
       </div>
     </div>
   </div>
+
 
   <!-- =================== USERS PAGE =================== -->
   <div class="page" id="page-users">

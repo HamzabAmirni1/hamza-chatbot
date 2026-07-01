@@ -989,9 +989,16 @@ app.get('/api/bot-subscribers', async (req, res) => {
       const pageName = parts[0] === pageId ? 'Facebook Page' : parts[0];
       return { id: `fb_${c.id}`, name: pageName || 'Facebook Bot', platform: 'facebook', pageId, connected: true, users: fbUsers, userCount: fbUsers.length };
     });
+    // Add local FB config if not already in DB
+    if (config.fbPageAccessToken) {
+      const localPageId = config.fbPageId || 'me';
+      if (!fbBots.some(b => b.pageId === localPageId)) {
+        fbBots.push({ id: 'local_fb', name: 'Facebook Page (محلي)', platform: 'facebook', pageId: localPageId, connected: true, users: fbUsers, userCount: fbUsers.length });
+      }
+    }
 
     // Fallback: if no WA bots connected but users exist, show one aggregate WA bot
-    if (waBots.length === 0 && waUsers.length > 0) {
+    if (waBots.length === 0) {
       waBots.push({ id: 'wa_all', name: 'WhatsApp Bot', platform: 'whatsapp', connected: false, users: waUsers, userCount: waUsers.length });
     }
 
