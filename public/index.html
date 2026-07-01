@@ -3626,13 +3626,23 @@
     updateClock();
     setInterval(updateClock, 1000);
 
+    // ✅ Safety net: force-hide loader after 8 seconds no matter what
+    const safetyTimer = setTimeout(() => {
+      const ov = document.getElementById('loading-overlay');
+      if (ov && !ov.classList.contains('hide')) {
+        ov.classList.add('hide');
+        console.warn('[Init] Safety timeout: forced loader hide after 8s');
+      }
+    }, 8000);
+
     const token = localStorage.getItem('auth_token');
     if (!token) {
+      clearTimeout(safetyTimer);
       showLoginOverlay();
       setTimeout(() => {
         const ov = document.getElementById('loading-overlay');
         if (ov) ov.classList.add('hide');
-      }, 500);
+      }, 400);
       return;
     }
 
@@ -3670,6 +3680,7 @@
         showToast('⚠️ فشل تحميل بعض البيانات — أعد تحميل الصفحة', 'error');
       }
     } finally {
+      clearTimeout(safetyTimer);
       const ov = document.getElementById('loading-overlay');
       if (ov) ov.classList.add('hide');
     }
@@ -3783,7 +3794,17 @@
   // =================== DASHBOARD ===================
   async function loadDashboard() {
     try {
-      const res = await fetch('/api/status');
+      const ctrl = new AbortController();
+      const fetchTimeout = setTimeout(() => ctrl.abort(), 7000);
+      let res;
+      try {
+        res = await fetch('/api/status', { signal: ctrl.signal });
+      } catch (fetchErr) {
+        clearTimeout(fetchTimeout);
+        console.warn('[loadDashboard] /api/status timeout or failed:', fetchErr.message);
+        return; // Gracefully exit — loader will hide in finally block
+      }
+      clearTimeout(fetchTimeout);
       const data = await res.json();
       
       // Compute per-platform connection
