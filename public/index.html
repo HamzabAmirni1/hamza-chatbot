@@ -6931,6 +6931,32 @@
     } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
   }
 
+  async function sendIbhayaWarn(jid, warningsLeft) {
+    const remaining = typeof warningsLeft === 'number' ? warningsLeft : '?';
+    if (!confirm(`⚠️ إرسال تحذير تلقائي لهذا المستخدم؟\n\nسيتلقى رسالة تخبره أن لديه ${remaining} تحذير متبقٍ قبل الحظر.\n\n${jid}`)) return;
+    try {
+      const btn = event.target.closest('button');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      const res = await fetch('/api/ibhaya/warn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid, warnings_left: remaining })
+      });
+      const data = await res.json();
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      if (data.ok && data.sent) {
+        showToast('✅ تم إرسال التحذير بنجاح!', 'success');
+      } else if (data.ok && !data.sent) {
+        showToast('⚠️ تم طلب الإرسال لكن البوت غير متصل', 'warning');
+      } else {
+        showToast('❌ فشل: ' + (data.error || 'خطأ غير معروف'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
+    }
+  }
+
   async function banIbhayaUser(jid) {
     if (!confirm(`حظر هذا المستخدم فوراً؟\n${jid}`)) return;
     try {
@@ -7021,6 +7047,9 @@
                         </button>
                         <button onclick="openProfanityMsgModal('${u.jid}','${pkey}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة">
                           <i class="fas fa-paper-plane"></i> رسالة
+                        </button>
+                        <button onclick="sendIbhayaWarn('${u.jid}', ${u.warnings_left !== undefined ? u.warnings_left : 2})" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,173,85,0.5);background:rgba(246,173,85,0.1);color:#f6a44e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال تحذير تلقائي للمستخدم">
+                          ⚠️ تحذير (${u.warnings_left !== undefined ? u.warnings_left : '?'})
                         </button>
                         <button onclick="resetIbhayaWarnings('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إعادة ضبط التحذيرات">
                           <i class="fas fa-redo"></i> إعادة ضبط

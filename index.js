@@ -2467,6 +2467,58 @@ app.post('/api/ibhaya/ban', async (req, res) => {
   }
 });
 
+// Ibhaya Warn API — send automated warning message to violating user
+app.post('/api/ibhaya/warn', async (req, res) => {
+  try {
+    const { jid, warnings_left } = req.body;
+    if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
+
+    const remaining = (typeof warnings_left === 'number') ? warnings_left : 1;
+    const warnMsg = `⚠️ *تحذير رسمي من الإدارة!*\n\nلقد تم اكتشاف محتوى مخالف في رسائلك.\n\n🔴 المتبقي لديك: *${remaining} تحذير${remaining !== 1 ? 'ات' : ''}* قبل الحظر النهائي.\n\n❌ إذا تكررت المخالفة مرة أخرى — سيتم حظرك فوراً وبشكل دائم.\n\n📋 يُرجى الالتزام بقواعد الاستخدام واحترام الآداب العامة.`;
+
+    let sent = false;
+
+    if (jid.startsWith('tg:')) {
+      // Telegram
+      const tgId = jid.replace('tg:', '');
+      const bots = global.telegramBots ? Object.values(global.telegramBots) : [];
+      if (global.telegramBot) bots.unshift(global.telegramBot);
+      for (const bot of bots) {
+        try {
+          await bot.telegram.sendMessage(tgId, warnMsg, { parse_mode: 'Markdown' });
+          sent = true; break;
+        } catch (_) {}
+      }
+    } else if (jid.startsWith('fb:')) {
+      // Facebook
+      const fbId = jid.replace('fb:', '');
+      const { sendFbMessage } = require('./lib/facebook');
+      const fbTokens = [config.fbPageAccessToken].filter(Boolean);
+      for (const token of fbTokens) {
+        try {
+          await sendFbMessage(fbId, warnMsg, token);
+          sent = true; break;
+        } catch (_) {}
+      }
+    } else {
+      // WhatsApp
+      const cleanJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+      for (const sock of (global.clients || [])) {
+        try {
+          if (sock.user) {
+            await sock.sendMessage(cleanJid, { text: warnMsg });
+            sent = true; break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    res.json({ ok: true, sent });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Ibhaya Words API — list blocked keywords
 app.get('/api/ibhaya-words', async (req, res) => {
   try {
