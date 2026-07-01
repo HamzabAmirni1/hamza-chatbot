@@ -908,6 +908,165 @@ function getPlatformFromJid(jid) {
   return 'whatsapp';
 }
 
+// ============================================================
+// /api/bot-subscribers — Per-bot user list with full details
+// ============================================================
+app.get('/api/bot-subscribers', async (req, res) => {
+  try {
+    const DATA_DIR = path.join(__dirname, 'data');
+    let banned = [];
+    try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8') || '[]'); } catch (_) {}
+
+    // 1. Fetch all users from Supabase
+    const rows = await db.getAllUsers();
+
+    // Build clean user objects per platform
+    const seenWa = new Set(), seenTg = new Set(), seenFb = new Set();
+    const waUsers = [], tgUsers = [], fbUsers = [];
+
+    const sortedRows = [...rows].sort((a, b) => {
+      const aP = (a.jid || '').startsWith('tg:') || (a.jid || '').startsWith('fb:') ? 0 : 1;
+      const bP = (b.jid || '').startsWith('tg:') || (b.jid || '').startsWith('fb:') ? 0 : 1;
+      return aP - bP;
+    });
+
+    for (const u of sortedRows) {
+      if (!u.jid) continue;
+      if (u.jid.startsWith('names:') || u.jid.startsWith('cache:')) continue;
+      const platform = getPlatformFromJid(u.jid);
+      const cleanId = u.jid.replace('tg:', '').replace('fb:', '').split('@')[0];
+
+      if (platform === 'telegram') {
+        if (seenTg.has(cleanId)) continue; seenTg.add(cleanId);
+        tgUsers.push({ id: cleanId, name: (global.tgNames && global.tgNames[cleanId]) || '', platform, lastSeen: u.updated_at, jid: u.jid, banned: banned.includes(`tg:${cleanId}`) });
+      } else if (platform === 'facebook') {
+        if (seenFb.has(cleanId)) continue; seenFb.add(cleanId);
+        fbUsers.push({ id: cleanId, name: (global.fbNames && global.fbNames[cleanId]) || '', platform, lastSeen: u.updated_at, jid: u.jid, banned: banned.includes(`fb:${cleanId}`) });
+      } else {
+        const waKey = u.jid.split('@')[0];
+        if (seenWa.has(waKey)) continue; seenWa.add(waKey);
+        waUsers.push({ id: waKey, name: (global.waNames && global.waNames[waKey]) || '', platform: 'whatsapp', lastSeen: u.updated_at, jid: u.jid, banned: banned.includes(u.jid) || banned.includes(`${waKey}@s.whatsapp.net`) });
+      }
+    }
+
+    // 2. Build bot list
+    const configs = await db.getBotConfigs();
+
+    // WhatsApp bots — one entry per active session
+    const waBots = (global.clients || []).map(sock => {
+      const user = sock?.user;
+      const num = (user?.id?.split(':')[0] || sock._num || '').replace(/[^0-9]/g, '');
+      return {
+        id: `wa_${num}`,
+        name: num ? `WhatsApp +${num}` : 'WhatsApp Bot',
+        platform: 'whatsapp',
+        number: num,
+        connected: !!user,
+        users: waUsers,
+        userCount: waUsers.length
+      };
+    });
+
+    // Telegram bots
+    const tgBots = configs.filter(c => c.bot_type === 'telegram').map(c => ({
+      id: `tg_${c.id}`,
+      name: c.bot_name || 'Telegram Bot',
+      platform: 'telegram',
+      token: c.bot_token,
+      connected: !!(global.telegramBots && global.telegramBots[c.bot_token]),
+      users: tgUsers,
+      userCount: tgUsers.length
+    }));
+    // Add local TG if not in DB
+    if (config.telegramToken && !tgBots.some(b => b.token === config.telegramToken)) {
+      tgBots.push({ id: 'local_tg', name: config.botName || 'Telegram Bot', platform: 'telegram', token: config.telegramToken, connected: !!global.telegramBot, users: tgUsers, userCount: tgUsers.length });
+    }
+
+    // Facebook bots
+    const fbBots = configs.filter(c => c.bot_type === 'facebook').map(c => {
+      const parts = (c.bot_name || '').split('|');
+      const pageId = parts[parts.length - 1].trim();
+      const pageName = parts[0] === pageId ? 'Facebook Page' : parts[0];
+      return { id: `fb_${c.id}`, name: pageName || 'Facebook Bot', platform: 'facebook', pageId, connected: true, users: fbUsers, userCount: fbUsers.length };
+    });
+
+    // Fallback: if no WA bots connected but users exist, show one aggregate WA bot
+    if (waBots.length === 0 && waUsers.length > 0) {
+      waBots.push({ id: 'wa_all', name: 'WhatsApp Bot', platform: 'whatsapp', connected: false, users: waUsers, userCount: waUsers.length });
+    }
+
+    res.json({ ok: true, bots: [...waBots, ...tgBots, ...fbBots] });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// /api/bot-stats/:platform — Detailed stats for a specific bot
+// ============================================================
+app.get('/api/bot-stats/:platform', async (req, res) => {
+  try {
+    const { platform } = req.params;
+    const DATA_DIR = path.join(__dirname, 'data');
+    let banned = [];
+    try { banned = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'banned.json'), 'utf-8') || '[]'); } catch (_) {}
+
+    const rows = await db.getAllUsers();
+    const now = Date.now();
+    const DAY7 = 7 * 24 * 60 * 60 * 1000;
+    const DAY1 = 24 * 60 * 60 * 1000;
+
+    const seenIds = new Set();
+    const users = [];
+
+    for (const u of rows) {
+      if (!u.jid) continue;
+      if (u.jid.startsWith('names:') || u.jid.startsWith('cache:')) continue;
+      const plat = getPlatformFromJid(u.jid);
+      if (plat !== platform) continue;
+      const cleanId = u.jid.replace('tg:', '').replace('fb:', '').split('@')[0];
+      if (seenIds.has(cleanId)) continue;
+      seenIds.add(cleanId);
+      let name = '';
+      if (platform === 'telegram') name = (global.tgNames && global.tgNames[cleanId]) || '';
+      else if (platform === 'facebook') name = (global.fbNames && global.fbNames[cleanId]) || '';
+      else name = (global.waNames && global.waNames[cleanId]) || '';
+      const isBanned = banned.includes(u.jid) || banned.includes(`${cleanId}@s.whatsapp.net`) || banned.includes(`tg:${cleanId}`) || banned.includes(`fb:${cleanId}`);
+      const lastSeenTs = u.updated_at ? new Date(u.updated_at).getTime() : 0;
+      users.push({ id: cleanId, name, platform, lastSeen: u.updated_at, lastSeenTs, jid: u.jid, banned: isBanned });
+    }
+
+    const total = users.length;
+    const active7d = users.filter(u => u.lastSeenTs && (now - u.lastSeenTs) < DAY7).length;
+    const active24h = users.filter(u => u.lastSeenTs && (now - u.lastSeenTs) < DAY1).length;
+    const banned_count = users.filter(u => u.banned).length;
+
+    // Daily activity for chart (last 14 days)
+    const dailyActivity = [];
+    for (let i = 13; i >= 0; i--) {
+      const dayStart = now - (i + 1) * DAY1;
+      const dayEnd = now - i * DAY1;
+      const count = users.filter(u => u.lastSeenTs >= dayStart && u.lastSeenTs < dayEnd).length;
+      const d = new Date(dayEnd);
+      dailyActivity.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, count });
+    }
+
+    // Top commands for this platform
+    const platformCmdStats = (global._cmdStatsByPlatform && global._cmdStatsByPlatform[platform]) || {};
+    const topCommands = Object.entries(platformCmdStats)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([cmd, count]) => ({ cmd, count }));
+
+    // Most recent 20 users (sorted by lastSeen desc)
+    const recentUsers = [...users].sort((a, b) => (b.lastSeenTs || 0) - (a.lastSeenTs || 0)).slice(0, 50);
+
+    res.json({ ok: true, total, active7d, active24h, banned_count, dailyActivity, topCommands, recentUsers });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/users', async (req, res) => {
   try {
     const DATA_DIR = path.join(__dirname, 'data');
