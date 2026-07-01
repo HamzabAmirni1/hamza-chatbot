@@ -1590,6 +1590,9 @@
     <a class="nav-item" onclick="showPage('devmessages'); closeSidebarOnMobile()" id="nav-devmessages">
       <i class="fas fa-inbox"></i> رسائل المستخدمين
     </a>
+    <a class="nav-item" onclick="showPage('devmessages'); setDevMsgFilter('unanswered'); closeSidebarOnMobile()" id="nav-unanswered" style="background:rgba(236,201,75,0.06);border:1px dashed rgba(236,201,75,0.2) !important;">
+      <i class="fas fa-reply" style="color:#ecc94b;"></i> <span style="color:#ecc94b;">لم يتم الرد بعد</span>
+    </a>
     <a class="nav-item" onclick="showPage('profanity'); closeSidebarOnMobile()" id="nav-profanity">
       <i class="fas fa-exclamation-triangle" style="color:#fc8181;"></i> <span style="color:#fc8181;">مخالفو الآداب</span>
     </a>
@@ -5194,69 +5197,161 @@
 
   function clearDevReplyMedia(id) {
     delete _devReplyFiles[id];
+  const _devReplyRecTimerIntervals = {};
+  const _devReplyRecSeconds = {};
+  const _devReplyWaveIntervals = {};
+
+  function _devReplyStartWaveform(id) {
+    const bars = document.querySelectorAll(`.devreply-wave-bar-${id}`);
+    _devReplyWaveIntervals[id] = setInterval(function() {
+      bars.forEach(function(b) {
+        const h = Math.floor(Math.random() * 20) + 4;
+        b.style.height = h + 'px';
+      });
+    }, 120);
+  }
+
+  function _devReplyStopWaveform(id) {
+    if (_devReplyWaveIntervals[id]) { clearInterval(_devReplyWaveIntervals[id]); delete _devReplyWaveIntervals[id]; }
+    const bars = document.querySelectorAll(`.devreply-wave-bar-${id}`);
+    bars.forEach(function(b) { b.style.height = '4px'; });
+  }
+
+  function _devReplyStartTimer(id) {
+    _devReplyRecSeconds[id] = 0;
+    const timerEl = document.getElementById(`devreply-rec-timer-${id}`);
+    _devReplyRecTimerIntervals[id] = setInterval(function() {
+      _devReplyRecSeconds[id]++;
+      const m = Math.floor(_devReplyRecSeconds[id] / 60);
+      const s = _devReplyRecSeconds[id] % 60;
+      if (timerEl) timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  }
+
+  function _devReplyStopTimer(id) {
+    if (_devReplyRecTimerIntervals[id]) { clearInterval(_devReplyRecTimerIntervals[id]); delete _devReplyRecTimerIntervals[id]; }
+  }
+
+  function toggleDevReplyAudioPreview(id) {
+    const player = document.getElementById(`devreply-audio-player-${id}`);
+    const playBtn = document.getElementById(`devreply-audio-play-btn-${id}`);
+    const fill = document.getElementById(`devreply-audio-fill-${id}`);
+    const durEl = document.getElementById(`devreply-audio-dur-${id}`);
+    if (!player) return;
+    if (player.paused) {
+      player.play();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      player.ontimeupdate = function() {
+        if (player.duration) {
+          const pct = (player.currentTime / player.duration) * 100;
+          if (fill) fill.style.width = pct + '%';
+          const s = Math.floor(player.currentTime);
+          const m = Math.floor(s / 60); const sec = s % 60;
+          if (durEl) durEl.textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
+        }
+      };
+      player.onended = function() {
+        if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        if (fill) fill.style.width = '0%';
+      };
+    } else {
+      player.pause();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+  }
+
+  function clearDevReplyMedia(id) {
+    delete _devReplyFiles[id];
     delete _devReplyIsRecorded[id];
     const input = document.getElementById(`devreply-media-file-${id}`);
     if (input) input.value = '';
     const preview = document.getElementById(`devreply-media-preview-${id}`);
     if (preview) preview.style.display = 'none';
-    const oldAudio = document.getElementById(`devreply-audio-preview-player-${id}`);
-    if (oldAudio) oldAudio.remove();
+    
+    // Reset audio preview and show main input row
+    const audioPreview = document.getElementById(`devreply-audio-preview-${id}`);
+    if (audioPreview) audioPreview.style.display = 'none';
+    const inputRow = document.getElementById(`devreply-main-input-row-${id}`);
+    if (inputRow) inputRow.style.display = 'flex';
+    
+    // Stop audio player
+    const player = document.getElementById(`devreply-audio-player-${id}`);
+    if (player) { player.pause(); player.src = ''; }
+    const playBtn = document.getElementById(`devreply-audio-play-btn-${id}`);
+    if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    const fill = document.getElementById(`devreply-audio-fill-${id}`);
+    if (fill) fill.style.width = '0%';
+
     updateDevMsgActionBtn(id);
   }
 
   async function toggleDevReplyRecording(id) {
-    const btn = document.getElementById(`devreply-mic-btn-${id}`);
-    const label = document.getElementById(`devreply-mic-label-${id}`);
-    if (!btn || !label) return;
+    if (!_devReplyRecorders[id]) {
+      // ── START RECORDING ──
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const chunks = [];
+        const recorder = new MediaRecorder(stream);
+        _devReplyRecorders[id] = recorder;
 
-    if (_devReplyRecorders[id] && _devReplyRecorders[id].state === 'recording') {
-      _devReplyRecorders[id].stop();
-      return;
-    }
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const chunks = [];
-      const recorder = new MediaRecorder(stream);
-      _devReplyRecorders[id] = recorder;
+        recorder.onstop = () => {
+          stream.getTracks().forEach(track => track.stop());
+          _devReplyStopWaveform(id);
+          _devReplyStopTimer(id);
+          
+          // hide rec bar, show audio preview
+          const recBar = document.getElementById(`devreply-rec-bar-${id}`);
+          const inputRow = document.getElementById(`devreply-main-input-row-${id}`);
+          const audioPreview = document.getElementById(`devreply-audio-preview-${id}`);
+          if (recBar) recBar.style.display = 'none';
+          if (inputRow) inputRow.style.display = 'none';
+          if (audioPreview) {
+            audioPreview.style.display = 'flex';
+            const player = document.getElementById(`devreply-audio-player-${id}`);
+            const durEl = document.getElementById(`devreply-audio-dur-${id}`);
+            const fill = document.getElementById(`devreply-audio-fill-${id}`);
+            if (player) {
+              const url = URL.createObjectURL(new Blob(chunks, { type: 'audio/ogg; codecs=opus' }));
+              player.src = url;
+              player.onloadedmetadata = function() {
+                const total = Math.floor(player.duration);
+                const m = Math.floor(total / 60); const s = total % 60;
+                if (durEl) durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+              };
+              if (fill) fill.style.width = '0%';
+            }
+          }
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
+          const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+          const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
+          _devReplyFiles[id] = audioFile;
+          _devReplyIsRecorded[id] = true;
+          updateDevMsgActionBtn(id);
+        };
 
-      let elapsed = 0;
-      recorder.onstop = () => {
-        stream.getTracks().forEach(track => track.stop());
-        clearInterval(_devReplyRecordTimers[id]);
-        btn.style.background = 'rgba(239,68,68,0.08)';
-        btn.style.color = '#ef4444';
-        label.textContent = 'تسجيل صوت';
-
-        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
-        _devReplyFiles[id] = audioFile;
-        _devReplyIsRecorded[id] = true;
-        showDevReplyMediaPreview(id, audioFile);
-        showToast('🎤 تم حفظ التسجيل بنجاح', 'success');
+        recorder.start();
+        // show rec bar, hide input row
+        const recBar = document.getElementById(`devreply-rec-bar-${id}`);
+        const inputRow = document.getElementById(`devreply-main-input-row-${id}`);
+        const audioPreview = document.getElementById(`devreply-audio-preview-${id}`);
+        if (recBar) recBar.style.display = 'flex';
+        if (inputRow) inputRow.style.display = 'none';
+        if (audioPreview) audioPreview.style.display = 'none';
+        _devReplyStartWaveform(id);
+        _devReplyStartTimer(id);
         updateDevMsgActionBtn(id);
-      };
-
-      recorder.start();
-      updateDevMsgActionBtn(id);
-      btn.style.background = '#ef4444';
-      btn.style.color = '#fff';
-      label.textContent = '🔴 إيقاف (00:00)';
-
-      _devReplyRecordTimers[id] = setInterval(() => {
-        elapsed++;
-        const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
-        const secs = String(elapsed % 60).padStart(2, '0');
-        label.textContent = `🔴 إيقاف (${mins}:${secs})`;
-      }, 1000);
-
-    } catch (err) {
-      console.error('Error starting audio recording:', err);
-      showToast('❌ تعذر الوصول للميكروفون', 'error');
+      } catch (err) {
+        console.error('Error starting audio recording:', err);
+        showToast('❌ تعذر الوصول للميكروفون', 'error');
+      }
+    } else {
+      // ── STOP RECORDING ──
+      _devReplyRecorders[id].stop();
+      delete _devReplyRecorders[id];
     }
   }
 
@@ -6862,9 +6957,42 @@
 
       <!-- Footer / Input Form -->
       <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--card); display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
-        <div style="display:flex; gap:8px; align-items:flex-end;">
-          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4;" oninput="updateDevMsgActionBtn('${senderJid}')" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
-          
+
+        <!-- Recording Waveform Bar (hidden by default) -->
+        <div id="devreply-rec-bar-${senderJid}" style="display:none;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">
+          <button onclick="toggleDevReplyRecording('${senderJid}')" style="width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-stop"></i></button>
+          <div style="display:flex;align-items:center;gap:2px;flex:1;height:28px;">
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+          </div>
+          <span id="devreply-rec-timer-${senderJid}" style="font-size:12px;font-weight:700;color:#ef4444;font-family:monospace;flex-shrink:0;">0:00</span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:blink 1s infinite;flex-shrink:0;"></span>
+        </div>
+
+        <!-- Audio Preview Bar (hidden by default) -->
+        <div id="devreply-audio-preview-${senderJid}" style="display:none;align-items:center;gap:8px;background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">
+          <button id="devreply-audio-play-btn-${senderJid}" onclick="toggleDevReplyAudioPreview('${senderJid}')" style="width:32px;height:32px;border-radius:50%;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-play"></i></button>
+          <div style="flex:1;">
+            <div style="font-size:10px;font-weight:700;color:#25d366;margin-bottom:3px;text-align:left;">🎤 رسالة صوتية</div>
+            <audio id="devreply-audio-player-${senderJid}" style="display:none;"></audio>
+            <div style="height:3px;background:rgba(37,211,102,0.2);border-radius:2px;overflow:hidden;"><div id="devreply-audio-fill-${senderJid}" style="height:100%;background:#25d366;width:0%;transition:width 0.1s;"></div></div>
+            <div id="devreply-audio-dur-${senderJid}" style="font-size:9px;color:var(--text-muted);margin-top:2px;text-align:left;">0:00</div>
+          </div>
+          <button onclick="clearDevReplyMedia('${senderJid}')" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;"><i class="fas fa-trash"></i></button>
+          <button onclick="sendConversationReply('${senderJid}')" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,211,102,0.3);"><i class="fas fa-paper-plane"></i></button>
+        </div>
+
+        <!-- Main Input Row -->
+        <div id="devreply-main-input-row-${senderJid}" style="display:flex; gap:8px; align-items:flex-end; direction:ltr;">
+          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4; direction:rtl; text-align:right;" oninput="updateDevMsgActionBtn('${senderJid}')" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
           <button onclick="handleDevMsgActionClick('${senderJid}')" id="chat-send-btn" style="width:42px; height:42px; border-radius:50%; background:#25d366; border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0; font-size:18px; box-shadow:0 2px 8px rgba(37,211,102,0.35); transition:all 0.2s;">
             <i class="fas fa-microphone" style="font-size:16px;"></i>
           </button>
@@ -6880,9 +7008,6 @@
             </button>
             <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'audio/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); border-radius:6px; color:#a78bfa; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
               <i class="fas fa-music"></i> صوت
-            </button>
-            <button type="button" id="devreply-mic-btn-${senderJid}" onclick="toggleDevReplyRecording('${senderJid}')" style="display:none; padding:4px 8px; font-size:10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:6px; color:#ef4444; cursor:pointer; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-microphone"></i> <span id="devreply-mic-label-${senderJid}">تسجيل</span>
             </button>
             <button type="button" onclick="setDevReplyFileAccept('${senderJid}', '.pdf,.doc,.docx,.zip,.txt'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px; color:#fbbf24; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
               <i class="fas fa-file"></i> ملف
