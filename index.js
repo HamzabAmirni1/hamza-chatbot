@@ -2573,6 +2573,30 @@ async function sendFBVideo(sock, chatId, videoUrl, apiName, quoted) {
   }
 }
 
+async function saveFullSessionToDb(num, sessionDir) {
+  try {
+    if (!fs.existsSync(sessionDir)) return;
+    const files = fs.readdirSync(sessionDir);
+    const sessionData = {};
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        const filePath = path.join(sessionDir, file);
+        try {
+          const content = fs.readJsonSync(filePath);
+          sessionData[file] = content;
+        } catch (e) {
+          // ignore read errors for individual files
+        }
+      }
+    }
+    if (sessionData['creds.json']) {
+      await db.updateWhatsAppSession(num, sessionData);
+    }
+  } catch (err) {
+    console.error(`[Session/Save] Error saving session to DB for ${num}:`, err.message);
+  }
+}
+
 async function startBot(folderName, phoneNumber) {
   global._activeBots = global._activeBots || {};
   if (global._activeBots[folderName]) {
@@ -2594,8 +2618,17 @@ async function startBot(folderName, phoneNumber) {
   if (num && !fs.existsSync(path.join(sessionDir, "creds.json"))) {
     const authRecord = await db.getWhatsAppAuth(num);
     if (authRecord && authRecord.session_data) {
-      console.log(chalk.cyan(`📥 Loading session for ${num} from Supabase...`));
-      fs.writeFileSync(path.join(sessionDir, "creds.json"), JSON.stringify(authRecord.session_data, null, 2));
+      const sessionData = authRecord.session_data;
+      if (sessionData && typeof sessionData === 'object' && sessionData['creds.json']) {
+        console.log(chalk.cyan(`📥 Loading full multi-file session for ${num} from Supabase...`));
+        fs.ensureDirSync(sessionDir);
+        for (const [file, content] of Object.entries(sessionData)) {
+          fs.writeFileSync(path.join(sessionDir, file), JSON.stringify(content, null, 2));
+        }
+      } else {
+        console.log(chalk.cyan(`📥 Loading legacy creds.json session for ${num} from Supabase...`));
+        fs.writeFileSync(path.join(sessionDir, "creds.json"), JSON.stringify(sessionData, null, 2));
+      }
     }
   }
 
@@ -2752,10 +2785,8 @@ async function startBot(folderName, phoneNumber) {
       if (resolvedNum) await db.updatePairingCode(resolvedNum, null, 'connected'); // Clear code on success
       
       // Sync credentials to Supabase for the first time
-      const credsPath = path.join(sessionDir, "creds.json");
-      if (resolvedNum && fs.existsSync(credsPath)) {
-        const creds = fs.readJsonSync(credsPath);
-        await db.updateWhatsAppSession(resolvedNum, creds);
+      if (resolvedNum) {
+        await saveFullSessionToDb(resolvedNum, sessionDir);
       }
       // Session backup - wrapped in try-catch to prevent crashes
       setTimeout(async () => {
@@ -2810,12 +2841,7 @@ async function startBot(folderName, phoneNumber) {
       const now = Date.now();
       if (now - lastCredsSync > 300000) {
         lastCredsSync = now;
-        try {
-          const creds = fs.readJsonSync(path.join(sessionDir, "creds.json"));
-          await db.updateWhatsAppSession(num, creds);
-        } catch (e) {
-             // Ignore read errors
-        }
+        await saveFullSessionToDb(num, sessionDir);
       }
     }
   });
