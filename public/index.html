@@ -230,6 +230,7 @@
 
     /* Chat bubble fade-in */
     @keyframes bubble-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
     #chat-body-container > div { animation: bubble-in 0.2s ease forwards; }
 
     /* Responsive: stack on small screens */
@@ -6088,8 +6089,42 @@
 
       // ── Footer ──
       + '<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--card);display:flex;flex-direction:column;gap:7px;flex-shrink:0;">'
-      +   '<div style="display:flex;gap:8px;align-items:flex-end;">'
-      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u0633\u0627\u0644\u062a\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;" oninput="updatePopupActionBtn(\'' + jid + '\')" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')}"></textarea>'
+
+      // recording waveform bar (hidden by default)
+      + '<div id="popup-rec-bar" style="display:none;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">'
+      +   '<button onclick="togglePopupRecording(\'' + jid + '\')" style="width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-stop"></i></button>'
+      +   '<div style="display:flex;align-items:center;gap:2px;flex:1;height:28px;">'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +   '</div>'
+      +   '<span id="popup-rec-timer" style="font-size:12px;font-weight:700;color:#ef4444;font-family:monospace;flex-shrink:0;">0:00</span>'
+      +   '<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:blink 1s infinite;flex-shrink:0;"></span>'
+      + '</div>'
+
+      // audio preview bar (hidden by default)
+      + '<div id="popup-audio-preview" style="display:none;align-items:center;gap:8px;background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">'
+      +   '<button id="popup-audio-play-btn" onclick="togglePopupAudioPreview(\'' + jid + '\',\'' + platform + '\')" style="width:32px;height:32px;border-radius:50%;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-play"></i></button>'
+      +   '<div style="flex:1;">'
+      +     '<div style="font-size:10px;font-weight:700;color:#25d366;margin-bottom:3px;text-align:left;">🎤 رسالة صوتية</div>'
+      +     '<audio id="popup-audio-player" style="display:none;"></audio>'
+      +     '<div id="popup-audio-progress" style="height:3px;background:rgba(37,211,102,0.2);border-radius:2px;overflow:hidden;"><div id="popup-audio-fill" style="height:100%;background:#25d366;width:0%;transition:width 0.1s;"></div></div>'
+      +     '<div id="popup-audio-dur" style="font-size:9px;color:var(--text-muted);margin-top:2px;text-align:left;">0:00</div>'
+      +   '</div>'
+      +   '<button onclick="clearPopupMedia(\'' + jid + '\')" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;"><i class="fas fa-trash"></i></button>'
+      +   '<button onclick="sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,211,102,0.3);"><i class="fas fa-paper-plane"></i></button>'
+      + '</div>'
+
+      // main input row
+      +   '<div id="popup-main-input-row" style="display:flex;gap:8px;align-items:flex-end;direction:ltr;">'
+      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u062f\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;direction:rtl;text-align:right;" oninput="updatePopupActionBtn(\'' + jid + '\')" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')}"></textarea>'
       +     '<button id="popup-send-btn" onclick="handlePopupActionClick(\'' + jid + '\',\'' + platform + '\')" style="width:42px;height:42px;border-radius:50%;background:#25d366;border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;box-shadow:0 2px 8px rgba(37,211,102,0.35);transition:all 0.2s;"><i class="fas fa-microphone"></i></button>'
       +   '</div>'
       +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
@@ -6146,13 +6181,90 @@
     if (preview) preview.style.display = 'none';
     var fi = document.getElementById('popup-media-file');
     if (fi) fi.value = '';
+    
+    // Reset audio preview and show main input row
+    var audioPreview = document.getElementById('popup-audio-preview');
+    if (audioPreview) audioPreview.style.display = 'none';
+    var inputRow = document.getElementById('popup-main-input-row');
+    if (inputRow) inputRow.style.display = 'flex';
+    
+    // Stop audio player
+    var player = document.getElementById('popup-audio-player');
+    if (player) { player.pause(); player.src = ''; }
+    var playBtn = document.getElementById('popup-audio-play-btn');
+    if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    var fill = document.getElementById('popup-audio-fill');
+    if (fill) fill.style.width = '0%';
+
     updatePopupActionBtn(jid);
   }
 
+  var _popupRecTimerInterval = null;
+  var _popupRecSeconds = 0;
+  var _popupWaveInterval = null;
+
+  function _popupStartWaveform() {
+    var bars = document.querySelectorAll('#popup-rec-bar .popup-wave-bar');
+    _popupWaveInterval = setInterval(function() {
+      bars.forEach(function(b) {
+        var h = Math.floor(Math.random() * 20) + 4;
+        b.style.height = h + 'px';
+      });
+    }, 120);
+  }
+
+  function _popupStopWaveform() {
+    if (_popupWaveInterval) { clearInterval(_popupWaveInterval); _popupWaveInterval = null; }
+    var bars = document.querySelectorAll('#popup-rec-bar .popup-wave-bar');
+    bars.forEach(function(b) { b.style.height = '4px'; });
+  }
+
+  function _popupStartTimer() {
+    _popupRecSeconds = 0;
+    var timerEl = document.getElementById('popup-rec-timer');
+    _popupRecTimerInterval = setInterval(function() {
+      _popupRecSeconds++;
+      var m = Math.floor(_popupRecSeconds / 60);
+      var s = _popupRecSeconds % 60;
+      if (timerEl) timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  }
+
+  function _popupStopTimer() {
+    if (_popupRecTimerInterval) { clearInterval(_popupRecTimerInterval); _popupRecTimerInterval = null; }
+  }
+
+  function togglePopupAudioPreview(jid, platform) {
+    var player = document.getElementById('popup-audio-player');
+    var playBtn = document.getElementById('popup-audio-play-btn');
+    var fill = document.getElementById('popup-audio-fill');
+    var durEl = document.getElementById('popup-audio-dur');
+    if (!player) return;
+    if (player.paused) {
+      player.play();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      player.ontimeupdate = function() {
+        if (player.duration) {
+          var pct = (player.currentTime / player.duration) * 100;
+          if (fill) fill.style.width = pct + '%';
+          var s = Math.floor(player.currentTime);
+          var m = Math.floor(s / 60); s = s % 60;
+          if (durEl) durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        }
+      };
+      player.onended = function() {
+        if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        if (fill) fill.style.width = '0%';
+      };
+    } else {
+      player.pause();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+  }
+
   async function togglePopupRecording(jid) {
-    var micBtn   = document.getElementById('popup-mic-btn');
-    var micLabel = document.getElementById('popup-mic-label');
     if (!_popupChatRecorder) {
+      // ── START RECORDING ──
       try {
         var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         _popupChatChunks = [];
@@ -6163,28 +6275,51 @@
           var file = new File([blob], 'voice_note.ogg', { type: 'audio/ogg' });
           _popupChatFiles[jid] = file;
           _popupChatRecorded[jid] = true;
-          var preview = document.getElementById('popup-media-preview');
-          var nameEl  = document.getElementById('popup-media-name');
-          var iconEl  = document.getElementById('popup-media-icon');
-          if (preview) preview.style.display = 'flex';
-          if (nameEl)  nameEl.textContent = '\u0631\u0633\u0627\u0644\u0629 \u0635\u0648\u062a\u064a\u0629';
-          if (iconEl)  iconEl.className = 'fas fa-microphone';
           stream.getTracks().forEach(function(t) { t.stop(); });
+          _popupStopWaveform();
+          _popupStopTimer();
+          // hide rec bar, show audio preview
+          var recBar = document.getElementById('popup-rec-bar');
+          var inputRow = document.getElementById('popup-main-input-row');
+          var audioPreview = document.getElementById('popup-audio-preview');
+          if (recBar) recBar.style.display = 'none';
+          if (inputRow) inputRow.style.display = 'none';
+          if (audioPreview) {
+            audioPreview.style.display = 'flex';
+            var player = document.getElementById('popup-audio-player');
+            var durEl = document.getElementById('popup-audio-dur');
+            var fill = document.getElementById('popup-audio-fill');
+            if (player) {
+              var url = URL.createObjectURL(blob);
+              player.src = url;
+              player.onloadedmetadata = function() {
+                var total = Math.floor(player.duration);
+                var m = Math.floor(total / 60); var s = total % 60;
+                if (durEl) durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+              };
+              if (fill) fill.style.width = '0%';
+            }
+          }
           updatePopupActionBtn(jid);
         };
         _popupChatRecorder.start();
-        if (micBtn)   micBtn.style.background = 'rgba(239,68,68,0.22)';
-        if (micLabel) micLabel.textContent = '\u0625\u064a\u0642\u0627\u0641';
+        // show rec bar, hide input row
+        var recBar = document.getElementById('popup-rec-bar');
+        var inputRow = document.getElementById('popup-main-input-row');
+        var audioPreview = document.getElementById('popup-audio-preview');
+        if (recBar) recBar.style.display = 'flex';
+        if (inputRow) inputRow.style.display = 'none';
+        if (audioPreview) audioPreview.style.display = 'none';
+        _popupStartWaveform();
+        _popupStartTimer();
         updatePopupActionBtn(jid);
       } catch (e) {
         showToast('\u274c \u0641\u0634\u0644 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u0645\u064a\u0643\u0631\u0648\u0641\u0648\u0646', 'error');
       }
     } else {
+      // ── STOP RECORDING ──
       _popupChatRecorder.stop();
       _popupChatRecorder = null;
-      if (micBtn)   micBtn.style.background = 'rgba(239,68,68,0.08)';
-      if (micLabel) micLabel.textContent = '\u062a\u0633\u062c\u064a\u0644';
-      updatePopupActionBtn(jid);
     }
   }
 
