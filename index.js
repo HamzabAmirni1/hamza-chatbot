@@ -1555,15 +1555,10 @@ app.post('/api/dev-messages/reply', async (req, res) => {
       }
     }
 
-    // Upload media to CDN for persistence
+    // Use the base64 data URL directly for persistence in Supabase
     let mediaUrl = null;
-    if (mediaBuffer) {
-      try {
-        const { uploadToBestProvider } = require('./lib/media');
-        mediaUrl = await uploadToBestProvider(mediaBuffer, fileName, mediaType);
-      } catch (e) {
-        console.error('[Dev Messages Reply] Media upload to CDN failed:', e.message);
-      }
+    if (mediaBuffer && mediaBase64) {
+      mediaUrl = `data:${mediaType || 'audio/ogg'};base64,${mediaBase64}`;
     }
 
     // Mark replied in DB
@@ -2430,15 +2425,10 @@ app.post('/api/profanity/message', async (req, res) => {
 
     if (!sent) return res.status(500).json({ ok: false, error: 'فشل إرسال الرسالة — تأكد من تشغيل البوت على المنصة المحددة' });
 
-    // Upload media to CDN for persistence
+    // Use the base64 data URL directly for persistence in Supabase
     let mediaUrl = null;
-    if (mediaBuffer) {
-      try {
-        const { uploadToBestProvider } = require('./lib/media');
-        mediaUrl = await uploadToBestProvider(mediaBuffer, fileName, mediaType);
-      } catch (e) {
-        console.error('[Profanity Message] Media upload to CDN failed:', e.message);
-      }
+    if (mediaBuffer && mediaBase64) {
+      mediaUrl = `data:${mediaType || 'audio/ogg'};base64,${mediaBase64}`;
     }
 
     // Save direct message to dev_messages table so it remains registered in chat history
