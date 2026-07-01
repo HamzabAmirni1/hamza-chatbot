@@ -3617,6 +3617,41 @@
     return res.json();
   }
 
+  function formatMessageContent(content) {
+    if (!content) return '';
+    let media = null;
+    if (content.startsWith('{') && content.endsWith('}')) {
+      try {
+        media = JSON.parse(content);
+      } catch(e) {}
+    }
+    
+    if (media && media.mediaUrl) {
+      let mediaHtml = '';
+      if (media.mediaType && media.mediaType.startsWith('image/')) {
+        mediaHtml += '<img src="' + media.mediaUrl + '" style="max-width:200px;border-radius:10px;display:block;margin-bottom:5px;" />';
+      } else if (media.mediaType && (media.mediaType.startsWith('audio/') || media.mediaType.includes('ogg') || media.ptt)) {
+        mediaHtml += '<audio controls src="' + media.mediaUrl + '" style="max-width:240px;display:block;margin-bottom:5px;height:40px;outline:none;"></audio>';
+      } else {
+        mediaHtml += '<a href="' + media.mediaUrl + '" target="_blank" style="display:flex;align-items:center;gap:6px;color:#38bdf8;text-decoration:underline;margin-bottom:5px;"><i class="fas fa-file"></i> ' + escapeHtml(media.mediaName || 'ملف مرفق') + '</a>';
+      }
+      if (media.text) {
+        mediaHtml += '<div style="direction:rtl;text-align:right;">' + escapeHtml(media.text) + '</div>';
+      }
+      return mediaHtml;
+    }
+
+    // Fallback: check if the string contains a URL ending in .ogg, .mp3, etc.
+    if (content.includes('http')) {
+      const match = content.match(/https?:\/\/[^\s"'<>]+/);
+      if (match && (content.includes('.ogg') || content.includes('.mp3') || content.includes('.wav') || content.includes('.m4a'))) {
+        return '<audio controls src="' + match[0] + '" style="max-width:240px;display:block;margin-bottom:5px;height:40px;outline:none;"></audio>';
+      }
+    }
+    
+    return escapeHtml(content);
+  }
+
   function showConfirm(msg) {
     return new Promise((resolve) => {
       const modal = document.getElementById('custom-confirm-modal');
@@ -6438,42 +6473,84 @@
     let existing = document.getElementById('chat-popup-modal');
     if (existing) existing.remove();
 
-    // Get message history for this user
+    // 1. Get direct dev messages
     const allMsgs  = window.devMessagesCache || [];
-    const convMsgs = allMsgs
-      .filter(function(m) { return m.sender === jid; })
+    const userDevMsgs = allMsgs.filter(function(m) { return m.sender === jid; });
+
+    // 2. Fetch user violations from caches (profanity + ibhaya)
+    const profLogs = (window.profanityLogsCache || []).filter(function(l) { return l.jid === jid; });
+    const ibhLogs = (window.ibhayaLogsCache || []).filter(function(l) { return l.jid === jid; });
+    
+    // Convert violations to bubble-like format
+    const violationMsgs = [];
+    profLogs.forEach(function(l) {
+      violationMsgs.push({
+        id: l.timestamp + '_v',
+        sender: jid,
+        senderName: l.name,
+        platform: l.platform,
+        text: '⚠️ [مخالفة سب وشتم] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
+        timestamp: l.timestamp,
+        isViolation: true
+      });
+    });
+    ibhLogs.forEach(function(l) {
+      violationMsgs.push({
+        id: l.timestamp + '_v',
+        sender: jid,
+        senderName: l.name,
+        platform: l.platform,
+        text: '⚠️ [مخالفة إباحية] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
+        timestamp: l.timestamp,
+        isViolation: true
+      });
+    });
+
+    // Merge both list and sort chronologically
+    const convMsgs = [...userDevMsgs, ...violationMsgs]
       .sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
 
     const plat = (platform || 'whatsapp').toLowerCase();
-    let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = '\u0648\u0627\u062a\u0633\u0627\u0628';
-    if (plat === 'telegram' || plat === 'tg') { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = '\u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645'; }
-    if (plat === 'facebook' || plat === 'fb') { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = '\u0641\u064a\u0633\u0628\u0648\u0643'; }
+    let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
+    if (plat === 'telegram' || plat === 'tg') { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تيليغرام'; }
+    if (plat === 'facebook' || plat === 'fb') { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
 
     let bubblesHtml = '';
     if (convMsgs.length === 0) {
       bubblesHtml = '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);opacity:0.5;padding:30px 0;">'
         + '<i class="' + pIcon + '" style="font-size:48px;color:' + pColor + ';opacity:0.18;"></i>'
-        + '<span style="font-size:12px;">\u0644\u0627 \u062a\u0648\u062c\u062f \u0631\u0633\u0627\u0626\u0644 \u0633\u0627\u0628\u0642\u0629</span>'
+        + '<span style="font-size:12px;">لا توجد رسائل سابقة</span>'
         + '</div>';
     } else {
       convMsgs.forEach(function(m) {
         var t = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour:'2-digit', minute:'2-digit'}) : '';
-        var safeText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
-        bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
-          + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">' + (m.senderName || '\u0645\u0633\u062a\u062e\u062f\u0645') + ' \u00b7 ' + t + '</div>'
-          + '<div style="display:flex;align-items:flex-end;gap:5px;">'
-          + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.text || '') + '</div>'
-          + '<button class="tts-speak-btn" onclick="speakText(\'' + safeText + '\', \'ar\')" title="\u0627\u0633\u062a\u0645\u0639" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">\ud83d\udd0a</button>'
-          + '</div>'
-          + '</div>';
+        
+        // Render user message or violation
+        if (m.isViolation) {
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;margin-bottom:8px;">'
+            + '<div style="font-size:9px;color:var(--red);margin-bottom:2px;direction:rtl;font-weight:700;">' + (m.senderName || 'مستخدم') + ' · ' + t + ' (مخالفة)</div>'
+            + '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12px;color:#fc8181;line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.text || '') + '</div>'
+            + '</div>';
+        } else {
+          var safeText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">' + (m.senderName || 'مستخدم') + ' · ' + t + '</div>'
+            + '<div style="display:flex;align-items:flex-end;gap:5px;">'
+            + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + formatMessageContent(m.text || '') + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeText + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">🔊</button>'
+            + '</div>'
+            + '</div>';
+        }
+
+        // Render developer replies
         if (m.replied && m.replyText) {
           var rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : '';
           var safeReply = (m.replyText || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
           bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;">'
-            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + rt + '</div>'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">المطور · ' + rt + '</div>'
             + '<div style="display:flex;align-items:flex-end;gap:5px;flex-direction:row-reverse;">'
-            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.replyText) + '</div>'
-            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeReply + '\', \'ar\')" title="\u0627\u0633\u062a\u0645\u0639" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">\ud83d\udd0a</button>'
+            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + formatMessageContent(m.replyText) + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeReply + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">🔊</button>'
             + '</div>'
             + '</div>';
         }
@@ -6826,6 +6903,7 @@
       const res = await fetch('/api/profanity-logs');
       const data = await res.json();
       const logs = data.logs || [];
+      window.profanityLogsCache = logs;
       if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
       if (logs.length === 0) {
         listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد مخالفات مسجلة حالياً. ✅</div>`;
@@ -6990,6 +7068,7 @@
       const res = await fetch('/api/ibhaya-logs');
       const data = await res.json();
       const logs = data.logs || [];
+      window.ibhayaLogsCache = logs;
       if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
       if (logs.length === 0) {
         listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد مخالفات مسجلة حالياً. ✅</div>`;
@@ -7287,7 +7366,7 @@
                 <span>${dateStr}</span>
               </div>
               <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right;">
-                ${escapeHtml(m.text || '')}
+                ${formatMessageContent(m.text || '')}
                 <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:9px; cursor:pointer; display:none; align-items:center; justify-content:center;" class="delete-msg-btn" title="حذف الرسالة">✕</button>
               </div>
             </div>`;
@@ -7300,7 +7379,7 @@
                 <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
               </div>
               <div style="background:linear-gradient(135deg, rgba(99,179,237,0.12), rgba(66,153,225,0.03)); border:1px solid rgba(99,179,237,0.25); border-radius:14px 14px 2px 14px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right;">
-                ${escapeHtml(m.replyText)}
+                ${formatMessageContent(m.replyText)}
               </div>
             </div>` : '';
 

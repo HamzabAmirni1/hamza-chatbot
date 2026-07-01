@@ -1555,13 +1555,23 @@ app.post('/api/dev-messages/reply', async (req, res) => {
       }
     }
 
-    if (!sent) {
-      const errorMsg = lastError ? (lastError.response?.data?.description || lastError.message) : 'فشل إرسال الرد للمستخدم';
-      return res.status(500).json({ ok: false, error: errorMsg });
+    // Upload media to CDN for persistence
+    let mediaUrl = null;
+    if (mediaBuffer) {
+      try {
+        const { uploadToBestProvider } = require('./lib/media');
+        mediaUrl = await uploadToBestProvider(mediaBuffer, fileName, mediaType);
+      } catch (e) {
+        console.error('[Dev Messages Reply] Media upload to CDN failed:', e.message);
+      }
     }
 
     // Mark replied in DB
-    await db.markDevMessageReplied(id, replyText);
+    const finalReplyText = mediaUrl
+      ? JSON.stringify({ text: replyText || '', mediaUrl, mediaType, mediaName, ptt: !!ptt })
+      : replyText;
+
+    await db.markDevMessageReplied(id, finalReplyText);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
@@ -2419,6 +2429,39 @@ app.post('/api/profanity/message', async (req, res) => {
     }
 
     if (!sent) return res.status(500).json({ ok: false, error: 'فشل إرسال الرسالة — تأكد من تشغيل البوت على المنصة المحددة' });
+
+    // Upload media to CDN for persistence
+    let mediaUrl = null;
+    if (mediaBuffer) {
+      try {
+        const { uploadToBestProvider } = require('./lib/media');
+        mediaUrl = await uploadToBestProvider(mediaBuffer, fileName, mediaType);
+      } catch (e) {
+        console.error('[Profanity Message] Media upload to CDN failed:', e.message);
+      }
+    }
+
+    // Save direct message to dev_messages table so it remains registered in chat history
+    try {
+      const finalReplyText = mediaUrl
+        ? JSON.stringify({ text: message || '', mediaUrl, mediaType, mediaName, ptt: !!ptt })
+        : message;
+
+      const newMsg = {
+        id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+        sender: jid,
+        senderName: 'مستخدم',
+        platform: platform,
+        text: '',
+        timestamp: new Date().toISOString()
+      };
+
+      await db.saveDevMessage(newMsg);
+      await db.markDevMessageReplied(newMsg.id, finalReplyText);
+    } catch (dbErr) {
+      console.error('[Profanity Message] Failed to save to DB:', dbErr.message);
+    }
+
     res.json({ ok: true });
   } catch (e) {
     console.error('[Profanity Msg] Error:', e.message);
