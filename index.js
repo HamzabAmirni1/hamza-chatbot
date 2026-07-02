@@ -2425,9 +2425,9 @@ app.post('/api/profanity/message', async (req, res) => {
       const cleanJid = jid.replace('fb:', '');
       for (const pageToken of pageTokens) {
         try {
-          if (mediaBuffer && isImage && typeof sendFacebookMedia === 'function') {
-            await sendFacebookMedia(cleanJid, mediaBuffer, mediaType || 'image/jpeg', pageToken);
-            if (message) await sendFacebookMessage(cleanJid, formattedMsg, pageToken);
+          if (mediaBuffer && typeof sendFacebookMedia === 'function') {
+            const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
+            await sendFacebookMedia(cleanJid, mediaBuffer, fbType, formattedMsg, pageToken);
           } else {
             await sendFacebookMessage(cleanJid, formattedMsg, pageToken);
           }
