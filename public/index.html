@@ -6868,7 +6868,7 @@
     if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
     else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
     else if (jid.includes('@')) { number = jid.split('@')[0]; }
-    if (!confirm(`هل تريد رفع الحظر عن هذا المستخدم؟\n${jid}`)) return;
+    if (!await showConfirm(`هل تريد رفع الحظر عن هذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
     try {
       const res = await fetch('/api/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
       const data = await res.json();
@@ -6983,7 +6983,7 @@
   }
 
   async function resetIbhayaWarnings(jid) {
-    if (!confirm(`إعادة ضبط تحذيرات الإباحية لهذا المستخدم؟\n${jid}`)) return;
+    if (!await showConfirm(`إعادة ضبط تحذيرات الإباحية لهذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
     try {
       const res = await fetch('/api/ibhaya/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
       const data = await res.json();
@@ -6994,7 +6994,7 @@
 
   async function sendIbhayaWarn(jid, warningsLeft) {
     const remaining = typeof warningsLeft === 'number' ? warningsLeft : '?';
-    if (!confirm(`⚠️ إرسال تحذير تلقائي لهذا المستخدم؟\n\nسيتلقى رسالة تخبره أن لديه ${remaining} تحذير متبقٍ قبل الحظر.\n\n${jid}`)) return;
+    if (!await showConfirm(`⚠️ <b>إرسال تحذير تلقائي لهذا المستخدم؟</b><br><br>سيتلقى رسالة تخبره أن لديه ${remaining} تحذير متبقٍ قبل الحظر.<br><br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
     try {
       const btn = event.target.closest('button');
       const origText = btn ? btn.innerHTML : '';
@@ -7019,7 +7019,7 @@
   }
 
   async function banIbhayaUser(jid) {
-    if (!confirm(`حظر هذا المستخدم فوراً؟\n${jid}`)) return;
+    if (!await showConfirm(`حظر هذا المستخدم فوراً؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
     try {
       const res = await fetch('/api/ibhaya/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
       const data = await res.json();
@@ -7033,7 +7033,7 @@
     if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
     else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
     else if (jid.includes('@')) { number = jid.split('@')[0]; }
-    if (!confirm(`رفع الحظر عن هذا المستخدم؟\n${jid}`)) return;
+    if (!await showConfirm(`رفع الحظر عن هذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
     try {
       const res = await fetch('/api/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
       const data = await res.json();
@@ -7535,7 +7535,7 @@
   }
 
   async function deleteDevMsg(id) {
-    if (!confirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
+    if (!await showConfirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
     try {
       const res = await fetch('/api/dev-messages/delete', {
         method: 'POST',
@@ -7555,7 +7555,7 @@
   }
 
   async function clearAllDevMessages() {
-    if (!confirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
+    if (!await showConfirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
     try {
       const res = await fetch('/api/dev-messages/clear-all', {
         method: 'POST',
