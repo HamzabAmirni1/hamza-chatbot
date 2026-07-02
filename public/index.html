@@ -6531,17 +6531,17 @@
         
         // Render user message or violation
         if (m.isViolation) {
-          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;margin-bottom:8px;">'
-            + '<div style="font-size:9px;color:var(--red);margin-bottom:2px;direction:rtl;font-weight:700;">' + (m.senderName || 'مستخدم') + ' · ' + t + ' (مخالفة)</div>'
-            + '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12px;color:#fc8181;line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.text || '') + '</div>'
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;margin-bottom:10px;">'
+            + '<div style="font-size:9px;color:var(--red);margin-bottom:4px;direction:rtl;font-weight:700;padding-left:4px;">' + (m.senderName || 'مستخدم') + ' · ' + t + ' (مخالفة)</div>'
+            + '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:13px;color:#fc8181;line-height:1.6;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;box-shadow: 0 2px 6px rgba(239,68,68,0.08);">' + escapeHtml(m.text || '') + '</div>'
             + '</div>';
         } else if (m.text) {
           var safeText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
-          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
-            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">' + (m.senderName || 'مستخدم') + ' · ' + t + '</div>'
-            + '<div style="display:flex;align-items:flex-end;gap:5px;">'
-            + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + formatMessageContent(m.text || '') + '</div>'
-            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeText + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">🔊</button>'
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;margin-bottom:10px;">'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:4px;direction:rtl;padding-left:4px;"><span style="font-weight:700;">' + (m.senderName || 'مستخدم') + '</span> · ' + t + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;">'
+            + '<div style="background:rgba(255, 255, 255, 0.04);border:1px solid rgba(255, 255, 255, 0.07);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:13px;color:var(--text-main);line-height:1.6;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;box-shadow: 0 2px 6px rgba(0,0,0,0.15);">' + formatMessageContent(m.text || '') + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeText + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>'
             + '</div>'
             + '</div>';
         }
@@ -6550,11 +6550,11 @@
         if (m.replied && m.replyText) {
           var rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : '';
           var safeReply = (m.replyText || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
-          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;">'
-            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">المطور · ' + rt + '</div>'
-            + '<div style="display:flex;align-items:flex-end;gap:5px;flex-direction:row-reverse;">'
-            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + formatMessageContent(m.replyText) + '</div>'
-            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeReply + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;">🔊</button>'
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;margin-bottom:10px;">'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:4px;direction:rtl;padding-right:4px;"><span style="font-weight:700;color:var(--accent);">المطور</span> · ' + rt + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;flex-direction:row-reverse;">'
+            + '<div style="background:linear-gradient(135deg, rgba(37, 211, 102, 0.16) 0%, rgba(18, 140, 126, 0.06) 100%);border:1px solid rgba(37, 211, 102, 0.22);border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:13px;color:var(--text-main);line-height:1.6;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;box-shadow: 0 2px 8px rgba(37,211,102,0.06);">' + formatMessageContent(m.replyText) + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeReply + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>'
             + '</div>'
             + '</div>';
         }
@@ -6619,13 +6619,13 @@
       +     '<div id="popup-audio-dur" style="font-size:9px;color:var(--text-muted);margin-top:2px;text-align:left;">0:00</div>'
       +   '</div>'
       +   '<button onclick="clearPopupMedia(\'' + jid + '\')" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;"><i class="fas fa-trash"></i></button>'
-      +   '<button onclick="sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,211,102,0.3);"><i class="fas fa-paper-plane"></i></button>'
+      +   '<button onclick="sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\',\'' + safeName + '\')" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,211,102,0.3);"><i class="fas fa-paper-plane"></i></button>'
       + '</div>'
 
       // main input row
       +   '<div id="popup-main-input-row" style="display:flex;gap:8px;align-items:flex-end;direction:ltr;">'
-      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u062f\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;direction:rtl;text-align:right;" oninput="updatePopupActionBtn(\'' + jid + '\')" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')}"></textarea>'
-      +     '<button id="popup-send-btn" onclick="handlePopupActionClick(\'' + jid + '\',\'' + platform + '\')" style="width:42px;height:42px;border-radius:50%;background:#25d366;border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;box-shadow:0 2px 8px rgba(37,211,102,0.35);transition:all 0.2s;"><i class="fas fa-microphone"></i></button>'
+      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u062f\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;direction:rtl;text-align:right;" oninput="updatePopupActionBtn(\'' + jid + '\')" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\',\'' + safeName + '\')}"></textarea>'
+      +     '<button id="popup-send-btn" onclick="handlePopupActionClick(\'' + jid + '\',\'' + platform + '\',\'' + safeName + '\')" style="width:42px;height:42px;border-radius:50%;background:#25d366;border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;box-shadow:0 2px 8px rgba(37,211,102,0.35);transition:all 0.2s;"><i class="fas fa-microphone"></i></button>'
       +   '</div>'
       +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
       +     '<input type="file" id="popup-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onPopupMediaChange(\'' + jid + '\',this)" />'
@@ -6823,7 +6823,7 @@
     }
   }
 
-  async function sendPopupChatMsg(jid, platform) {
+  async function sendPopupChatMsg(jid, platform, name) {
     var input = document.getElementById('popup-chat-input');
     var text  = input ? input.value.trim() : '';
     var file  = _popupChatFiles[jid];
@@ -6857,20 +6857,12 @@
       if (data.ok) {
         showToast('\u2705 \u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u0628\u0646\u062c\u0627\u062d!', 'success');
 
-        var chatBody = document.getElementById('popup-chat-body');
-        if (chatBody) {
-          var now = new Date().toLocaleTimeString('ar-MA', {hour:'2-digit', minute:'2-digit'});
-          var msgText = text || (file ? ('\uD83D\uDCCE ' + file.name) : '');
-          var bubble = document.createElement('div');
-          bubble.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;animation:bubble-in 0.2s ease;';
-          bubble.innerHTML = '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + now + '</div>'
-            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(msgText) + '</div>';
-          chatBody.appendChild(bubble);
-          chatBody.scrollTop = chatBody.scrollHeight;
-        }
-
         if (input) input.value = '';
         clearPopupMedia(jid);
+
+        // Reload dev messages cache and re-open modal to render playable player
+        await loadDevMessages();
+        openProfanityMsgModal(jid, platform, name);
       } else {
         showToast('\u274c \u0641\u0634\u0644: ' + (data.error || '\u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641'), 'error');
       }
@@ -7396,26 +7388,26 @@
         ${convMsgs.map(m => {
           const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
           const userBubble = m.text ? `
-            <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:85%; align-self:flex-start; position:relative;">
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted); direction:rtl;">
-                <span>${m.senderName || 'مستخدم'}</span>
-                <span>·</span>
+            <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; position:relative; margin-bottom: 4px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-left: 4px;">
+                <span style="font-weight:700;">${m.senderName || 'مستخدم'}</span>
+                <span style="opacity:0.5;">·</span>
                 <span>${dateStr}</span>
               </div>
-              <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right;">
+              <div style="background:rgba(255, 255, 255, 0.04); border:1px solid rgba(255, 255, 255, 0.07); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
                 ${formatMessageContent(m.text)}
-                <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:9px; cursor:pointer; display:none; align-items:center; justify-content:center;" class="delete-msg-btn" title="حذف الرسالة">✕</button>
+                <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف الرسالة">✕</button>
               </div>
             </div>` : '';
 
           const replyBubble = m.replied && m.replyText ? `
-            <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:85%; align-self:flex-end;">
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted); direction:rtl;">
-                <span>المطور</span>
-                <span>·</span>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:82%; align-self:flex-end; margin-bottom: 4px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-right: 4px;">
+                <span style="font-weight:700; color:var(--accent);">المطور</span>
+                <span style="opacity:0.5;">·</span>
                 <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
               </div>
-              <div style="background:linear-gradient(135deg, rgba(99,179,237,0.12), rgba(66,153,225,0.03)); border:1px solid rgba(99,179,237,0.25); border-radius:14px 14px 2px 14px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right;">
+              <div style="background:linear-gradient(135deg, rgba(37, 211, 102, 0.16) 0%, rgba(18, 140, 126, 0.06) 100%); border:1px solid rgba(37, 211, 102, 0.22); border-radius:18px 18px 4px 18px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 8px rgba(37,211,102,0.06);">
                 ${formatMessageContent(m.replyText)}
               </div>
             </div>` : '';
