@@ -1561,12 +1561,25 @@ app.post('/api/dev-messages/reply', async (req, res) => {
       mediaUrl = `data:${mediaType || 'audio/ogg'};base64,${mediaBase64}`;
     }
 
-    // Mark replied in DB
+    // Prepare final reply text format
     const finalReplyText = mediaUrl
       ? JSON.stringify({ text: replyText || '', mediaUrl, mediaType, mediaName, ptt: !!ptt })
       : replyText;
 
-    await db.markDevMessageReplied(id, finalReplyText);
+    // 1. Mark the original user message as replied (keeps conversation badges in sync)
+    await db.markDevMessageReplied(id, ""); 
+
+    // 2. Insert a brand new message row representing the developer's reply
+    const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    await db.saveDevReply({
+      id: replyId,
+      sender: msgObj.sender,
+      senderName: msgObj.senderName || msgObj.sender,
+      platform: msgObj.platform,
+      replyText: finalReplyText,
+      timestamp: new Date().toISOString()
+    });
+
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

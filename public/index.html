@@ -6535,7 +6535,7 @@
             + '<div style="font-size:9px;color:var(--red);margin-bottom:2px;direction:rtl;font-weight:700;">' + (m.senderName || 'مستخدم') + ' · ' + t + ' (مخالفة)</div>'
             + '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12px;color:#fc8181;line-height:1.5;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;">' + escapeHtml(m.text || '') + '</div>'
             + '</div>';
-        } else {
+        } else if (m.text) {
           var safeText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
           bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
             + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;direction:rtl;">' + (m.senderName || 'مستخدم') + ' · ' + t + '</div>'
@@ -7257,7 +7257,17 @@
         // Get the absolute latest message text snippet
         const sorted = [...c.messages].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         const latestMsg = sorted[0];
-        const snippet = latestMsg.text ? (latestMsg.text.length > 50 ? latestMsg.text.substring(0, 50) + '...' : latestMsg.text) : '[ملف مرفق]';
+        let snippet = '[ملف مرفق]';
+        if (latestMsg.text) {
+          snippet = latestMsg.text.length > 50 ? latestMsg.text.substring(0, 50) + '...' : latestMsg.text;
+        } else if (latestMsg.replyText) {
+          try {
+            const parsed = JSON.parse(latestMsg.replyText);
+            snippet = `الرد: ${parsed.text ? (parsed.text.length > 50 ? parsed.text.substring(0, 50) + '...' : parsed.text) : '[ملف صادر]'}`;
+          } catch(e) {
+            snippet = `الرد: ${latestMsg.replyText.length > 50 ? latestMsg.replyText.substring(0, 50) + '...' : latestMsg.replyText}`;
+          }
+        }
         const timeStr = c.latestTimestamp ? new Date(c.latestTimestamp).toLocaleDateString('ar-MA', {month:'numeric', day:'numeric'}) : '';
         const isUnread = c.messages.some(m => !m.replied);
 
@@ -7385,7 +7395,7 @@
       <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0; direction:ltr;">
         ${convMsgs.map(m => {
           const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
-          const userBubble = `
+          const userBubble = m.text ? `
             <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:85%; align-self:flex-start; position:relative;">
               <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted); direction:rtl;">
                 <span>${m.senderName || 'مستخدم'}</span>
@@ -7393,10 +7403,10 @@
                 <span>${dateStr}</span>
               </div>
               <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right;">
-                ${formatMessageContent(m.text || '')}
+                ${formatMessageContent(m.text)}
                 <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:9px; cursor:pointer; display:none; align-items:center; justify-content:center;" class="delete-msg-btn" title="حذف الرسالة">✕</button>
               </div>
-            </div>`;
+            </div>` : '';
 
           const replyBubble = m.replied && m.replyText ? `
             <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:85%; align-self:flex-end;">
