@@ -3383,8 +3383,21 @@ async function startBot(folderName, phoneNumber) {
               commandErrors[command] = (commandErrors[command] || 0) + 1;
               await db.logError(command, err.message, 'WA').catch(() => {});
             }
+          } else if (!isPrefixed && allCmds[command]) {
+            // ⚡ Dot-reminder: user typed a valid command name but forgot the leading dot
+            try { await sock.readMessages([msg.key]); } catch (_) {}
+            await sock.sendMessage(sender, {
+              text: `⚠️ *خاصك تدير النقطة (.) في أول الأمر!*\n\n` +
+                    `❌ كتبتي: \`${command}\`\n` +
+                    `✅ الصح: \`.${command}\`\n\n` +
+                    `💡 جرب دابا: \`.${command}${args.length ? ' ' + args.join(' ') : ''}\``
+            }, { quoted: msg });
+            isCommand = true;
+            continue;
           }
         }
+
+
 
         // --- PRIORITY 1: IMAGE / AUDIO / DOCUMENT (always takes full control) ---
         const ai = require('./lib/ai');
