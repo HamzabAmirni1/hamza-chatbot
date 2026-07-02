@@ -8,3 +8,9 @@ server_url.json
 baileys_auth_info
 tmp
 
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
