@@ -1200,6 +1200,15 @@ app.post('/api/unban', async (req, res) => {
     let banned = [...(global.bannedUsersCache || [])];
     banned = banned.filter(b => b !== jid && b !== cleanNum && b !== `tg:${cleanNum}` && b !== `fb:${cleanNum}`);
     await global.syncBannedList(banned);
+
+    // Also reset warning counts so the user gets 3 warnings again when unbanned
+    try {
+      await db.setCache(`profanity_warnings:${jid}`, { warnings_left: 3 });
+      await db.setCache(`ibhaya_warnings:${jid}`, { warnings_left: 3 });
+    } catch (e) {
+      console.error('[Unban Reset Cache Error]:', e.message);
+    }
+
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -2305,7 +2314,8 @@ app.get('/api/errors', async (req, res) => {
 app.get('/api/profanity-logs', async (req, res) => {
   try {
     const logs = await db.getCache('profanity_logs') || [];
-    res.json({ ok: true, logs });
+    const banned = global.bannedUsersCache || [];
+    res.json({ ok: true, logs, banned });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -2474,7 +2484,8 @@ app.post('/api/profanity/message', async (req, res) => {
 app.get('/api/ibhaya-logs', async (req, res) => {
   try {
     const logs = await db.getCache('ibhaya_logs') || [];
-    res.json({ ok: true, logs });
+    const banned = global.bannedUsersCache || [];
+    res.json({ ok: true, logs, banned });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

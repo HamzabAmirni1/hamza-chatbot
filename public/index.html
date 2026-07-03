@@ -6933,6 +6933,7 @@
       const res = await fetch('/api/profanity-logs');
       const data = await res.json();
       const logs = data.logs || [];
+      const banned = data.banned || [];
       window.profanityLogsCache = logs;
       if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
       if (logs.length === 0) {
@@ -6969,9 +6970,10 @@
             </thead>
             <tbody>
               ${users.map(u => {
+                const isBanned = banned.includes(u.jid);
                 const wLeft = u.warnings_left;
-                const wColor = wLeft <= 0 ? '#fc8181' : wLeft === 1 ? '#f6a623' : '#68d391';
-                const wLabel = wLeft <= 0 ? '🚫 محظور' : `${wLeft} / 3`;
+                const wColor = isBanned ? '#fc8181' : (wLeft === 1 ? '#f6a623' : '#68d391');
+                const wLabel = isBanned ? '🚫 محظور' : `${wLeft <= 0 ? 3 : wLeft} / 3`;
                 const ts = new Date(u.timestamp).toLocaleString('ar-MA');
                 const pkey = u.platform;
                 const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
@@ -7098,6 +7100,7 @@
       const res = await fetch('/api/ibhaya-logs');
       const data = await res.json();
       const logs = data.logs || [];
+      const banned = data.banned || [];
       window.ibhayaLogsCache = logs;
       if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
       if (logs.length === 0) {
@@ -7132,9 +7135,10 @@
             </thead>
             <tbody>
               ${users.map(u => {
+                const isBanned = banned.includes(u.jid);
                 const wLeft = u.warnings_left;
-                const wColor = wLeft <= 0 ? '#fc8181' : wLeft === 1 ? '#f6a623' : '#68d391';
-                const wLabel = wLeft <= 0 ? '🚫 محظور' : `${wLeft} / 3`;
+                const wColor = isBanned ? '#fc8181' : (wLeft === 1 ? '#f6a623' : '#68d391');
+                const wLabel = isBanned ? '🚫 محظور' : `${wLeft <= 0 ? 3 : wLeft} / 3`;
                 const ts = new Date(u.timestamp).toLocaleString('ar-MA');
                 const pkey = u.platform;
                 const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
