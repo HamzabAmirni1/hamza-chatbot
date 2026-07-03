@@ -2136,12 +2136,30 @@ app.post('/api/broadcast', async (req, res) => {
       const rows = await db.getAllUsers();
       const waSet = new Set(); const tgSet = new Set(); const fbSet = new Set();
       for (const u of rows) {
-        if (!u.jid) continue;
+        if (!u.jid || u.jid.startsWith('names:') || u.jid.startsWith('cache:')) continue;
         const plat = getPlatformFromJid(u.jid);
         const cleanId = u.jid.replace('tg:', '').replace('fb:', '');
         if (plat === 'whatsapp' && !waSet.has(u.jid)) { waSet.add(u.jid); waUsers.push(u.jid); }
         else if (plat === 'telegram' && !tgSet.has(cleanId)) { tgSet.add(cleanId); tgUsers.push(cleanId); }
         else if (plat === 'facebook' && !fbSet.has(cleanId)) { fbSet.add(cleanId); fbUsers.push({ id: cleanId }); }
+      }
+
+      // Add users from user name records to ensure we reach every single user who ever messaged
+      if (global.waNames) {
+        for (const cleanId of Object.keys(global.waNames)) {
+          const jid = cleanId.includes('@') ? cleanId : `${cleanId}@s.whatsapp.net`;
+          if (!waSet.has(jid)) { waSet.add(jid); waUsers.push(jid); }
+        }
+      }
+      if (global.tgNames) {
+        for (const cleanId of Object.keys(global.tgNames)) {
+          if (!tgSet.has(cleanId)) { tgSet.add(cleanId); tgUsers.push(cleanId); }
+        }
+      }
+      if (global.fbNames) {
+        for (const cleanId of Object.keys(global.fbNames)) {
+          if (!fbSet.has(cleanId)) { fbSet.add(cleanId); fbUsers.push({ id: cleanId }); }
+        }
       }
     } catch (e) {
       console.error('[Broadcast API] Failed to fetch users from Supabase:', e.message);
@@ -3224,13 +3242,12 @@ async function startBot(folderName, phoneNumber) {
 
         logUser(userPhoneJid || sender);
 
-        if (msg.pushName) {
-          global.waNames = global.waNames || {};
-          const cleanId = (userPhoneJid || sender).split('@')[0];
-          if (global.waNames[cleanId] !== msg.pushName) {
-            global.waNames[cleanId] = msg.pushName;
-            db.saveUserNames('whatsapp', global.waNames).catch(() => {});
-          }
+        global.waNames = global.waNames || {};
+        const cleanId = (userPhoneJid || sender).split('@')[0];
+        const pName = msg.pushName || `مستخدم واتساب (${cleanId})`;
+        if (global.waNames[cleanId] !== pName) {
+          global.waNames[cleanId] = pName;
+          db.saveUserNames('whatsapp', global.waNames).catch(() => {});
         }
 
         // Activity log for dashboard
