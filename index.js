@@ -2444,23 +2444,21 @@ app.post('/api/profanity/message', async (req, res) => {
       mediaUrl = `data:${mediaType || 'audio/ogg'};base64,${mediaBase64}`;
     }
 
-    // Save direct message to dev_messages table so it remains registered in chat history
+    // Save as a standalone dev reply row so it appears on the right side of the chat
     try {
       const finalReplyText = mediaUrl
         ? JSON.stringify({ text: message || '', mediaUrl, mediaType, mediaName, ptt: !!ptt })
         : message;
 
-      const newMsg = {
-        id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+      const replyId = 'prof_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      await db.saveDevReply({
+        id: replyId,
         sender: jid,
-        senderName: 'مستخدم',
+        senderName: 'المطور',
         platform: platform,
-        text: '',
+        replyText: finalReplyText,
         timestamp: new Date().toISOString()
-      };
-
-      await db.saveDevMessage(newMsg);
-      await db.markDevMessageReplied(newMsg.id, finalReplyText);
+      });
     } catch (dbErr) {
       console.error('[Profanity Message] Failed to save to DB:', dbErr.message);
     }

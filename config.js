@@ -148,7 +148,7 @@ const settings = {
     enableRamadanScheduler: 'false',
     enableGithubAutoPoster: 'true',
     enableAutoDL: 'true',
-    enableTTS: 'false',
+    enableTTS: 'true',
 };
 
 module.exports = settings;
