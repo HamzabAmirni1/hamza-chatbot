@@ -2563,10 +2563,11 @@ app.post('/api/ibhaya/warn', async (req, res) => {
         } catch (_) {}
       }
     } else if (jid.startsWith('fb:')) {
-      // Facebook
+      // Facebook — try all registered page tokens to find the right one
       const fbId = jid.replace('fb:', '');
       const { sendFbMessage } = require('./lib/facebook');
-      const fbTokens = [config.fbPageAccessToken].filter(Boolean);
+      const fbTokens = Object.values(global.fbPageTokens || {});
+      if (config.fbPageAccessToken && !fbTokens.includes(config.fbPageAccessToken)) fbTokens.push(config.fbPageAccessToken);
       for (const token of fbTokens) {
         try {
           await sendFbMessage(fbId, warnMsg, token);
