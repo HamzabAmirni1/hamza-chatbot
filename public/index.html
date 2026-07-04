@@ -2440,7 +2440,36 @@
           </button>
         </div>
       </div>
+    <!-- Automated Duas & Azkar Card -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(167,135,250,0.12);color:#a78bfa;"><i class="fas fa-mosque"></i></div>
+        <div class="card-title">جدولة الأدعية والأذكار التلقائية</div>
+      </div>
+      <div style="padding:20px;">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">التحكم في خدمة نشر الأذكار والأدعية اليومية التلقائية للمشتركين وتحديد ساعات النشر.</p>
+        
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;border:1px solid var(--border);">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">تفعيل الخدمة التلقائية</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">نشر الأدعية تلقائياً للمشتركين في الساعات المحددة أدناه</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="page-enableDuasScheduler" /><span class="toggle-slider"></span></label>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="font-size:13px;">ساعات النشر التلقائي (من 0 إلى 23)</label>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">أدخل أرقام الساعات مفصولة بفواصل (مثال: 9, 14, 21 لنشر 3 أدعية باليوم في التاسعة صباحاً والثانية ظهراً والتاسعة مساءً).</p>
+          <input type="text" id="page-duasHours" class="form-input" placeholder="9, 14, 21" style="direction: ltr; text-align: left; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:10px 14px; border-radius:8px; font-family:Cairo,sans-serif; font-size:13px; width:100%; height:40px;" />
+        </div>
+
+        <button class="btn btn-primary" onclick="saveDuasSchedulerPageSettings()" style="justify-content:center;margin-top:8px;">
+          <i class="fas fa-save"></i> حفظ إعدادات الأدعية
+        </button>
+      </div>
     </div>
+
+
 
 
     <!-- Command Daily Limits -->
@@ -5166,6 +5195,49 @@
         _autocompleteUsers = dataUsers.users;
       }
     } catch (e) { console.error('Error pre-loading users list:', e); }
+
+    // 3. Fetch automated duas settings for this page's card
+    try {
+      const resSettings = await fetch('/api/settings');
+      const dataSettings = await resSettings.json();
+      if (dataSettings) {
+        const isEnabled = dataSettings.enableDuasScheduler !== 'false';
+        const pageToggle = document.getElementById('page-enableDuasScheduler');
+        if (pageToggle) pageToggle.checked = isEnabled;
+        const pageHours = document.getElementById('page-duasHours');
+        if (pageHours) pageHours.value = (dataSettings.duasHours || [9, 14, 21]).join(', ');
+      }
+    } catch (e) { console.error('Error pre-loading daily duas scheduler settings:', e); }
+  }
+
+  async function saveDuasSchedulerPageSettings() {
+    try {
+      const isEnabled = document.getElementById('page-enableDuasScheduler').checked ? 'true' : 'false';
+      const hoursStr = document.getElementById('page-duasHours').value.trim();
+      const hours = hoursStr.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0 && x <= 23);
+
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enableDuasScheduler: isEnabled,
+          duasHours: hours
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('✅ تم حفظ إعدادات الأدعية والأذكار التلقائية بنجاح!', 'success');
+        // Synchronize on the main settings page toggle if it exists
+        const mainToggle = document.getElementById('s-enableDuasScheduler');
+        if (mainToggle) mainToggle.checked = (isEnabled === 'true');
+        const mainHours = document.getElementById('s-duasHours');
+        if (mainHours) mainHours.value = hours.join(', ');
+      } else {
+        showToast('❌ فشل حفظ الإعدادات: ' + (data.error || 'خطأ غير معروف'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ خطأ في الاتصال بالخادم', 'error');
+    }
   }
 
   function populateCommandSelects() {
