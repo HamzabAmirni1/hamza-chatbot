@@ -145,6 +145,7 @@ const settings = {
     trafficUrls: ['https://hamzaamirni.netlify.app'],
     enablePrayerScheduler: 'true',
     enableDuasScheduler: 'true',
+    duasHours: [9, 14, 21],
     enableRamadanScheduler: 'false',
     enableGithubAutoPoster: 'true',
     enableAutoDL: 'true',

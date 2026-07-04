@@ -2203,6 +2203,11 @@
         </div>
         <label class="toggle"><input type="checkbox" id="s-enableDuasScheduler" /><span class="toggle-slider"></span></label>
       </div>
+      <div class="form-group" style="padding: 0 10px; margin-top: 8px; margin-bottom: 16px;" id="s-duasHours-container">
+        <label class="form-label">ساعات نشر الأدعية والأذكار تلقائياً (0 إلى 23)</label>
+        <p style="font-size:11px; color:var(--text-muted); margin-bottom: 6px;">أدخل أرقام الساعات مفصولة بفواصل (مثال: 9, 14, 21 لنشر 3 أدعية باليوم في التاسعة صباحاً والثانية ظهراً والتاسعة مساءً).</p>
+        <input type="text" id="s-duasHours" class="form-input" placeholder="9, 14, 21" style="direction: ltr; text-align: left;" />
+      </div>
       <div class="toggle-row">
         <div class="toggle-info">
           <div class="toggle-title">تفعيل مجدول رمضان</div>
@@ -4903,6 +4908,7 @@
       document.getElementById('s-enableGithubAutoPoster').checked = data.enableGithubAutoPoster !== 'false';
       document.getElementById('s-enableAutoDL').checked = data.enableAutoDL !== 'false';
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
+      document.getElementById('s-duasHours').value = (data.duasHours || [9, 14, 21]).join(', ');
 
       // Stickers & Newsletters
       document.getElementById('s-packname').value = data.packname || '';
@@ -5024,6 +5030,7 @@
       enableGithubAutoPoster: document.getElementById('s-enableGithubAutoPoster').checked ? 'true' : 'false',
       enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
+      duasHours: document.getElementById('s-duasHours').value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0 && x <= 23),
 
       packname: document.getElementById('s-packname').value,
       author: document.getElementById('s-author').value,

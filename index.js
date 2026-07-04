@@ -725,7 +725,7 @@ app.post('/api/bots/toggle-pause', async (req, res) => {
 app.get('/api/settings', (req, res) => {
   try {
     const c = require('./config');
-    res.json({ ...c, apkLimit: c.apkLimit || 5 });
+    res.json({ ...c, apkLimit: c.apkLimit || 5, duasHours: c.duasHours || [7, 9, 11, 12, 17, 19, 22] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -742,7 +742,7 @@ app.post('/api/settings', (req, res) => {
       'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
       'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS'
     ];
-    const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls'];
+    const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
     for (const key of strFields) {
       if (req.body[key] !== undefined) {
         const val = String(req.body[key]).replace(/'/g, "\\'");
