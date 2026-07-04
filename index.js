@@ -783,7 +783,8 @@ app.get('/api/command-rules', async (req, res) => {
   try {
     const rateLimiter = require('./lib/rateLimiter');
     await rateLimiter.init();
-    res.json({ ok: true, rules: global.commandRulesCache, usage: global.dailyCommandUsageCache });
+    const sortedCmds = Object.keys(ALL_COMMANDS).sort();
+    res.json({ ok: true, rules: global.commandRulesCache, usage: global.dailyCommandUsageCache, commands: sortedCmds });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

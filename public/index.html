@@ -1488,6 +1488,54 @@
     .btn-pwa-close:hover {
       color: var(--red);
     }
+
+    /* Autocomplete Dropdown Styling */
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 1000;
+      margin-top: 4px;
+    }
+    .autocomplete-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border10);
+      transition: background 0.2s ease;
+    }
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+    .autocomplete-item:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .autocomplete-user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-start;
+      text-align: right;
+    }
+    .autocomplete-user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .autocomplete-user-id {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
@@ -2316,17 +2364,37 @@
   <div class="page" id="page-apk">
     <div class="page-header">
       <h1><i class="fas fa-shield-alt" style="color:#f59e0b"></i> الحدود والقواعد</h1>
-      <p>تحكم كامل في استخدام الأوامر — حدود APK، حدود يومية للأوامر، منع مستخدمين من أوامر معينة</p>
+      <p>إدارة ذكية لجميع القيود والأذونات عبر البوتات لمنع الضغط الزائد وضمان الكفاءة</p>
+    </div>
+
+    <!-- Stats summary row -->
+    <div class="grid grid-4" style="margin-bottom:20px;">
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#f59e0b;" id="stat-cmd-limits-cnt">0</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">أوامر مقيدة</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#e53e3e;" id="stat-user-bans-cnt">0</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">حظر أوامر نشط</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#9f7aea;" id="stat-user-limits-cnt">0</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">حدود مخصصة</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#10b981;" id="stat-apk-limit">5</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">حد تحميل APK</div>
+      </div>
     </div>
 
     <!-- APK Limit -->
     <div class="card" style="margin-bottom:20px;">
       <div class="card-header">
         <div class="card-icon green"><i class="fab fa-android"></i></div>
-        <div class="card-title">حد يومي لتحميل APK</div>
+        <div class="card-title">حد تحميل تطبيقات APK اليومي</div>
       </div>
       <div style="padding:20px;">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">عدد مرات تحميل تطبيقات APK المسموح به لكل مستخدم في اليوم</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">عدد مرات تحميل ملفات الـ APK المسموح به لكل مستخدم خلال 24 ساعة.</p>
         <div class="range-value" id="apk-range-value">5</div>
         <input type="range" class="range-input" id="apk-limit-range" min="1" max="20" value="5"
           oninput="document.getElementById('apk-range-value').textContent=this.value" />
@@ -2348,15 +2416,25 @@
         <div class="card-title">الحد اليومي العام لكل مستخدم</div>
       </div>
       <div style="padding:20px;">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">الحد الأقصى لعدد الأوامر التي يمكن لأي مستخدم تنفيذها يومياً عبر جميع المنصات. اجعل القيمة <b>0</b> لتعطيل هذا الحد.</p>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <input type="number" id="global-daily-limit" min="0" max="9999" value="0" placeholder="0 = بدون حد"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:14px;width:180px;">
-          <button class="btn btn-primary" onclick="saveCmdRules()" style="padding:10px 22px;"><i class="fas fa-save"></i> حفظ</button>
-          <button class="btn btn-secondary" onclick="resetAllUsage()" style="padding:10px 22px;background:rgba(229,62,62,0.12);color:#e53e3e;border-color:rgba(229,62,62,0.3);"><i class="fas fa-undo"></i> ضبط استخدام اليوم للجميع</button>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">الحد الأقصى لعدد الأوامر اليومية لكل مستخدم عبر جميع المنصات. اسحب للأقصى لتعطيل الحد تماماً.</p>
+        <div class="range-value" id="global-limit-display">بدون حد ∞</div>
+        <input type="range" class="range-input" id="global-daily-limit-range" min="0" max="100" value="0"
+          oninput="updateGlobalLimitDisplay(this.value)" />
+        <input type="hidden" id="global-daily-limit" value="0">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-top:8px;">
+          <span>بدون حد ∞</span><span>100 أمر/يوم</span>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveCmdRules()" style="justify-content:center;">
+            <i class="fas fa-save"></i> حفظ الحد
+          </button>
+          <button class="btn btn-secondary" onclick="resetAllUsage()" style="background:rgba(229,62,62,0.12);color:#e53e3e;border-color:rgba(229,62,62,0.3);">
+            <i class="fas fa-undo"></i> تصفير عدادات اليوم للجميع
+          </button>
         </div>
       </div>
     </div>
+
 
     <!-- Command Daily Limits -->
     <div class="card" style="margin-bottom:20px;">
@@ -2365,13 +2443,16 @@
         <div class="card-title">حد يومي لكل أمر <span id="cmd-limits-count" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span></div>
       </div>
       <div style="padding:20px;">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">حدد كم مرة يمكن لأي مستخدم استخدام أمر معين في اليوم الواحد (<b>0</b> = بدون حد).</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">اختر أمراً من القائمة وحدد أقصى عدد مرات مسموح للمستخدم بتنفيذه يومياً.</p>
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <input type="text" id="new-cmd-name" placeholder="اسم الأمر (مثال: ytdl)" autocomplete="off"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:monospace;font-size:13px;flex:1;min-width:150px;">
-          <input type="number" id="new-cmd-limit" min="1" max="9999" placeholder="الحد (مرات/يوم)"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;width:155px;">
-          <button class="btn btn-primary" onclick="addCmdLimit()" style="padding:10px 18px;"><i class="fas fa-plus"></i> إضافة</button>
+          <div style="flex:1;min-width:180px;">
+            <select id="new-cmd-name-select" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:monospace;font-size:13px;height:40px;">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <input type="number" id="new-cmd-limit" min="1" max="9999" placeholder="الحد (مثلاً: 5)"
+            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;width:160px;height:40px;">
+          <button class="btn btn-primary" onclick="addCmdLimit()" style="padding:10px 18px;height:40px;"><i class="fas fa-plus"></i> إضافة حد للـأمر</button>
         </div>
         <div id="cmd-limits-list">
           <div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-terminal" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا توجد حدود مضافة حتى الآن</div>
@@ -2379,52 +2460,71 @@
       </div>
     </div>
 
-    <!-- User Command Bans -->
+    <!-- User Command Bans (Redesigned with Autocomplete Search) -->
     <div class="card" style="margin-bottom:20px;">
       <div class="card-header">
         <div class="card-icon" style="background:rgba(229,62,62,0.12);color:#e53e3e;"><i class="fas fa-ban"></i></div>
         <div class="card-title">منع مستخدم من أمر معين <span id="user-bans-count" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span></div>
       </div>
       <div style="padding:20px;">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">امنع مستخدماً بعينه من استخدام أمر محدد نهائياً — يحصل على رسالة تفيد بالمنع عند كل محاولة.</p>
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <select id="ban-platform-cmd" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;">
-            <option value="">واتساب (رقم@s.whatsapp.net)</option>
-            <option value="tg:">تيليغرام (tg:chatId)</option>
-            <option value="fb:">فيسبوك (fb:userId)</option>
-          </select>
-          <input type="text" id="ban-user-jid" placeholder="رقم أو ID المستخدم" autocomplete="off"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:monospace;font-size:13px;flex:1;min-width:150px;">
-          <input type="text" id="ban-cmd-name" placeholder="الأمر (مثال: ytdl)" autocomplete="off"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:monospace;font-size:13px;width:155px;">
-          <button class="btn btn-primary" onclick="addUserCmdBan()" style="padding:10px 18px;background:rgba(229,62,62,0.85);border-color:#e53e3e;"><i class="fas fa-ban"></i> منع</button>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">ابحث عن اسم المستخدم أو رقمه لحظر تشغيله لأمر معين.</p>
+        
+        <div style="display:grid;grid-template-columns:2fr 1fr 120px;gap:12px;margin-bottom:16px;position:relative;">
+          
+          <!-- Search input with dropdown -->
+          <div style="position:relative;">
+            <input type="text" id="ban-user-search" oninput="filterUserAutocomplete('ban')" placeholder="🔍 ابحث عن اسم المستخدم أو الرقم..." autocomplete="off"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
+            <input type="hidden" id="ban-user-jid-val">
+            <div id="ban-user-autocomplete-list" class="autocomplete-dropdown hide">
+              <!-- Autocomplete suggestions injected here -->
+            </div>
+          </div>
+
+          <!-- Command dropdown -->
+          <div>
+            <select id="ban-cmd-name-select" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:monospace;font-size:13px;height:40px;">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <button class="btn btn-primary" onclick="addUserCmdBan()" style="height:40px;background:rgba(229,62,62,0.85);border-color:#e53e3e;font-weight:700;"><i class="fas fa-ban"></i> منع</button>
         </div>
+
         <div id="user-bans-list">
           <div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-check-circle" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا توجد قيود مضافة حتى الآن</div>
         </div>
       </div>
     </div>
 
-    <!-- User Custom Daily Limits -->
+    <!-- User Custom Daily Limits (Redesigned with Autocomplete Search) -->
     <div class="card" style="margin-bottom:20px;">
       <div class="card-header">
         <div class="card-icon" style="background:rgba(159,122,234,0.12);color:#9f7aea;"><i class="fas fa-user-clock"></i></div>
         <div class="card-title">حد يومي لمستخدم محدد <span id="user-limits-count" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span></div>
       </div>
       <div style="padding:20px;">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">خصص لكل مستخدم حداً يومياً مختلفاً — مثلاً VIP: 100/يوم، مستخدم عادي: 15/يوم (<b>0</b> = بدون حد خاص، سيطبق الحد العام).</p>
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <select id="ulimit-platform" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;">
-            <option value="">واتساب (رقم@s.whatsapp.net)</option>
-            <option value="tg:">تيليغرام (tg:chatId)</option>
-            <option value="fb:">فيسبوك (fb:userId)</option>
-          </select>
-          <input type="text" id="ulimit-jid" placeholder="رقم أو ID المستخدم" autocomplete="off"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:monospace;font-size:13px;flex:1;min-width:150px;">
-          <input type="number" id="ulimit-value" min="0" max="9999" placeholder="الحد يومياً"
-            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;width:155px;">
-          <button class="btn btn-primary" onclick="addUserDailyLimit()" style="padding:10px 18px;background:rgba(159,122,234,0.85);border-color:#9f7aea;"><i class="fas fa-plus"></i> إضافة</button>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">ابحث عن المستخدم وحدد الحد اليومي الإجمالي المخصص له.</p>
+        
+        <div style="display:grid;grid-template-columns:2fr 1fr 120px;gap:12px;margin-bottom:16px;position:relative;">
+          
+          <!-- Search input with dropdown -->
+          <div style="position:relative;">
+            <input type="text" id="ulimit-user-search" oninput="filterUserAutocomplete('ulimit')" placeholder="🔍 ابحث عن اسم المستخدم أو الرقم..." autocomplete="off"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
+            <input type="hidden" id="ulimit-jid-val">
+            <div id="ulimit-user-autocomplete-list" class="autocomplete-dropdown hide">
+              <!-- Autocomplete suggestions injected here -->
+            </div>
+          </div>
+
+          <!-- Limit value -->
+          <input type="number" id="ulimit-value" min="0" max="9999" placeholder="الحد (مثلاً: 25)"
+            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
+
+          <button class="btn btn-primary" onclick="addUserDailyLimit()" style="height:40px;background:rgba(159,122,234,0.85);border-color:#9f7aea;font-weight:700;"><i class="fas fa-plus"></i> إضافة</button>
         </div>
+
         <div id="user-limits-list">
           <div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-user-check" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا توجد حدود مستخدمين مضافة حتى الآن</div>
         </div>
@@ -2436,7 +2536,7 @@
       <div class="card-header" style="justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="card-icon" style="background:rgba(16,185,129,0.12);color:#10b981;"><i class="fas fa-chart-bar"></i></div>
-          <div class="card-title">استخدام اليوم</div>
+          <div class="card-title">استخدام اليوم التفصيلي</div>
         </div>
         <button class="btn btn-secondary" onclick="loadCmdLimitsPage()" style="padding:6px 14px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
       </div>
@@ -4999,24 +5099,154 @@
 
   // =================== CMD LIMITS & RULES FUNCTIONS ===================
 
-  // In-memory working copy of the rules
+  // In-memory working copy of the rules, commands, and users list
   let _cmdRules = { commandLimits: { "ytdl": 5 }, userCommandBans: {}, userDailyLimits: {}, globalUserDailyLimit: 0 };
+  let _allCmdsList = [];
+  let _autocompleteUsers = [];
+
+  // Global limit slider helper
+  function updateGlobalLimitDisplay(val) {
+    const v = parseInt(val);
+    const display = document.getElementById('global-limit-display');
+    const hidden  = document.getElementById('global-daily-limit');
+    // 0 = slider at left = unlimited; 100 = slider at right = 100 cmds/day
+    // We store 0 in hidden when slider is at 0 (= no limit)
+    if (display) display.textContent = v === 0 ? 'بدون حد ∞' : v;
+    if (hidden)  hidden.value = v;
+  }
 
   async function loadCmdLimitsPage() {
+    // 1. Fetch Rules & Today's Usage
     try {
       const res = await fetch('/api/command-rules');
       const data = await res.json();
       if (data.ok) {
         if (data.rules) {
           _cmdRules = data.rules;
-          document.getElementById('global-daily-limit').value = data.rules.globalUserDailyLimit || 0;
+          const gVal = data.rules.globalUserDailyLimit || 0;
+          const slider = document.getElementById('global-daily-limit-range');
+          if (slider) { slider.value = gVal; updateGlobalLimitDisplay(gVal); }
           renderCmdLimits();
           renderUserBans();
           renderUserLimits();
         }
+        
+        // Dynamically save all commands
+        if (data.commands) {
+          _allCmdsList = data.commands;
+          populateCommandSelects();
+        }
+
         renderTodayUsage(data.usage);
+        updateSummaryCounters();
       }
-    } catch (e) { showToast('خطأ في تحميل الإعدادات', 'error'); }
+    } catch (e) { showToast('خطأ في تحميل الإعدادات والحدود', 'error'); }
+
+    // 2. Fetch Users for Search Autocomplete
+    try {
+      const resUsers = await fetch('/api/users');
+      const dataUsers = await resUsers.json();
+      if (dataUsers.ok && dataUsers.users) {
+        _autocompleteUsers = dataUsers.users;
+      }
+    } catch (e) { console.error('Error pre-loading users list:', e); }
+  }
+
+  function populateCommandSelects() {
+    const s1 = document.getElementById('new-cmd-name-select');
+    const s2 = document.getElementById('ban-cmd-name-select');
+    if (!s1 || !s2) return;
+    
+    const optionsHtml = _allCmdsList.map(c => `<option value="${c}">.${c}</option>`).join('');
+    s1.innerHTML = optionsHtml;
+    s2.innerHTML = optionsHtml;
+  }
+
+  // Live filter users search suggestions as user types
+  function filterUserAutocomplete(type) {
+    const input = document.getElementById(type + '-user-search');
+    const list = document.getElementById(type + '-user-autocomplete-list');
+    const hiddenJid = document.getElementById(type + '-user-jid-val');
+    
+    if (!input || !list) return;
+    
+    const val = input.value.trim().toLowerCase();
+    
+    // Clear selection if they edit JID manually
+    if (hiddenJid) hiddenJid.value = '';
+
+    if (!val) {
+      list.classList.add('hide');
+      return;
+    }
+
+    const matches = _autocompleteUsers.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const jid = (u.id || '').toLowerCase();
+      return name.includes(val) || jid.includes(val);
+    }).slice(0, 10); // cap at 10 matches for neat layout
+
+    if (!matches.length) {
+      list.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted);text-align:center;">❌ لم يعثر على مستخدمين مطالعين</div>`;
+      list.classList.remove('hide');
+      return;
+    }
+
+    list.innerHTML = matches.map(u => {
+      // Build platform icon badge
+      let platformBadge = '';
+      if (u.platform === 'whatsapp') platformBadge = `<i class="fab fa-whatsapp" style="color:#10b981;" title="واتساب"></i>`;
+      else if (u.platform === 'telegram') platformBadge = `<i class="fab fa-telegram" style="color:#3b82f6;" title="تيليغرام"></i>`;
+      else if (u.platform === 'facebook') platformBadge = `<i class="fab fa-facebook" style="color:#8b5cf6;" title="فيسبوك"></i>`;
+      
+      const cleanJid = u.id; // full JID/ID
+      const displayName = u.name || 'مستخدم مجهول الاسم';
+
+      return `<div class="autocomplete-item" onclick="selectAutocompleteUser('${type}', '${cleanJid}', '${displayName.replace(/'/g, "\\'")}')">
+        <div class="autocomplete-user-info">
+          <span class="autocomplete-user-name">${displayName}</span>
+          <span class="autocomplete-user-id">${cleanJid}</span>
+        </div>
+        <div>${platformBadge}</div>
+      </div>`;
+    }).join('');
+    list.classList.remove('hide');
+  }
+
+  function selectAutocompleteUser(type, jid, name) {
+    const input = document.getElementById(type + '-user-search');
+    const list = document.getElementById(type + '-user-autocomplete-list');
+    const hiddenJid = document.getElementById(type + '-user-jid-val');
+    
+    if (input) input.value = `${name} (${jid})`;
+    if (hiddenJid) hiddenJid.value = jid;
+    if (list) list.classList.add('hide');
+  }
+
+  // Close suggestions lists when clicking elsewhere
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#ban-user-search') && !e.target.closest('#ban-user-autocomplete-list')) {
+      const list = document.getElementById('ban-user-autocomplete-list');
+      if (list) list.classList.add('hide');
+    }
+    if (!e.target.closest('#ulimit-user-search') && !e.target.closest('#ulimit-user-autocomplete-list')) {
+      const list = document.getElementById('ulimit-user-autocomplete-list');
+      if (list) list.classList.add('hide');
+    }
+  });
+
+  function updateSummaryCounters() {
+    const cmdLimCount = Object.keys(_cmdRules.commandLimits || {}).length;
+    const userBanCount = Object.entries(_cmdRules.userCommandBans || {}).flatMap(([_, cmds]) => cmds).length;
+    const customLimCount = Object.keys(_cmdRules.userDailyLimits || {}).length;
+
+    const el1 = document.getElementById('stat-cmd-limits-cnt');
+    const el2 = document.getElementById('stat-user-bans-cnt');
+    const el3 = document.getElementById('stat-user-limits-cnt');
+
+    if (el1) el1.textContent = cmdLimCount;
+    if (el2) el2.textContent = userBanCount;
+    if (el3) el3.textContent = customLimCount;
   }
 
   function renderCmdLimits() {
@@ -5107,35 +5337,50 @@
   }
 
   function addCmdLimit() {
-    const cmd = document.getElementById('new-cmd-name').value.trim().toLowerCase().replace(/^\./, '');
+    const cmd = document.getElementById('new-cmd-name-select').value;
     const limit = parseInt(document.getElementById('new-cmd-limit').value);
-    if (!cmd) return showToast('يرجى إدخال اسم الأمر', 'error');
+    if (!cmd) return showToast('يرجى اختيار الأمر أولاً', 'error');
     if (!limit || limit < 1) return showToast('يرجى إدخال حد صحيح أكبر من 0', 'error');
+    
     _cmdRules.commandLimits[cmd] = limit;
-    document.getElementById('new-cmd-name').value = '';
     document.getElementById('new-cmd-limit').value = '';
     renderCmdLimits();
+    updateSummaryCounters();
     saveCmdRules();
   }
 
   function removeCmdLimit(cmd) {
     delete _cmdRules.commandLimits[cmd];
     renderCmdLimits();
+    updateSummaryCounters();
     saveCmdRules();
   }
 
   function addUserCmdBan() {
-    const prefix = document.getElementById('ban-platform-cmd').value;
-    const rawJid = document.getElementById('ban-user-jid').value.trim();
-    const cmd = document.getElementById('ban-cmd-name').value.trim().toLowerCase().replace(/^\./, '');
-    if (!rawJid) return showToast('يرجى إدخال رقم أو ID المستخدم', 'error');
-    if (!cmd) return showToast('يرجى إدخال اسم الأمر', 'error');
-    const jid = prefix + rawJid + (prefix === '' && !rawJid.includes('@') ? '@s.whatsapp.net' : '');
+    const jid = document.getElementById('ban-user-jid-val').value;
+    const cmd = document.getElementById('ban-cmd-name-select').value;
+    
+    if (!jid) {
+      // Fallback to text box content if they typed but didn't click suggestion
+      const typed = document.getElementById('ban-user-search').value.trim();
+      if (!typed) return showToast('يرجى البحث واختيار المستخدم', 'error');
+      // If it contains parenthesized ID, extract it
+      const match = typed.match(/\(([^)]+)\)$/);
+      const extractedJid = match ? match[1] : typed;
+      document.getElementById('ban-user-jid-val').value = extractedJid;
+      return addUserCmdBan();
+    }
+    
+    if (!cmd) return showToast('يرجى اختيار الأمر الممنوع', 'error');
+    
     if (!_cmdRules.userCommandBans[jid]) _cmdRules.userCommandBans[jid] = [];
     if (!_cmdRules.userCommandBans[jid].includes(cmd)) _cmdRules.userCommandBans[jid].push(cmd);
-    document.getElementById('ban-user-jid').value = '';
-    document.getElementById('ban-cmd-name').value = '';
+    
+    document.getElementById('ban-user-search').value = '';
+    document.getElementById('ban-user-jid-val').value = '';
+    
     renderUserBans();
+    updateSummaryCounters();
     saveCmdRules();
   }
 
@@ -5145,26 +5390,40 @@
       if (!_cmdRules.userCommandBans[jid].length) delete _cmdRules.userCommandBans[jid];
     }
     renderUserBans();
+    updateSummaryCounters();
     saveCmdRules();
   }
 
   function addUserDailyLimit() {
-    const prefix = document.getElementById('ulimit-platform').value;
-    const rawJid = document.getElementById('ulimit-jid').value.trim();
+    const jid = document.getElementById('ulimit-jid-val').value;
     const limit = parseInt(document.getElementById('ulimit-value').value);
-    if (!rawJid) return showToast('يرجى إدخال رقم أو ID المستخدم', 'error');
+    
+    if (!jid) {
+      // Fallback
+      const typed = document.getElementById('ulimit-user-search').value.trim();
+      if (!typed) return showToast('يرجى البحث واختيار المستخدم', 'error');
+      const match = typed.match(/\(([^)]+)\)$/);
+      const extractedJid = match ? match[1] : typed;
+      document.getElementById('ulimit-jid-val').value = extractedJid;
+      return addUserDailyLimit();
+    }
+    
     if (isNaN(limit) || limit < 0) return showToast('يرجى إدخال قيمة صحيحة (0 أو أكثر)', 'error');
-    const jid = prefix + rawJid + (prefix === '' && !rawJid.includes('@') ? '@s.whatsapp.net' : '');
+    
     _cmdRules.userDailyLimits[jid] = limit;
-    document.getElementById('ulimit-jid').value = '';
+    document.getElementById('ulimit-user-search').value = '';
+    document.getElementById('ulimit-jid-val').value = '';
     document.getElementById('ulimit-value').value = '';
+    
     renderUserLimits();
+    updateSummaryCounters();
     saveCmdRules();
   }
 
   function removeUserLimit(jid) {
     delete _cmdRules.userDailyLimits[jid];
     renderUserLimits();
+    updateSummaryCounters();
     saveCmdRules();
   }
 
@@ -5204,7 +5463,10 @@
         body: JSON.stringify(_cmdRules)
       });
       const data = await res.json();
-      if (data.ok) showToast('✅ تم حفظ الإعدادات بنجاح', 'success');
+      if (data.ok) {
+        showToast('✅ تم حفظ الإعدادات بنجاح', 'success');
+        updateSummaryCounters();
+      }
       else showToast('❌ فشل الحفظ: ' + data.error, 'error');
     } catch (e) { showToast('خطأ في الاتصال', 'error'); }
   }
