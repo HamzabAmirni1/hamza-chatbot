@@ -779,6 +779,64 @@ app.post('/api/apk-limit', (req, res) => {
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
+app.get('/api/command-rules', async (req, res) => {
+  try {
+    const rateLimiter = require('./lib/rateLimiter');
+    await rateLimiter.init();
+    res.json({ ok: true, rules: global.commandRulesCache, usage: global.dailyCommandUsageCache });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/command-rules', async (req, res) => {
+  try {
+    const rules = req.body;
+    if (!rules || typeof rules !== 'object') {
+      return res.status(400).json({ ok: false, error: 'بيانات غير صالحة' });
+    }
+    
+    global.commandRulesCache = {
+      commandLimits: rules.commandLimits || {},
+      userCommandBans: rules.userCommandBans || {},
+      userDailyLimits: rules.userDailyLimits || {},
+      globalUserDailyLimit: parseInt(rules.globalUserDailyLimit) || 0
+    };
+
+    const success = await db.setCache('command_rules', global.commandRulesCache);
+    if (!success) throw new Error('فشل الحفظ في قاعدة البيانات');
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/command-rules/reset-usage', async (req, res) => {
+  try {
+    const { jid } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    
+    const rateLimiter = require('./lib/rateLimiter');
+    await rateLimiter.init();
+
+    if (jid) {
+      if (global.dailyCommandUsageCache.users[jid]) {
+        delete global.dailyCommandUsageCache.users[jid];
+      }
+    } else {
+      global.dailyCommandUsageCache.users = {};
+    }
+
+    const success = await db.setCache(`daily_usage:${today}`, global.dailyCommandUsageCache);
+    if (!success) throw new Error('فشل الحفظ في قاعدة البيانات');
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.post('/api/pair', async (req, res) => {
   try {
     const { number } = req.body;
@@ -3390,6 +3448,16 @@ async function startBot(folderName, phoneNumber) {
           if (isPrefixed && allCmds[command]) {
             try {
               try { await sock.readMessages([msg.key]); } catch (_) {}
+              
+              // 🛡️ Limit & Rules check
+              const rateLimiter = require('./lib/rateLimiter');
+              const limitCheck = await rateLimiter.checkLimit(sender, command);
+              if (!limitCheck.allowed) {
+                await sock.sendMessage(sender, { text: limitCheck.message }, { quoted: msg });
+                isCommand = true;
+                continue;
+              }
+
               const cmdFile = require(`./commands/${allCmds[command]}`);
               await cmdFile(sock, sender, msg, args, { 
                 getAutoGPTResponse, addToHistory, delayPromise, getUptime, 
@@ -3399,6 +3467,10 @@ async function startBot(folderName, phoneNumber) {
               isCommand = true;
               commandUsage[command] = (commandUsage[command] || 0) + 1;
               activeUsers.add(sender);
+
+              // Increment usage counter on success
+              await rateLimiter.incrementUsage(sender, command);
+
               // Log activity for dashboard
               if (!global._activityLog) global._activityLog = [];
               global._activityLog.unshift({ time: Date.now(), cmd: command, user: sender, chat: sender });
@@ -3710,6 +3782,15 @@ async function startBot(folderName, phoneNumber) {
     }
   } catch (e) {
     console.error(chalk.yellow('[Startup] Could not load paused bots config:', e.message));
+  }
+
+  // Load rules & limits for Rate Limiter
+  try {
+    const rateLimiter = require('./lib/rateLimiter');
+    await rateLimiter.init();
+    console.log(chalk.green('🛡️ Rate Limiter rules & limits initialized.'));
+  } catch (e) {
+    console.error(chalk.yellow('[Startup] Could not initialize Rate Limiter:', e.message));
   }
   
   // 1. WhatsApp Bots
