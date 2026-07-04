@@ -1694,9 +1694,7 @@
     <a class="nav-item" onclick="showPage('contacts'); closeSidebarOnMobile()" id="nav-contacts">
       <i class="fas fa-address-book" style="color:#a78bfa;"></i> <span>جهات الاتصال</span>
     </a>
-    <a class="nav-item" onclick="showPage('cmdlimits'); closeSidebarOnMobile()" id="nav-cmdlimits" style="background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(245,158,11,0.04));border:1px solid rgba(251,191,36,0.18) !important;">
-      <i class="fas fa-shield-alt" style="color:#f59e0b;"></i> <span style="color:#f59e0b;">حدود الأوامر والقواعد</span>
-    </a>
+
   </nav>
 
   <div style="margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
@@ -2440,6 +2438,7 @@
           </button>
         </div>
       </div>
+    </div>
     <!-- Automated Duas & Azkar Card -->
     <div class="card" style="margin-bottom:20px;">
       <div class="card-header">
@@ -4255,7 +4254,17 @@
     else if (page === 'ibhaya') { await loadIbhayaWords(); await loadIbhayaLogs(); }
     else if (page === 'banned') await loadBannedUsers();
     else if (page === 'leaderboard') await loadLeaderboard();
-    else if (page === 'apk') await loadCmdLimitsPage();
+    else if (page === 'apk' || page === 'cmdlimits') {
+      // Both 'apk' and 'cmdlimits' show the redesigned page-apk
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const apkPage = document.getElementById('page-apk');
+      if (apkPage) apkPage.classList.add('active');
+      const apkNav = document.getElementById('nav-apk');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      if (apkNav) apkNav.classList.add('active');
+      localStorage.setItem('active_page', 'apk');
+      await loadCmdLimitsPage();
+    }
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
