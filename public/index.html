@@ -5000,7 +5000,7 @@
   // =================== CMD LIMITS & RULES FUNCTIONS ===================
 
   // In-memory working copy of the rules
-  let _cmdRules = { commandLimits: {}, userCommandBans: {}, userDailyLimits: {}, globalUserDailyLimit: 0 };
+  let _cmdRules = { commandLimits: { "ytdl": 5 }, userCommandBans: {}, userDailyLimits: {}, globalUserDailyLimit: 0 };
 
   async function loadCmdLimitsPage() {
     try {
