@@ -2444,11 +2444,15 @@
       </div>
       <div style="padding:20px;">
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">اختر أمراً من القائمة وحدد أقصى عدد مرات مسموح للمستخدم بتنفيذه يومياً.</p>
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:180px;">
-            <select id="new-cmd-name-select" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:monospace;font-size:13px;height:40px;">
-              <!-- Populated dynamically -->
-            </select>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;position:relative;">
+          <!-- Command search input with autocomplete -->
+          <div style="flex:1;min-width:180px;position:relative;">
+            <input type="text" id="new-cmd-search" oninput="filterCmdAutocomplete('new')" onfocus="filterCmdAutocomplete('new')" placeholder="🔍 ابحث عن الأمر (مثال: ytdl)..." autocomplete="off"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
+            <input type="hidden" id="new-cmd-val">
+            <div id="new-cmd-autocomplete-list" class="autocomplete-dropdown hide">
+              <!-- Autocomplete suggestions injected here -->
+            </div>
           </div>
           <input type="number" id="new-cmd-limit" min="1" max="9999" placeholder="الحد (مثلاً: 5)"
             style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;width:160px;height:40px;">
@@ -2473,7 +2477,7 @@
           
           <!-- Search input with dropdown -->
           <div style="position:relative;">
-            <input type="text" id="ban-user-search" oninput="filterUserAutocomplete('ban')" placeholder="🔍 ابحث عن اسم المستخدم أو الرقم..." autocomplete="off"
+            <input type="text" id="ban-user-search" oninput="filterUserAutocomplete('ban')" onfocus="filterUserAutocomplete('ban')" placeholder="🔍 ابحث عن اسم المستخدم أو الرقم..." autocomplete="off"
               style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
             <input type="hidden" id="ban-user-jid-val">
             <div id="ban-user-autocomplete-list" class="autocomplete-dropdown hide">
@@ -2481,11 +2485,14 @@
             </div>
           </div>
 
-          <!-- Command dropdown -->
-          <div>
-            <select id="ban-cmd-name-select" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:monospace;font-size:13px;height:40px;">
-              <!-- Populated dynamically -->
-            </select>
+          <!-- Command autocomplete search -->
+          <div style="position:relative;">
+            <input type="text" id="ban-cmd-search" oninput="filterCmdAutocomplete('ban')" onfocus="filterCmdAutocomplete('ban')" placeholder="🔍 ابحث عن الأمر..." autocomplete="off"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
+            <input type="hidden" id="ban-cmd-val">
+            <div id="ban-cmd-autocomplete-list" class="autocomplete-dropdown hide">
+              <!-- Autocomplete suggestions injected here -->
+            </div>
           </div>
 
           <button class="btn btn-primary" onclick="addUserCmdBan()" style="height:40px;background:rgba(229,62,62,0.85);border-color:#e53e3e;font-weight:700;"><i class="fas fa-ban"></i> منع</button>
@@ -2510,7 +2517,7 @@
           
           <!-- Search input with dropdown -->
           <div style="position:relative;">
-            <input type="text" id="ulimit-user-search" oninput="filterUserAutocomplete('ulimit')" placeholder="🔍 ابحث عن اسم المستخدم أو الرقم..." autocomplete="off"
+            <input type="text" id="ulimit-user-search" oninput="filterUserAutocomplete('ulimit')" onfocus="filterUserAutocomplete('ulimit')" placeholder="🔍 ابحث عن اسم المستخدم أو الرقم..." autocomplete="off"
               style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;height:40px;">
             <input type="hidden" id="ulimit-jid-val">
             <div id="ulimit-user-autocomplete-list" class="autocomplete-dropdown hide">
@@ -5153,13 +5160,100 @@
   }
 
   function populateCommandSelects() {
-    const s1 = document.getElementById('new-cmd-name-select');
-    const s2 = document.getElementById('ban-cmd-name-select');
-    if (!s1 || !s2) return;
+    // Left empty since we transitioned to command autocomplete search input
+  }
+
+  // Redesigned: displays user's name, platform icon/badge, and JID/ID cleanly
+  function getUserDisplayHtml(jid) {
+    if (!jid) return '';
+    const user = _autocompleteUsers.find(u => u.id === jid);
+    let name = 'مستخدم مجهول';
+    let platform = 'whatsapp';
+    if (user) {
+      name = user.name || 'مستخدم مجهول';
+      platform = user.platform || 'whatsapp';
+    } else {
+      // Guess platform from jid prefix
+      if (jid.startsWith('tg:')) {
+        platform = 'telegram';
+        name = 'تيليغرام: ' + jid.replace('tg:', '');
+      } else if (jid.startsWith('fb:')) {
+        platform = 'facebook';
+        name = 'فيسبوك: ' + jid.replace('fb:', '');
+      } else {
+        platform = 'whatsapp';
+        name = jid;
+      }
+    }
     
-    const optionsHtml = _allCmdsList.map(c => `<option value="${c}">.${c}</option>`).join('');
-    s1.innerHTML = optionsHtml;
-    s2.innerHTML = optionsHtml;
+    // Platform icon & badge styling
+    let badgeColor = '#10b981';
+    let platformIcon = 'fab fa-whatsapp';
+    let platformText = 'واتساب';
+    if (platform === 'telegram') {
+      badgeColor = '#3b82f6';
+      platformIcon = 'fab fa-telegram';
+      platformText = 'تيليغرام';
+    } else if (platform === 'facebook') {
+      badgeColor = '#8b5cf6';
+      platformIcon = 'fab fa-facebook';
+      platformText = 'فيسبوك';
+    }
+
+    return `
+      <div style="display:flex;align-items:center;gap:10px;text-align:right;">
+        <span style="background:rgba(255,255,255,0.04);border:1px solid var(--border);padding:4px 8px;border-radius:12px;font-size:11px;color:${badgeColor};font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
+          <i class="${platformIcon}"></i> ${platformText}
+        </span>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;">
+          <span style="font-size:13px;font-weight:600;color:var(--text);">${name}</span>
+          <span style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-top:1px;">${jid}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Live filter commands search suggestions as user types
+  function filterCmdAutocomplete(type) {
+    const input = document.getElementById(type + '-cmd-search');
+    const list = document.getElementById(type + '-cmd-autocomplete-list');
+    const hiddenVal = document.getElementById(type + '-cmd-val');
+    
+    if (!input || !list) return;
+    
+    const val = input.value.trim().toLowerCase().replace(/^\./, '');
+    
+    if (hiddenVal) hiddenVal.value = '';
+
+    // If input is empty, show all commands sorted alphabetically
+    let matches = _allCmdsList;
+    if (val) {
+      matches = _allCmdsList.filter(c => c.toLowerCase().includes(val));
+    }
+    matches = matches.sort().slice(0, 15); // Cap at 15 matches for a clean layout
+
+    if (!matches.length) {
+      list.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted);text-align:center;">❌ لا توجد أوامر مطابقة</div>`;
+      list.classList.remove('hide');
+      return;
+    }
+
+    list.innerHTML = matches.map(c => {
+      return `<div class="autocomplete-item" onclick="selectAutocompleteCmd('${type}', '${c}')" style="padding:8px 12px;">
+        <span style="font-family:monospace;font-size:13px;font-weight:600;color:#63b3ed;">.${c}</span>
+      </div>`;
+    }).join('');
+    list.classList.remove('hide');
+  }
+
+  function selectAutocompleteCmd(type, cmd) {
+    const input = document.getElementById(type + '-cmd-search');
+    const list = document.getElementById(type + '-cmd-autocomplete-list');
+    const hiddenVal = document.getElementById(type + '-cmd-val');
+    
+    if (input) input.value = `.${cmd}`;
+    if (hiddenVal) hiddenVal.value = cmd;
+    if (list) list.classList.add('hide');
   }
 
   // Live filter users search suggestions as user types
@@ -5175,19 +5269,19 @@
     // Clear selection if they edit JID manually
     if (hiddenJid) hiddenJid.value = '';
 
-    if (!val) {
-      list.classList.add('hide');
-      return;
+    // If input is empty, show first 10 users from list
+    let matches = _autocompleteUsers;
+    if (val) {
+      matches = _autocompleteUsers.filter(u => {
+        const name = (u.name || '').toLowerCase();
+        const jid = (u.id || '').toLowerCase();
+        return name.includes(val) || jid.includes(val);
+      });
     }
-
-    const matches = _autocompleteUsers.filter(u => {
-      const name = (u.name || '').toLowerCase();
-      const jid = (u.id || '').toLowerCase();
-      return name.includes(val) || jid.includes(val);
-    }).slice(0, 10); // cap at 10 matches for neat layout
+    matches = matches.slice(0, 10); // cap at 10 matches for neat layout
 
     if (!matches.length) {
-      list.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted);text-align:center;">❌ لم يعثر على مستخدمين مطالعين</div>`;
+      list.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted);text-align:center;">❌ لم يعثر على مستخدمين</div>`;
       list.classList.remove('hide');
       return;
     }
@@ -5225,14 +5319,19 @@
 
   // Close suggestions lists when clicking elsewhere
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('#ban-user-search') && !e.target.closest('#ban-user-autocomplete-list')) {
-      const list = document.getElementById('ban-user-autocomplete-list');
-      if (list) list.classList.add('hide');
-    }
-    if (!e.target.closest('#ulimit-user-search') && !e.target.closest('#ulimit-user-autocomplete-list')) {
-      const list = document.getElementById('ulimit-user-autocomplete-list');
-      if (list) list.classList.add('hide');
-    }
+    const autocompleteSystems = [
+      { input: 'ban-user-search', list: 'ban-user-autocomplete-list' },
+      { input: 'ulimit-user-search', list: 'ulimit-user-autocomplete-list' },
+      { input: 'new-cmd-search', list: 'new-cmd-autocomplete-list' },
+      { input: 'ban-cmd-search', list: 'ban-cmd-autocomplete-list' }
+    ];
+    
+    autocompleteSystems.forEach(sys => {
+      const list = document.getElementById(sys.list);
+      if (list && !e.target.closest('#' + sys.input) && !e.target.closest('#' + sys.list)) {
+        list.classList.add('hide');
+      }
+    });
   });
 
   function updateSummaryCounters() {
@@ -5281,10 +5380,10 @@
     }
     list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
       <thead><tr style="border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:right;">
-        <th style="padding:8px 12px;">المستخدم (JID)</th><th style="padding:8px 12px;">الأمر الممنوع</th><th style="padding:8px 12px;">إجراء</th>
+        <th style="padding:8px 12px;">المستخدم</th><th style="padding:8px 12px;">الأمر الممنوع</th><th style="padding:8px 12px;">إجراء</th>
       </tr></thead><tbody>
       ${entries.map(({ jid, cmd }) => `<tr style="border-bottom:1px solid var(--border10);">
-        <td style="padding:10px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${jid}</td>
+        <td style="padding:10px 12px;">${getUserDisplayHtml(jid)}</td>
         <td style="padding:10px 12px;"><span style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:3px 10px;border-radius:20px;font-weight:700;">.${cmd}</span></td>
         <td style="padding:10px 12px;"><button onclick="removeUserBan('${jid}','${cmd}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-trash"></i></button></td>
       </tr>`).join('')}
@@ -5302,10 +5401,10 @@
     }
     list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
       <thead><tr style="border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:right;">
-        <th style="padding:8px 12px;">المستخدم (JID)</th><th style="padding:8px 12px;">الحد اليومي</th><th style="padding:8px 12px;">إجراءات</th>
+        <th style="padding:8px 12px;">المستخدم</th><th style="padding:8px 12px;">الحد اليومي</th><th style="padding:8px 12px;">إجراءات</th>
       </tr></thead><tbody>
       ${keys.map(jid => `<tr style="border-bottom:1px solid var(--border10);">
-        <td style="padding:10px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${jid}</td>
+        <td style="padding:10px 12px;">${getUserDisplayHtml(jid)}</td>
         <td style="padding:10px 12px;"><span style="background:rgba(159,122,234,0.12);color:#9f7aea;padding:3px 10px;border-radius:20px;font-weight:700;">${limits[jid]} / يوم</span></td>
         <td style="padding:10px 12px;display:flex;gap:6px;">
           <button onclick="removeUserLimit('${jid}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-trash"></i></button>
@@ -5328,7 +5427,7 @@
         <th style="padding:8px 12px;">المستخدم</th><th style="padding:8px 12px;">الإجمالي</th><th style="padding:8px 12px;">تفاصيل الأوامر</th><th style="padding:8px 12px;">إعادة ضبط</th>
       </tr></thead><tbody>
       ${users.map(([jid, info]) => `<tr style="border-bottom:1px solid var(--border10);">
-        <td style="padding:10px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);">${jid}</td>
+        <td style="padding:10px 12px;">${getUserDisplayHtml(jid)}</td>
         <td style="padding:10px 12px;"><span style="background:rgba(16,185,129,0.12);color:#10b981;padding:3px 10px;border-radius:20px;font-weight:700;">${info.total}</span></td>
         <td style="padding:10px 12px;font-size:12px;">${Object.entries(info.commands || {}).map(([c,n]) => `<span style="background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:12px;margin:2px;display:inline-block;">.${c} ×${n}</span>`).join('')}</td>
         <td style="padding:10px 12px;"><button onclick="resetUserUsage('${jid}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-undo"></i></button></td>
@@ -5337,12 +5436,18 @@
   }
 
   function addCmdLimit() {
-    const cmd = document.getElementById('new-cmd-name-select').value;
+    let cmd = document.getElementById('new-cmd-val').value;
+    if (!cmd) {
+      const typed = document.getElementById('new-cmd-search').value.trim();
+      cmd = typed.replace(/^\./, '');
+    }
     const limit = parseInt(document.getElementById('new-cmd-limit').value);
-    if (!cmd) return showToast('يرجى اختيار الأمر أولاً', 'error');
+    if (!cmd) return showToast('يرجى اختيار أو كتابة الأمر أولاً', 'error');
     if (!limit || limit < 1) return showToast('يرجى إدخال حد صحيح أكبر من 0', 'error');
     
     _cmdRules.commandLimits[cmd] = limit;
+    document.getElementById('new-cmd-search').value = '';
+    document.getElementById('new-cmd-val').value = '';
     document.getElementById('new-cmd-limit').value = '';
     renderCmdLimits();
     updateSummaryCounters();
@@ -5358,7 +5463,11 @@
 
   function addUserCmdBan() {
     const jid = document.getElementById('ban-user-jid-val').value;
-    const cmd = document.getElementById('ban-cmd-name-select').value;
+    let cmd = document.getElementById('ban-cmd-val').value;
+    if (!cmd) {
+      const typed = document.getElementById('ban-cmd-search').value.trim();
+      cmd = typed.replace(/^\./, '');
+    }
     
     if (!jid) {
       // Fallback to text box content if they typed but didn't click suggestion
@@ -5371,13 +5480,15 @@
       return addUserCmdBan();
     }
     
-    if (!cmd) return showToast('يرجى اختيار الأمر الممنوع', 'error');
+    if (!cmd) return showToast('يرجى اختيار أو كتابة الأمر الممنوع', 'error');
     
     if (!_cmdRules.userCommandBans[jid]) _cmdRules.userCommandBans[jid] = [];
     if (!_cmdRules.userCommandBans[jid].includes(cmd)) _cmdRules.userCommandBans[jid].push(cmd);
     
     document.getElementById('ban-user-search').value = '';
     document.getElementById('ban-user-jid-val').value = '';
+    document.getElementById('ban-cmd-search').value = '';
+    document.getElementById('ban-cmd-val').value = '';
     
     renderUserBans();
     updateSummaryCounters();
