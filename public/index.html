@@ -9134,13 +9134,29 @@
       
       if (data && data.ok && data.message) {
         const msg = data.message;
-        const cleanedBody = msg.textBody || msg.body || 'لا توجد تفاصيل';
+        let cleanedBody = 'لا توجد تفاصيل';
+        if (msg.textBody) {
+          cleanedBody = msg.textBody;
+        } else if (msg.body) {
+          if (typeof msg.body === 'object') {
+            cleanedBody = msg.body.text || msg.body.html || 'لا توجد تفاصيل';
+          } else {
+            cleanedBody = msg.body;
+          }
+        }
+        
+        let displayDate = msg.date || '';
+        try {
+          if (msg.date) {
+            displayDate = new Date(msg.date).toLocaleString('ar-MA');
+          }
+        } catch(e) {}
         
         viewer.innerHTML = `
           <div style="border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:12px; direction:rtl; text-align:right;">
             <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
               <span><strong>من:</strong> ${escapeHtml(msg.from)}</span>
-              <span><strong>التاريخ:</strong> ${escapeHtml(msg.date)}</span>
+              <span><strong>التاريخ:</strong> ${escapeHtml(displayDate)}</span>
             </div>
             <div style="font-size:13px; font-weight:700; color:var(--accent); margin-top:6px;"><strong>الموضوع:</strong> ${escapeHtml(msg.subject || 'بدون موضوع')}</div>
           </div>
