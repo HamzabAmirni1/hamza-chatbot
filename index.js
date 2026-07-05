@@ -3527,36 +3527,69 @@ async function startBot(folderName, phoneNumber) {
         const isRawVideo = type === "videoMessage";
         const isMediaMsg = msg.message?.imageMessage || msg.message?.documentMessage;
 
-        if (isMediaMsg) {
-          // Image received → silently save to context history; do NOT auto-analyze or reply
-          try {
-            if (msg.message.imageMessage) {
-              const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
-                msg.message.imageMessage, 'image'
-              );
-              let buffer = Buffer.from([]);
-              for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-              if (buffer && buffer.length > 0) {
-                try { await addToHistory(sender, "user", body || "[Image]", { buffer, mime: 'image/jpeg' }); } catch (_) {}
+        if (isMediaMsg || isRawImage || isRawVideo) {
+          const isImg = msg.message?.imageMessage || isRawImage || (msg.message?.documentMessage?.mimetype?.startsWith('image/') || msg.message?.documentWithCaptionMessage?.message?.imageMessage);
+          
+          if (isImg) {
+            try {
+              let buffer = null;
+              if (msg.message?.imageMessage) {
+                const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(
+                  msg.message.imageMessage, 'image'
+                );
+                buffer = Buffer.from([]);
+                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+              } else {
+                buffer = await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) });
               }
-            }
-          } catch (mediaErr) {
-            const isConnClosed = mediaErr?.output?.statusCode === 428 || mediaErr?.message?.includes('Connection Closed');
-            if (!isConnClosed) console.error('[Media Save Error]:', mediaErr.message);
-          }
-          continue; // ← HARD STOP: never fall through to NLC or text AI
-        }
 
-        if (isRawImage || isRawVideo) {
-          // Fallback: imageMessage/videoMessage — silently save to context history
-          try {
-            if (isRawImage) {
-              const buffer = await downloadMediaMessage(msg, "buffer", {}, { logger: pino({ level: "silent" }) });
               if (buffer && buffer.length > 0) {
-                try { await addToHistory(sender, "user", body || "[Image]", { buffer, mime: 'image/jpeg' }); } catch (_) {}
+                const mime = msg.message?.imageMessage?.mimetype || msg.message?.documentMessage?.mimetype || 'image/jpeg';
+                // Save to history
+                try { await addToHistory(sender, "user", body || "[Image]", { buffer, mime }); } catch (_) {}
+
+                const chatbotEnabled = require('./config').enableChatbot !== 'false';
+                if (chatbotEnabled && !isCommand) {
+                  let shouldReply = !isGroup;
+                  if (isGroup) {
+                    const botNumber = sock.user.id.split(':')[0].split('@')[0];
+                    const botJid = `${botNumber}@s.whatsapp.net`;
+                    const msgContent = msg.message?.[type];
+                    const contextInfo = msgContent?.contextInfo || msg.message?.extendedTextMessage?.contextInfo;
+                    const mentions = contextInfo?.mentionedJid || [];
+                    const isMentioned = mentions.includes(botJid) || (body && body.includes(`@${botNumber}`));
+                    const isReplyToBot = contextInfo?.quotedMessage && contextInfo?.participant?.split(':')[0] === botNumber;
+                    
+                    if (config.enableGroupChatbot === 'true' || isMentioned || isReplyToBot) {
+                      shouldReply = true;
+                    }
+                  }
+
+                  if (shouldReply) {
+                    try { await sock.readMessages([msg.key]); } catch (_) {}
+                    await sock.sendPresenceUpdate("composing", sender);
+                    
+                    const finalPrompt = body || "ماذا يوجد في هذه الصورة؟ اشرح بالتفصيل باللغة العربية أو الدارجة المغربية.";
+                    const replyText = await ai.analyzeImage(buffer, mime, finalPrompt);
+                    if (replyText) {
+                      await sock.sendMessage(sender, { text: replyText }, { quoted: msg });
+                      try { await addToHistory(sender, "assistant", replyText); } catch (_) {}
+                    }
+                  }
+                }
               }
+            } catch (mediaErr) {
+              const isConnClosed = mediaErr?.output?.statusCode === 428 || mediaErr?.message?.includes('Connection Closed');
+              if (!isConnClosed) console.error('[Media Process/Reply Error]:', mediaErr.message);
             }
-          } catch (err) {}
+          } else {
+            // Silently handle other non-image media (video, audio, document etc.)
+            try {
+              if (isRawVideo) {
+                // save video silently if needed
+              }
+            } catch (_) {}
+          }
           continue;
         }
 
