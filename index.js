@@ -1479,6 +1479,31 @@ app.post('/api/send-message', async (req, res) => {
   }
 });
 
+// 🔔 SSE – Real-time push notifications for the dashboard
+global.sseNotificationClients = global.sseNotificationClients || [];
+app.get('/api/notifications/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+  // Keep-alive ping every 25s
+  const ping = setInterval(() => { try { res.write(':ping\n\n'); } catch (_) {} }, 25000);
+  global.sseNotificationClients.push(res);
+  req.on('close', () => {
+    clearInterval(ping);
+    global.sseNotificationClients = global.sseNotificationClients.filter(c => c !== res);
+  });
+});
+// Helper to push SSE event to all connected dashboard clients
+global.pushNotification = (type, data) => {
+  if (!global.sseNotificationClients || global.sseNotificationClients.length === 0) return;
+  const payload = JSON.stringify({ type, ...data, ts: Date.now() });
+  for (const client of global.sseNotificationClients) {
+    try { client.write(`data: ${payload}\n\n`); } catch (_) {}
+  }
+};
+
 // 📬 Get developer inbox messages from DB table
 app.get('/api/dev-messages', async (req, res) => {
   try {

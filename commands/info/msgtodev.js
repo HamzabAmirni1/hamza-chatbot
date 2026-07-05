@@ -42,6 +42,17 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
         const saved = await db.saveDevMessage(newMsg);
         if (!saved) throw new Error('فشل الحفظ في قاعدة البيانات');
 
+        // 🔔 Push real-time notification to dashboard
+        if (global.pushNotification) {
+            global.pushNotification('new_devmsg', {
+                id: newMsg.id,
+                sender: newMsg.sender,
+                senderName: newMsg.senderName,
+                platform: newMsg.platform,
+                preview: text.length > 80 ? text.substring(0, 80) + '...' : text
+            });
+        }
+
         const replyText = `✅ *تم إرسال رسالتك إلى المطور بنجاح!*\n\n📝 *الرسالة المرسلة:* "${text}"\n\nسوف يقوم المطور بقراءتها والرد عليك مباشرة هنا في أقرب وقت. شكراً لتواصلك.`;
         await sock.sendMessage(chatId, { text: replyText }, { quoted: msg });
 
