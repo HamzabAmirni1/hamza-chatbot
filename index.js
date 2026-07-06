@@ -738,7 +738,7 @@ app.post('/api/settings', (req, res) => {
       'AUTO_STATUS_REACT','AUTO_STATUS_REPLY','AUTO_STATUS_MSG','AUTORECORD','AUTOTYPE','AUTORECORDTYPE',
       'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
-      'giphyApiKey','hfToken','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
+      'giphyApiKey','hfToken','openRouterKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
       'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
       'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS'
     ];

@@ -2309,6 +2309,10 @@
           <input type="password" id="s-hfToken" class="form-input" placeholder="HuggingFace Token" />
         </div>
         <div class="form-group">
+          <label class="form-label">مفتاح OpenRouter API Key</label>
+          <input type="password" id="s-openRouterKey" class="form-input" placeholder="OpenRouter API Key (Llama 3.2 Vision)" />
+        </div>
+        <div class="form-group">
           <label class="form-label">Supabase URL</label>
           <input type="text" id="s-supabaseUrl" class="form-input" placeholder="https://xxxxxx.supabase.co" />
         </div>
@@ -5041,6 +5045,7 @@
       // API Keys & Databases
       document.getElementById('s-giphyApiKey').value = data.giphyApiKey || '';
       document.getElementById('s-hfToken').value = data.hfToken || '';
+      document.getElementById('s-openRouterKey').value = data.openRouterKey || '';
       document.getElementById('s-supabaseUrl').value = data.supabaseUrl || '';
       document.getElementById('s-supabaseKey').value = data.supabaseKey || '';
       document.getElementById('s-telegramToken').value = data.telegramToken || '';
@@ -5161,6 +5166,7 @@
 
       giphyApiKey: document.getElementById('s-giphyApiKey').value,
       hfToken: document.getElementById('s-hfToken').value,
+      openRouterKey: document.getElementById('s-openRouterKey').value,
       supabaseUrl: document.getElementById('s-supabaseUrl').value,
       supabaseKey: document.getElementById('s-supabaseKey').value,
       telegramToken: document.getElementById('s-telegramToken').value,

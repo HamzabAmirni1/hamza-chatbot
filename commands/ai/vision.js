@@ -3,10 +3,7 @@ const pino = require('pino');
 const chalk = require('chalk');
 const config = require('../../config');
 const {
-    getGeminiResponse,
-    getOpenRouterResponse,
-    getObitoAnalyze,
-    getHFVision,
+    analyzeImage,
     getPollinationsResponse,
     addToHistory
 } = require('../../lib/ai');
@@ -48,7 +45,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
                 }
                 mime = (q.imageMessage || q.documentWithCaptionMessage?.message?.imageMessage)?.mimetype || "image/jpeg";
 
-                const result = await getObitoAnalyze(buffer, finalCaption, mime);
+                const result = await analyzeImage(buffer, mime, finalCaption);
                 if (result) {
                     const formattedReply = `*⎔ ⋅ ───━ •﹝🤖 التحليل الذكي ﹞• ━─── ⋅ ⎔*\n\n${result}\n\n*${config.botName} - ${config.botOwner}*\n*⎔ ⋅ ───━ •﹝✅﹞• ━─── ⋅ ⎔*`;
                     return await sock.sendMessage(chatId, { text: formattedReply }, { quoted: msg });
@@ -78,18 +75,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
                 prompt = "حلل هذه الصورة بالتفصيل الممل واشرح كل ما تراه فيها (الأشخاص، الأشياء، المكان، الألوان، النصوص إن وجدت).";
             }
 
-            if (config.geminiApiKey) {
-                reply = await getGeminiResponse(chatId, prompt, buffer, mime);
-            }
-            if (!reply && config.openRouterKey) {
-                reply = await getOpenRouterResponse(chatId, prompt, buffer);
-            }
-            if (!reply) {
-                reply = await getObitoAnalyze(buffer, prompt, mime);
-            }
-            if (!reply) {
-                reply = await getHFVision(buffer, prompt);
-            }
+            reply = await analyzeImage(buffer, mime, prompt);
 
             if (reply) {
                 const isQuestion = (caption || "").length > 2;
