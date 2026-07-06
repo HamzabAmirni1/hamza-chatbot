@@ -2904,12 +2904,20 @@
         <div class="card-header"><div class="card-icon yellow"><i class="fas fa-paper-plane"></i></div><div class="card-title">إرسال رسالة جماعية</div></div>
         <div class="form-group">
           <label class="form-label">المنصة المستهدفة</label>
-          <select id="broadcast-platform" class="form-input" style="margin-bottom: 12px;">
+          <select id="broadcast-platform" class="form-input" style="margin-bottom: 12px;" onchange="toggleFbBypassContainer(this.value)">
             <option value="all">الكل (واتساب + تليجرام + فيسبوك)</option>
             <option value="whatsapp">واتساب (WhatsApp)</option>
             <option value="telegram">تليجرام (Telegram)</option>
             <option value="facebook">فيسبوك (Facebook Messenger)</option>
           </select>
+        </div>
+        <!-- Checkbox to force Facebook bypass (24h window) -->
+        <div id="fb-bypass-container" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:12px;padding:12px;">
+          <input type="checkbox" id="broadcast-fb-bypass" style="cursor:pointer;width:16px;height:16px;" />
+          <div style="flex:1;">
+            <label for="broadcast-fb-bypass" style="font-weight:700;font-size:12px;color:#fbbf24;cursor:pointer;display:block;margin-bottom:2px;">إرسال للجميع على فيسبوك وتخطي قيد الـ 24 ساعة (خطر حظر البيدج)</label>
+            <span style="font-size:11px;color:var(--text-muted);display:block;line-height:1.4;">فيسبوك يمنع إرسال الرسائل لغير النشطين آخر 24 ساعة. تفعيل هذا الخيار سيحاول تجاوز القيد عبر Tags، مما قد يُعرّض الصفحة للحظر الدائم من طرف Meta.</span>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">الرسالة (يدعم تنسيق واتساب *غامق* _مائل_)</label>
@@ -4545,6 +4553,13 @@
         showAlert(alert, 'error', data.error || 'فشل الربط');
       }
     } catch(e) { showAlert(alert, 'error', 'خطأ في الاتصال'); }
+  }
+
+  function toggleFbBypassContainer(val) {
+    const container = document.getElementById('fb-bypass-container');
+    if (container) {
+      container.style.display = (val === 'all' || val === 'facebook') ? 'flex' : 'none';
+    }
   }
 
   async function connectFacebookPage() {
@@ -7183,7 +7198,12 @@
     }
 
     try {
-      const body = { message: msg, platform };
+      const bypassEl = document.getElementById('broadcast-fb-bypass');
+      const body = { 
+        message: msg, 
+        platform,
+        bypass24h: bypassEl ? bypassEl.checked : false
+      };
       if (mediaFile) {
         showAlert(alert, 'info', '⏳ جاري رفع الملف...');
         body.mediaBase64 = await fileToBase64(mediaFile);

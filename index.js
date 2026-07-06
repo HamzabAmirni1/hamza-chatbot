@@ -2186,7 +2186,7 @@ app.get('/api/insta/logs', (req, res) => {
 
 app.post('/api/broadcast', async (req, res) => {
   try {
-    const { message, platform, mediaBase64, mediaType, mediaName, caption, ptt } = req.body;
+    const { message, platform, mediaBase64, mediaType, mediaName, caption, ptt, bypass24h } = req.body;
     if (!message && !mediaBase64) return res.status(400).json({ ok: false, error: 'رسالة أو ملف مطلوب' });
 
     // Media support
@@ -2262,15 +2262,17 @@ app.post('/api/broadcast', async (req, res) => {
       done: 0,
       sent: 0,
       failed: 0,
+      skipped: 0,
       log: [],
       startedAt: new Date().toISOString()
     };
 
-    const pushLog = (icon, name, platform, ok) => {
+    const pushLog = (icon, name, platform, ok, skipped = false) => {
       global.broadcastProgress.done++;
-      if (ok) global.broadcastProgress.sent++;
+      if (skipped) global.broadcastProgress.skipped++;
+      else if (ok) global.broadcastProgress.sent++;
       else global.broadcastProgress.failed++;
-      global.broadcastProgress.log.unshift({ icon, name, platform, ok, time: new Date().toLocaleTimeString('ar-MA', { hour12: false }) });
+      global.broadcastProgress.log.unshift({ icon, name, platform, ok, skipped, time: new Date().toLocaleTimeString('ar-MA', { hour12: false }) });
       if (global.broadcastProgress.log.length > 60) global.broadcastProgress.log.length = 60;
     };
 
@@ -2350,28 +2352,58 @@ app.post('/api/broadcast', async (req, res) => {
         // 3. Facebook
         if (targetPlatform === 'all' || targetPlatform === 'facebook') {
           if (config.fbPageAccessToken) {
-            const { sendFacebookMessage } = require('./lib/facebook');
+            const { sendFacebookMessage, sendFacebookMedia, getFbActiveUsers } = require('./lib/facebook');
+            // Use getFbActiveUsers to know who is within the 24h messaging window
+            // Merge fbUsers list with window info from local file
+            const fbActiveMap = {};
+            try {
+              getFbActiveUsers(23).forEach(u => { fbActiveMap[u.id] = u.withinWindow; });
+            } catch (_) {}
+
             for (const user of fbUsers) {
               const recipientId = typeof user === 'string' ? user : user.id;
               const name = global.fbNames?.[recipientId] || recipientId;
               const pageId = typeof user === 'object' ? user.pageId : null;
+
+              // Check 24-hour window
+              // If withinWindow is explicitly false, skip. If unknown (true or undefined), attempt.
+              const withinWindow = fbActiveMap[recipientId];
+              if (withinWindow === false && !bypass24h) {
+                console.log(chalk.yellow(`[Broadcast Facebook] Skipping ${recipientId} — outside 24h messaging window`));
+                pushLog('⏰', name, 'Facebook', false, true);
+                await new Promise(r => setTimeout(r, 50));
+                continue;
+              }
+
+              const tagToUse = bypass24h ? 'ACCOUNT_UPDATE' : null;
               let ok = false;
               try {
-                const { sendFacebookMedia } = require('./lib/facebook');
                 if (mediaBuffer && typeof sendFacebookMedia === 'function') {
                   const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken);
+                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken, tagToUse);
                 } else {
-                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
+                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, tagToUse);
                 }
                 ok = true;
               } catch (err) {
-                console.error(chalk.red(`[Broadcast Facebook] Failed to send media to ${recipientId}:`), err.message);
-                if (err.response?.data) {
-                  console.error(chalk.red('[Broadcast Facebook] Facebook API Error details:'), JSON.stringify(err.response.data));
+                const errMsg = err.message || '';
+                const fbData = err.response?.data?.error || {};
+                const is24hError = fbData.code === 10 || fbData.error_subcode === 2018278 ||
+                                   errMsg.includes('24') || errMsg.includes('Outside');
+
+                if (is24hError && !bypass24h) {
+                  console.log(chalk.yellow(`[Broadcast Facebook] Skipping ${recipientId} — 24h window error`));
+                  pushLog('⏰', name, 'Facebook', false, true);
+                  await new Promise(r => setTimeout(r, 50));
+                  continue;
                 }
-                // Fallback to text
-                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken); ok = true; } catch (__) {}
+
+                console.error(chalk.red(`[Broadcast Facebook] Failed to send to ${recipientId}:`), errMsg);
+                if (err.response?.data) {
+                  console.error(chalk.red('[Broadcast Facebook] API Error:'), JSON.stringify(err.response.data));
+                }
+                // Fallback to plain text
+                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, tagToUse); ok = true; } catch (__) {}
               }
               pushLog('🔵', name, 'Facebook', ok);
               await new Promise(r => setTimeout(r, 500));
