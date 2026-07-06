@@ -31,7 +31,12 @@ async function sendToFacebook(userId, text) {
         for (const chunk of chunks) {
             await axios.post(
                 `https://graph.facebook.com/v19.0/me/messages?access_token=${config.fbPageAccessToken}`,
-                { recipient: { id: userId }, message: { text: chunk } },
+                { 
+                    recipient: { id: userId }, 
+                    message: { text: chunk },
+                    messaging_type: "MESSAGE_TAG",
+                    tag: "ACCOUNT_UPDATE"
+                },
                 { timeout: 10000 }
             );
             if (chunks.length > 1) await new Promise(r => setTimeout(r, 500));

@@ -2360,9 +2360,9 @@ app.post('/api/broadcast', async (req, res) => {
                 const { sendFacebookMedia } = require('./lib/facebook');
                 if (mediaBuffer && typeof sendFacebookMedia === 'function') {
                   const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken);
+                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken, 'ACCOUNT_UPDATE');
                 } else {
-                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken);
+                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, 'ACCOUNT_UPDATE');
                 }
                 ok = true;
               } catch (err) {
@@ -2371,7 +2371,7 @@ app.post('/api/broadcast', async (req, res) => {
                   console.error(chalk.red('[Broadcast Facebook] Facebook API Error details:'), JSON.stringify(err.response.data));
                 }
                 // Fallback to text
-                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken); ok = true; } catch (__) {}
+                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, 'ACCOUNT_UPDATE'); ok = true; } catch (__) {}
               }
               pushLog('🔵', name, 'Facebook', ok);
               await new Promise(r => setTimeout(r, 500));
