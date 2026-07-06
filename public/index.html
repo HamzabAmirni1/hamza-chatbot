@@ -7219,33 +7219,36 @@
 
           const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
           const barColor = p.running ? '#6ee7b7' : (p.failed > 0 ? '#f87171' : '#34d399');
+          const skipped = p.skipped || 0;
 
-          progressPanel.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <span style="font-size:13px;font-weight:700;color:var(--text);">
-                ${p.running ? '📡 جاري الإرسال...' : '✅ اكتمل البث'}
-              </span>
-              <span style="font-size:13px;color:var(--text-muted);">${p.done}/${p.total} — ✅ ${p.sent} ❌ ${p.failed}</span>
-            </div>
-            <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:12px;">
-              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.4s ease;"></div>
-            </div>
-            <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
-              ${(p.log || []).map(entry => `
-                <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:8px;">
-                  <span>${entry.icon || '📨'}</span>
-                  <span style="flex:1;color:${entry.ok ? 'var(--text)' : '#f87171'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.name}</span>
-                  <span style="color:var(--text-muted);font-size:11px;">${entry.platform}</span>
-                  <span style="${entry.ok ? 'color:#34d399' : 'color:#f87171'};">${entry.ok ? '✅' : '❌'}</span>
-                  <span style="color:var(--text-muted);font-size:10px;white-space:nowrap;">${entry.time}</span>
-                </div>
-              `).join('')}
-            </div>`;
+          progressPanel.innerHTML = [
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">',
+            '<span style="font-size:13px;font-weight:700;color:var(--text);">' + (p.running ? '📡 جاري الإرسال...' : '✅ اكتمل البث') + '</span>',
+            '<span style="font-size:12px;display:flex;gap:10px;align-items:center;">',
+            '<span style="color:#34d399;">✅ ' + p.sent + '</span>',
+            '<span style="color:#f87171;">❌ ' + p.failed + '</span>',
+            (skipped > 0 ? '<span style="color:#fbbf24;">⏰ ' + skipped + '</span>' : ''),
+            '<span style="color:var(--text-muted);">' + p.done + '/' + p.total + '</span>',
+            '</span></div>',
+            '<div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:12px;">',
+            '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:99px;transition:width 0.4s ease;"></div></div>',
+            (skipped > 0 ? '<div style="font-size:11px;color:#fbbf24;margin-bottom:8px;padding:6px 10px;background:rgba(251,191,36,0.08);border-radius:8px;border:1px solid rgba(251,191,36,0.2);">⏰ ' + skipped + ' مستخدم خارج نافذة 24 ساعة — Facebook لا يسمح بالإرسال</div>' : ''),
+            '<div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">',
+            (p.log || []).map(function(entry) {
+              var isSk = entry.skipped;
+              var bg = isSk ? 'rgba(251,191,36,0.06)' : (entry.ok ? 'rgba(255,255,255,0.03)' : 'rgba(248,113,113,0.06)');
+              var col = isSk ? '#fbbf24' : (entry.ok ? 'var(--text)' : '#f87171');
+              var badge = isSk ? '<span style="color:#fbbf24;">⏰</span>' : (entry.ok ? '<span style="color:#34d399;">✅</span>' : '<span style="color:#f87171;">❌</span>');
+              return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;background:' + bg + ';border-radius:8px;"><span>' + (entry.icon||'📨') + '</span><span style="flex:1;color:' + col + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + entry.name + '</span><span style="color:var(--text-muted);font-size:11px;">' + entry.platform + '</span>' + badge + '<span style="color:var(--text-muted);font-size:10px;white-space:nowrap;">' + entry.time + '</span></div>';
+            }).join(''),
+            '</div>'
+          ].join('');
 
           if (!p.running) {
             clearInterval(pollInterval);
-            const statusColor = p.failed === 0 ? 'success' : 'warning';
-            showAlert(alert, statusColor, `✅ اكتمل البث: ${p.sent} وصلت، ${p.failed} فشلت من ${p.total}`);
+            var skMsg = skipped > 0 ? '، ⏰ ' + skipped + ' تخطي (24h)' : '';
+            var statusColor = p.failed === 0 ? 'success' : 'warning';
+            showAlert(alert, statusColor, '✅ اكتمل البث: ' + p.sent + ' وصلت، ' + p.failed + ' فشلت' + skMsg + ' من ' + p.total);
           }
         } catch (_) {}
       }, 800);
