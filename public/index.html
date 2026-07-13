@@ -8671,9 +8671,9 @@
 
     if (convMsgs.length === 0) return;
 
-    // Find the latest unanswered USER message (text != null), or latest user message overall
-    // Never target standalone dev reply rows (text=null) as the reply target
-    const userMsgs = convMsgs.filter(m => m.text !== null && m.text !== undefined);
+    // Find the latest unanswered USER message (text != null/empty), or latest user message overall
+    // Never target standalone dev reply rows (which have text = '') as the reply target
+    const userMsgs = convMsgs.filter(m => m.text && m.text.trim() !== '');
     let targetMsg = userMsgs.find(m => !m.replied);
     if (!targetMsg) {
       targetMsg = userMsgs[userMsgs.length - 1];
