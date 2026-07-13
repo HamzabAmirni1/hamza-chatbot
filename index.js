@@ -119,6 +119,50 @@ global.syncBannedList = async (list) => {
       }
     }
     console.log(`[Banned Users] Initialized persistent banned list with ${global.bannedUsersCache.length} users.`);
+
+    // Sync config from Supabase cache to local config.js and in-memory config
+    try {
+      console.log(chalk.cyan("🔄 Initializing config from Supabase cache..."));
+      const savedConfig = await db.getCache('bot_config');
+      if (savedConfig && typeof savedConfig === 'object') {
+        const strFields = [
+          'botName','botOwner','prefix','commandMode','timezone','pairingNumber',
+          'AUTO_STATUS_REACT','AUTO_STATUS_REPLY','AUTO_STATUS_MSG','AUTORECORD','AUTOTYPE','AUTORECORDTYPE',
+          'instagram','instagram2','instagramChannel','facebook','facebookPage','youtube','telegram',
+          'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
+          'giphyApiKey','hfToken','openRouterKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
+          'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
+          'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS'
+        ];
+        const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
+        const configPath = path.join(__dirname, 'config.js');
+        let src = fs.readFileSync(configPath, 'utf-8');
+        let changed = false;
+
+        for (const key of strFields) {
+          if (savedConfig[key] !== undefined && savedConfig[key] !== null) {
+            config[key] = savedConfig[key];
+            const val = String(savedConfig[key]).replace(/'/g, "\\'");
+            src = src.replace(new RegExp(`(^\\s*${key}\\s*:\\s*)(.+?)(,?\\s*$)`, 'm'), `$1'${val}'$3`);
+            changed = true;
+          }
+        }
+        for (const key of arrFields) {
+          if (savedConfig[key] !== undefined && Array.isArray(savedConfig[key])) {
+            config[key] = savedConfig[key];
+            src = src.replace(new RegExp(`(${key}\\s*:\\s*)\\[[^\\]]*\\]`), `$1${JSON.stringify(savedConfig[key])}`);
+            changed = true;
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(configPath, src, 'utf-8');
+          delete require.cache[require.resolve('./config')];
+          console.log(chalk.green("✅ Config synced successfully from Supabase cache!"));
+        }
+      }
+    } catch (cfgErr) {
+      console.error('[Supabase Config Init] Error:', cfgErr.message);
+    }
   } catch (e) {
     console.error('[Banned Users] Init error:', e.message);
   }
@@ -760,6 +804,14 @@ app.post('/api/settings', (req, res) => {
     for (const key of strFields) { if (req.body[key] !== undefined) currentConfig[key] = req.body[key]; }
     for (const key of arrFields) { if (req.body[key] !== undefined && Array.isArray(req.body[key])) currentConfig[key] = req.body[key]; }
     delete require.cache[require.resolve('./config')];
+
+    // Save to Supabase cache to persist across container restarts
+    const configToPersist = {};
+    for (const key of [...strFields, ...arrFields]) {
+      configToPersist[key] = currentConfig[key];
+    }
+    db.setCache('bot_config', configToPersist).catch(err => console.error('[Supabase] Failed to persist bot_config:', err));
+
     res.json({ success: true });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
