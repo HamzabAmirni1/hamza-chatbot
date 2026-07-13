@@ -8363,6 +8363,61 @@
     }
   }
 
+  // ── WhatsApp Style Attachments Helpers ──
+  if (!document.getElementById('attach-menu-styles')) {
+    const style = document.createElement('style');
+    style.id = 'attach-menu-styles';
+    style.innerHTML = `
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(10px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .attach-menu-popover button:hover {
+        background: rgba(255,255,255,0.08) !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  window.toggleAttachmentMenu = function(jid, event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('attach-menu-' + jid);
+    const icon = document.getElementById('attach-icon-' + jid);
+    if (!menu) return;
+    const isHidden = menu.style.display === 'none';
+    
+    // Close other attachment menus
+    document.querySelectorAll('.attach-menu-popover').forEach(m => m.style.display = 'none');
+    document.querySelectorAll('[id^="attach-icon-"]').forEach(i => i.style.transform = 'rotate(0deg)');
+
+    if (isHidden) {
+      menu.style.display = 'flex';
+      if (icon) icon.style.transform = 'rotate(45deg)';
+    } else {
+      menu.style.display = 'none';
+      if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+  };
+
+  window.selectAttachmentOption = function(jid, acceptType) {
+    const menu = document.getElementById('attach-menu-' + jid);
+    const icon = document.getElementById('attach-icon-' + jid);
+    if (menu) menu.style.display = 'none';
+    if (icon) icon.style.transform = 'rotate(0deg)';
+    
+    setDevReplyFileAccept(jid, acceptType);
+    const fileInput = document.getElementById('devreply-media-file-' + jid);
+    if (fileInput) fileInput.click();
+  };
+
+  // Close when clicking anywhere outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="attach-toggle-btn-"]') && !e.target.closest('.attach-menu-popover')) {
+      document.querySelectorAll('.attach-menu-popover').forEach(m => m.style.display = 'none');
+      document.querySelectorAll('[id^="attach-icon-"]').forEach(i => i.style.transform = 'rotate(0deg)');
+    }
+  });
+
   async function openConversation(senderJid) {
     window.activeDevMsgJid = senderJid;
     const container = document.getElementById('conversation-container');
@@ -8519,18 +8574,27 @@
 
         <!-- Media Bar -->
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; gap:5px;">
+          <div style="position: relative; display: flex; align-items: center;">
             <input type="file" id="devreply-media-file-${senderJid}" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
             
-            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'image/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:6px; color:#38bdf8; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-image"></i> صورة
+            <button type="button" id="attach-toggle-btn-${senderJid}" onclick="toggleAttachmentMenu('${senderJid}', event)" style="width:32px; height:32px; border-radius:50%; background:var(--card2); border:1px solid var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.2s;" title="إرفاق ملف">
+              <i class="fas fa-plus" id="attach-icon-${senderJid}" style="transition: transform 0.2s;"></i>
             </button>
-            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'audio/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); border-radius:6px; color:#a78bfa; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-music"></i> صوت
-            </button>
-            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', '.pdf,.doc,.docx,.zip,.txt'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px; color:#fbbf24; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-file"></i> ملف
-            </button>
+
+            <div id="attach-menu-${senderJid}" class="attach-menu-popover" style="display:none; position:absolute; bottom:42px; right:0; background:var(--card2); border:1px solid var(--border); border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,0.55); padding:6px; flex-direction:column; gap:2px; z-index:9999; min-width:110px; animation: slideUp 0.15s ease-out;">
+              <button type="button" onclick="selectAttachmentOption('${senderJid}', 'image/*')" style="width:100%; padding:6px 10px; font-size:11px; background:transparent; border:none; border-radius:8px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; font-family:Cairo,sans-serif; text-align:right; transition: background 0.2s;">
+                <span style="width:22px; height:22px; border-radius:50%; background:rgba(56,189,248,0.15); color:#38bdf8; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;"><i class="fas fa-image"></i></span>
+                صورة
+              </button>
+              <button type="button" onclick="selectAttachmentOption('${senderJid}', 'audio/*')" style="width:100%; padding:6px 10px; font-size:11px; background:transparent; border:none; border-radius:8px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; font-family:Cairo,sans-serif; text-align:right; transition: background 0.2s;">
+                <span style="width:22px; height:22px; border-radius:50%; background:rgba(167,139,250,0.15); color:#a78bfa; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;"><i class="fas fa-music"></i></span>
+                صوت
+              </button>
+              <button type="button" onclick="selectAttachmentOption('${senderJid}', '.pdf,.doc,.docx,.zip,.txt')" style="width:100%; padding:6px 10px; font-size:11px; background:transparent; border:none; border-radius:8px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; font-family:Cairo,sans-serif; text-align:right; transition: background 0.2s;">
+                <span style="width:22px; height:22px; border-radius:50%; background:rgba(251,191,36,0.15); color:#fbbf24; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;"><i class="fas fa-file"></i></span>
+                ملف
+              </button>
+            </div>
           </div>
           
           <div id="devreply-media-preview-${senderJid}" style="display:none; flex:1; max-width:200px;">
