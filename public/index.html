@@ -8579,19 +8579,14 @@
         <!-- Main Input Row -->
         <div id="devreply-main-input-row-${senderJid}" style="display:flex; gap:8px; align-items:flex-end; direction:ltr;">
           <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4; direction:rtl; text-align:right;" oninput="updateDevMsgActionBtn('${senderJid}')" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
-          <button onclick="handleDevMsgActionClick('${senderJid}')" id="chat-send-btn" style="width:42px; height:42px; border-radius:50%; background:#25d366; border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0; font-size:18px; box-shadow:0 2px 8px rgba(37,211,102,0.35); transition:all 0.2s;">
-            <i class="fas fa-microphone" style="font-size:16px;"></i>
-          </button>
-        </div>
-
-        <!-- Media Bar -->
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-          <div style="position: relative; display: flex; align-items: center;">
+          
+          <!-- Attachment Button & Popover -->
+          <div style="position: relative; display: flex; align-items: center; flex-shrink: 0;">
             <input type="file" id="devreply-media-file-image-${senderJid}" accept="image/*" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
             <input type="file" id="devreply-media-file-audio-${senderJid}" accept="audio/*" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
             <input type="file" id="devreply-media-file-doc-${senderJid}" accept=".pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
             
-            <button type="button" id="attach-toggle-btn-${senderJid}" onclick="toggleAttachmentMenu('${senderJid}', event)" style="width:32px; height:32px; border-radius:50%; background:var(--card2); border:1px solid var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.2s;" title="إرفاق ملف">
+            <button type="button" id="attach-toggle-btn-${senderJid}" onclick="toggleAttachmentMenu('${senderJid}', event)" style="width:36px; height:36px; border-radius:50%; background:var(--card2); border:1px solid var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; transition:all 0.2s;" title="إرفاق ملف">
               <i class="fas fa-plus" id="attach-icon-${senderJid}" style="transition: transform 0.2s;"></i>
             </button>
 
@@ -8610,7 +8605,14 @@
               </button>
             </div>
           </div>
-          
+
+          <button onclick="handleDevMsgActionClick('${senderJid}')" id="chat-send-btn" style="width:42px; height:42px; border-radius:50%; background:#25d366; border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0; font-size:18px; box-shadow:0 2px 8px rgba(37,211,102,0.35); transition:all 0.2s;">
+            <i class="fas fa-microphone" style="font-size:16px;"></i>
+          </button>
+        </div>
+
+        <!-- Media Bar -->
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
           <div id="devreply-media-preview-${senderJid}" style="display:none; flex:1; max-width:200px;">
             <div style="display:flex; align-items:center; gap:5px; padding:3px 6px; background:rgba(37,211,102,0.06); border:1px solid rgba(37,211,102,0.15); border-radius:6px;">
               <i id="devreply-media-icon-${senderJid}" class="fas fa-file" style="font-size:11px; color:#25d366; flex-shrink:0;"></i>
