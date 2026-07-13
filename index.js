@@ -518,9 +518,10 @@ app.get('/api/status', async (req, res) => {
     // Add local config defaults if not already present
     if (config.telegramToken) {
       const isLocalTgPaused = !!(global.pausedBots?.telegram?.[config.telegramToken]);
-      const existing = telegramBots.find(b => b.token.startsWith(config.telegramToken.substring(0, 8)));
-      if (existing) {
-        existing.paused = isLocalTgPaused;
+      const existingInDb = configs.find(c => c.bot_type === 'telegram' && c.bot_token === config.telegramToken);
+      if (existingInDb) {
+        const mapped = telegramBots.find(b => b.id === existingInDb.id);
+        if (mapped) mapped.paused = isLocalTgPaused;
       } else {
         telegramBots.push({
           id: 'local_tg',
@@ -534,9 +535,10 @@ app.get('/api/status', async (req, res) => {
     if (config.fbPageAccessToken) {
       const localPageId = config.fbPageId || 'me';
       const isLocalFbPaused = !!(global.pausedBots?.facebook?.[localPageId]);
-      const existing = facebookPages.find(p => p.token.startsWith(config.fbPageAccessToken.substring(0, 8)));
-      if (existing) {
-        existing.paused = isLocalFbPaused;
+      const existingInDb = configs.find(c => c.bot_type === 'facebook' && c.bot_token === config.fbPageAccessToken);
+      if (existingInDb) {
+        const mapped = facebookPages.find(p => p.id === existingInDb.id);
+        if (mapped) mapped.paused = isLocalFbPaused;
       } else {
         facebookPages.push({
           id: 'local_fb',
