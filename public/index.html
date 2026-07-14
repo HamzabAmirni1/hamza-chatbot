@@ -6936,6 +6936,7 @@
       const diagData = await diagRes.json();
       if (diagData.ok && diagData.diagnostics) {
         geminiWorking = diagData.diagnostics.gemini;
+        window.geminiWorking = geminiWorking; // Store globally for modal use
         if (badgeEl) {
           if (geminiWorking) {
             badgeEl.innerHTML = '<span style="color:#10b981;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check-circle"></i> الذكاء الاصطناعي: يعمل</span>';
@@ -6955,6 +6956,9 @@
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#10b981;font-weight:700;">✅ سجل الأعطال فارغ، لا توجد أخطاء حالياً</td></tr>';
         return;
       }
+      
+      // Store globally to avoid JSON string escaping bugs in HTML attributes
+      window.loadedErrors = data.errors;
       
       const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff', wa: '#25d366', tg: '#38bdf8', fb: '#0084ff', WA: '#25d366', TG: '#38bdf8', FB: '#0084ff' };
       const platformIcons  = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger', wa: 'fab fa-whatsapp', tg: 'fab fa-telegram-plane', fb: 'fab fa-facebook-messenger', WA: 'fab fa-whatsapp', TG: 'fab fa-telegram-plane', FB: 'fab fa-facebook-messenger' };
@@ -6980,12 +6984,6 @@
 
         const shortMsg = rawMsg.length > 55 ? rawMsg.substring(0, 55) + '...' : rawMsg;
         const userId = err.user_id || err.jid || '—';
-        
-        // Escape JSON string for onclick attribute safety
-        const safeErrStr = JSON.stringify(err)
-          .replace(/'/g, "\\'")
-          .replace(/"/g, "&quot;");
-        const safeStatusBadge = statusBadge.replace(/'/g, "\\'");
 
         return `<tr id="err-row-${err.id}" style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;vertical-align:middle;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
           <td style="padding:12px 14px;font-weight:700;color:var(--accent);white-space:nowrap;">
@@ -7002,8 +7000,8 @@
           <td style="padding:12px 14px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${date}</td>
           <td style="padding:12px 14px;white-space:nowrap;">
             <div style="display:inline-flex;gap:6px;">
-              <button onclick="showErrorDetailModal(${safeErrStr}, '${safeStatusBadge}')" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;" title="عرض التفاصيل"><i class="fas fa-eye"></i> تفاصيل</button>
-              <button onclick="deleteErrorLog(${err.id})" class="btn btn-danger" style="padding:4px 8px;font-size:11px;" title="حذف الخطأ"><i class="fas fa-trash-alt"></i></button>
+              <button onclick="showErrorDetailModal(${i})" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="عرض التفاصيل"><i class="fas fa-eye"></i> تفاصيل</button>
+              <button onclick="deleteErrorLog(${err.id})" class="btn btn-danger" style="padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;" title="حذف الخطأ"><i class="fas fa-trash-alt"></i></button>
             </div>
           </td>
         </tr>`;
@@ -7013,13 +7011,30 @@
     }
   }
 
-  function showErrorDetailModal(err, statusHtml) {
+  function showErrorDetailModal(index) {
+    if (!window.loadedErrors || !window.loadedErrors[index]) return;
+    const err = window.loadedErrors[index];
+    const geminiWorking = !!window.geminiWorking;
+    
     document.getElementById('mdl-err-cmd').textContent = err.command || err.cmd || '—';
     document.getElementById('mdl-err-platform').textContent = err.platform || '—';
     document.getElementById('mdl-err-user').textContent = err.user_id || err.jid || '—';
-    document.getElementById('mdl-err-status').innerHTML = statusHtml;
     
     const rawMsg = err.error_message || err.message || err.stack || '—';
+    
+    // Build status html dynamically
+    let statusBadge = '';
+    const isAiError = rawMsg.toLowerCase().includes('ai') || rawMsg.toLowerCase().includes('gemini') || rawMsg.toLowerCase().includes('model');
+    if (isAiError) {
+      if (geminiWorking) {
+        statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3.5px 10px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح تلقائياً</span>';
+      } else {
+        statusBadge = '<span style="color:#ef4444;background:rgba(239,68,68,0.1);padding:3.5px 10px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-exclamation-circle"></i> نشط (عطل Gemini)</span>';
+      }
+    } else {
+      statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3.5px 10px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح (السيرفر نشط)</span>';
+    }
+    document.getElementById('mdl-err-status').innerHTML = statusBadge;
     document.getElementById('mdl-err-msg').textContent = rawMsg;
     
     // Suggest solution based on content
