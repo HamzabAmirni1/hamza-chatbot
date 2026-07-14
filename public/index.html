@@ -2869,10 +2869,16 @@
 
     <!-- Error Logs Card -->
     <div class="card" style="margin-top:24px;">
-      <div class="card-header" style="display:flex;align-items:center;gap:12px;">
+      <div class="card-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <div class="card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
-        <div class="card-title">⚠️ الأوامر التي تحتوي على أخطاء (سجل الأعطال)</div>
-        <button onclick="loadCmdErrors()" class="btn btn-secondary" style="margin-right:auto;padding:5px 12px;font-size:12px;font-family:Cairo,sans-serif;">🔄 تحديث</button>
+        <div class="card-title" style="flex-grow:1;">⚠️ الأوامر التي تحتوي على أخطاء (سجل الأعطال)</div>
+        <div id="diagnostics-status-badge" style="font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:20px;border:1px solid var(--border);">
+          <span>🔍 جاري فحص الاتصال...</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="loadCmdErrors()" class="btn btn-secondary" style="padding:6px 14px;font-size:12px;font-family:Cairo,sans-serif;"><i class="fas fa-sync-alt"></i> تحديث</button>
+          <button onclick="clearAllCmdErrors()" class="btn" style="padding:6px 14px;font-size:12px;background:rgba(252,129,129,0.08);color:var(--red);border:1px solid rgba(252,129,129,0.25);border-radius:8px;cursor:pointer;font-family:Cairo,sans-serif;"><i class="fas fa-trash-alt"></i> حذف الكل</button>
+        </div>
       </div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:13px;" id="errors-table">
@@ -2880,13 +2886,15 @@
             <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الأمر</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">رسالة الخطأ</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الحالة</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
               <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">الوقت والتاريخ</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;">العمليات</th>
             </tr>
           </thead>
           <tbody id="errors-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل...</td></tr>
           </tbody>
         </table>
       </div>
@@ -3215,6 +3223,52 @@
   <div id="devmsg-chat-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(5px); padding:16px; box-sizing:border-box;" onclick="if(event.target===this){closeDevMsgModal()}">
     <div style="background:var(--card); border-radius:18px; width:100%; max-width:520px; height:90vh; max-height:680px; border:1px solid var(--border); box-shadow:0 24px 80px rgba(0,0,0,0.6); display:flex; flex-direction:column; overflow:hidden;" id="conversation-container">
       <!-- loaded dynamically -->
+    </div>
+  </div>
+
+  <!-- error logs detail modal popup dialog -->
+  <div id="err-log-detail-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(5px); padding:16px; box-sizing:border-box;" onclick="if(event.target===this){closeErrorDetailModal()}">
+    <div style="background:var(--card); border-radius:18px; width:100%; max-width:580px; border:1px solid var(--border); box-shadow:0 24px 80px rgba(0,0,0,0.6); display:flex; flex-direction:column; overflow:hidden;">
+      <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); direction:rtl;">
+        <div style="font-weight:700; font-size:16px; color:#fc8181; display:flex; align-items:center; gap:8px;">
+          <i class="fas fa-bug"></i> تفاصيل الخطأ البرمجي (سجل الأعطال)
+        </div>
+        <button onclick="closeErrorDetailModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px;"><i class="fas fa-times"></i></button>
+      </div>
+      <div style="padding:20px; display:flex; flex-direction:column; gap:16px; max-height:70vh; overflow-y:auto; direction:rtl; text-align:right;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div style="background:var(--bg); padding:10px 14px; border-radius:10px; border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">الأمر المشغل</div>
+            <code id="mdl-err-cmd" style="font-weight:700; color:var(--accent); font-size:13px;"></code>
+          </div>
+          <div style="background:var(--bg); padding:10px 14px; border-radius:10px; border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">المنصة والشبكة</div>
+            <div id="mdl-err-platform" style="font-weight:700; color:var(--text); font-size:13px;"></div>
+          </div>
+          <div style="background:var(--bg); padding:10px 14px; border-radius:10px; border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">معرف المستخدم / JID</div>
+            <div id="mdl-err-user" style="font-weight:700; color:var(--text-muted); font-size:12px; word-break:break-all;"></div>
+          </div>
+          <div style="background:var(--bg); padding:10px 14px; border-radius:10px; border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">حالة الإصلاح التلقائي</div>
+            <div id="mdl-err-status"></div>
+          </div>
+        </div>
+        
+        <div style="background:var(--bg); padding:14px; border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
+          <div style="font-size:11px; color:var(--text-muted);">رسالة الخطأ بالكامل</div>
+          <pre id="mdl-err-msg" style="margin:0; font-size:12px; line-height:1.6; color:#fc8181; white-space:pre-wrap; font-family:monospace; background:rgba(0,0,0,0.15); padding:10px; border-radius:6px; max-height:220px; overflow-y:auto; direction:ltr; text-align:left; border:1px solid rgba(255,255,255,0.03);"></pre>
+        </div>
+
+        <div style="background:rgba(16,185,129,0.04); padding:12px 14px; border-radius:10px; border:1px solid rgba(16,185,129,0.15); font-size:12px; line-height:1.5; color:var(--text-muted);">
+          💡 <span style="font-weight:700; color:white;">تحليل واقتراح الإصلاح:</span>
+          <span id="mdl-err-solution"></span>
+        </div>
+      </div>
+      <div style="padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-start; gap:8px; background:rgba(255,255,255,0.02); direction:rtl;">
+        <button id="mdl-err-del-btn" class="btn btn-danger" style="font-size:12px; font-family:Cairo,sans-serif; background:#ef4444; border:none; color:white;"><i class="fas fa-trash-alt"></i> حذف هذا السجل</button>
+        <button onclick="closeErrorDetailModal()" class="btn btn-secondary" style="font-size:12px; font-family:Cairo,sans-serif;">إغلاق</button>
+      </div>
     </div>
   </div>
 
@@ -6871,59 +6925,169 @@
   async function loadCmdErrors() {
     const tbody = document.getElementById('errors-tbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</td></tr>';
+    const badgeEl = document.getElementById('diagnostics-status-badge');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</td></tr>';
+    
+    // Live diagnostics check
+    let geminiWorking = false;
+    try {
+      if (badgeEl) badgeEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري فحص حالة الذكاء الاصطناعي...';
+      const diagRes = await fetch('/api/errors/check-status');
+      const diagData = await diagRes.json();
+      if (diagData.ok && diagData.diagnostics) {
+        geminiWorking = diagData.diagnostics.gemini;
+        if (badgeEl) {
+          if (geminiWorking) {
+            badgeEl.innerHTML = '<span style="color:#10b981;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check-circle"></i> الذكاء الاصطناعي: يعمل</span>';
+          } else {
+            badgeEl.innerHTML = `<span style="color:#ef4444;font-weight:700;display:inline-flex;align-items:center;gap:4px;" title="${diagData.diagnostics.geminiDetails}"><i class="fas fa-times-circle"></i> عطل بالـ AI (${diagData.diagnostics.geminiDetails.substring(0,18)}...)</span>`;
+          }
+        }
+      }
+    } catch (e) {
+      if (badgeEl) badgeEl.innerHTML = '<span style="color:#f59e0b;font-weight:700;"><i class="fas fa-exclamation-triangle"></i> تعذر الاتصال</span>';
+    }
+
     try {
       const res = await fetch('/api/errors?limit=100');
       const data = await res.json();
       if (!data.ok || !data.errors || data.errors.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--accent);">✅ لا توجد أخطاء مسجلة</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#10b981;font-weight:700;">✅ سجل الأعطال فارغ، لا توجد أخطاء حالياً</td></tr>';
         return;
       }
+      
       const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff', wa: '#25d366', tg: '#38bdf8', fb: '#0084ff', WA: '#25d366', TG: '#38bdf8', FB: '#0084ff' };
       const platformIcons  = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger', wa: 'fab fa-whatsapp', tg: 'fab fa-telegram-plane', fb: 'fab fa-facebook-messenger', WA: 'fab fa-whatsapp', TG: 'fab fa-telegram-plane', FB: 'fab fa-facebook-messenger' };
-      let errIdx = 0;
+      
       tbody.innerHTML = data.errors.map((err, i) => {
         const ptf = (err.platform || '').toLowerCase();
         const color  = platformColors[ptf] || '#a78bfa';
         const icon   = platformIcons[ptf]  || 'fas fa-robot';
         const date   = err.created_at ? new Date(err.created_at).toLocaleString('ar-MA', { hour12: false }) : '—';
         const rawMsg = (err.error_message || err.message || err.stack || '—');
-        const shortMsg = rawMsg.length > 100 ? rawMsg.substring(0, 100) + '...' : rawMsg;
-        const hasMore = rawMsg.length > 100;
-        const rowId = `err-row-${i}`;
+        
+        let statusBadge = '';
+        const isAiError = rawMsg.toLowerCase().includes('ai') || rawMsg.toLowerCase().includes('gemini') || rawMsg.toLowerCase().includes('model');
+        if (isAiError) {
+          if (geminiWorking) {
+            statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح تلقائياً</span>';
+          } else {
+            statusBadge = '<span style="color:#ef4444;background:rgba(239,68,68,0.1);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-exclamation-circle"></i> نشط (عطل Gemini)</span>';
+          }
+        } else {
+          statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح (السيرفر نشط)</span>';
+        }
+
+        const shortMsg = rawMsg.length > 55 ? rawMsg.substring(0, 55) + '...' : rawMsg;
         const userId = err.user_id || err.jid || '—';
-        return `<tr id="${rowId}" style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;vertical-align:top;" onmouseover="this.style.background='rgba(252,129,129,0.06)'" onmouseout="this.style.background='transparent'">
-          <td style="padding:10px 14px;font-weight:700;color:var(--accent);white-space:nowrap;">
+        
+        // Escape JSON string for onclick attribute safety
+        const safeErrStr = JSON.stringify(err)
+          .replace(/'/g, "\\'")
+          .replace(/"/g, "&quot;");
+        const safeStatusBadge = statusBadge.replace(/'/g, "\\'");
+
+        return `<tr id="err-row-${err.id}" style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;vertical-align:middle;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:12px 14px;font-weight:700;color:var(--accent);white-space:nowrap;">
             <code style="background:rgba(167,139,250,0.1);padding:2px 6px;border-radius:5px;font-size:12px;">${err.command || err.cmd || '—'}</code>
           </td>
-          <td style="padding:10px 14px;max-width:340px;word-break:break-word;">
-            <div id="err-short-${i}" style="color:#fc8181;font-size:12px;line-height:1.5;">${shortMsg}</div>
-            ${hasMore ? `<div id="err-full-${i}" style="display:none;color:var(--text-muted);font-size:12px;line-height:1.5;white-space:pre-wrap;">${rawMsg}</div>
-            <button onclick="toggleErrDetail(${i})" id="err-btn-${i}" style="margin-top:6px;background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:0;font-family:Cairo,sans-serif;">▼ عرض كامل</button>` : ''}
-          </td>
-          <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">${userId}</td>
-          <td style="padding:10px 14px;white-space:nowrap;">
+          <td style="padding:12px 14px;max-width:280px;word-break:break-word;color:#fc8181;font-size:12px;">${shortMsg}</td>
+          <td style="padding:12px 14px;">${statusBadge}</td>
+          <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);">${userId}</td>
+          <td style="padding:12px 14px;white-space:nowrap;">
             <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:${color};background:${color}22;padding:3px 8px;border-radius:8px;">
               <i class="${icon}"></i> ${err.platform || '—'}
             </span>
           </td>
-          <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${date}</td>
+          <td style="padding:12px 14px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${date}</td>
+          <td style="padding:12px 14px;white-space:nowrap;">
+            <div style="display:inline-flex;gap:6px;">
+              <button onclick="showErrorDetailModal(${safeErrStr}, '${safeStatusBadge}')" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;" title="عرض التفاصيل"><i class="fas fa-eye"></i> تفاصيل</button>
+              <button onclick="deleteErrorLog(${err.id})" class="btn btn-danger" style="padding:4px 8px;font-size:11px;" title="حذف الخطأ"><i class="fas fa-trash-alt"></i></button>
+            </div>
+          </td>
         </tr>`;
       }).join('');
     } catch(e) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات: ' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات: ' + e.message + '</td></tr>';
     }
   }
 
-  function toggleErrDetail(i) {
-    const shortEl = document.getElementById(`err-short-${i}`);
-    const fullEl  = document.getElementById(`err-full-${i}`);
-    const btn     = document.getElementById(`err-btn-${i}`);
-    if (!fullEl) return;
-    const isHidden = fullEl.style.display === 'none';
-    fullEl.style.display  = isHidden ? 'block' : 'none';
-    shortEl.style.display = isHidden ? 'none'  : 'block';
-    btn.textContent       = isHidden ? '▲ إخفاء' : '▼ عرض كامل';
+  function showErrorDetailModal(err, statusHtml) {
+    document.getElementById('mdl-err-cmd').textContent = err.command || err.cmd || '—';
+    document.getElementById('mdl-err-platform').textContent = err.platform || '—';
+    document.getElementById('mdl-err-user').textContent = err.user_id || err.jid || '—';
+    document.getElementById('mdl-err-status').innerHTML = statusHtml;
+    
+    const rawMsg = err.error_message || err.message || err.stack || '—';
+    document.getElementById('mdl-err-msg').textContent = rawMsg;
+    
+    // Suggest solution based on content
+    const solEl = document.getElementById('mdl-err-solution');
+    const msgLower = rawMsg.toLowerCase();
+    if (msgLower.includes('unavailable') || msgLower.includes('experiencing high demand') || msgLower.includes('503')) {
+      solEl.innerHTML = `<span style="color:#10b981;font-weight:700;">خوادم Google AI تواجه ضغطاً كبيراً مؤقتاً.</span> تم تلقائياً الترقية إلى النموذج المستقر والجديد <code style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;">gemini-3.1-flash-lite</code> لحل هذا العطل.`;
+    } else if (msgLower.includes('quota') || msgLower.includes('429')) {
+      solEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">تم استهلاك حصة الـ API (Rate Limit / Quota Exceeded).</span> يرجى إما الانتظار لبضع دقائق أو تسجيل مفتاح API مجاني جديد من Google AI Studio وضبطه في الإعدادات.`;
+    } else if (msgLower.includes('api key') || msgLower.includes('api_key_invalid') || msgLower.includes('400')) {
+      solEl.innerHTML = `<span style="color:#f59e0b;font-weight:700;">مفتاح API غير صالح أو خاطئ.</span> يرجى إعادة التحقق من إدخال مفتاح Gemini الـ API بشكل صحيح في حقل <code style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;">geminiApiKey</code> في الإعدادات.`;
+    } else {
+      solEl.innerHTML = `حدث خطأ عام أثناء معالجة الطلب. يرجى الضغط على زر <code style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;">تحديث</code> لمعرفة ما إذا كان المشكل قد تم إصلاحه تلقائياً في الطلبات الجديدة.`;
+    }
+    
+    // Configure delete button inside modal
+    document.getElementById('mdl-err-del-btn').onclick = function() {
+      deleteErrorLog(err.id);
+      closeErrorDetailModal();
+    };
+    
+    document.getElementById('err-log-detail-modal').style.display = 'flex';
+  }
+
+  function closeErrorDetailModal() {
+    document.getElementById('err-log-detail-modal').style.display = 'none';
+  }
+
+  async function deleteErrorLog(id) {
+    if (!confirm('هل أنت متأكد من رغبتك في حذف هذا السجل؟')) return;
+    try {
+      const res = await fetch('/api/errors/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم حذف السجل بنجاح', 'success');
+        const row = document.getElementById(`err-row-${id}`);
+        if (row) row.remove();
+        loadCmdErrors();
+      } else {
+        showToast('فشل حذف السجل', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال بالخادم', 'error');
+    }
+  }
+
+  async function clearAllCmdErrors() {
+    if (!confirm('⚠️ هل أنت متأكد من رغبتك في حذف جميع سجلات الأعطال؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    try {
+      const res = await fetch('/api/errors/clear-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم تنظيف جميع السجلات بنجاح', 'success');
+        loadCmdErrors();
+      } else {
+        showToast('فشل مسح السجلات', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال بالخادم', 'error');
+    }
+  }
   }
 
   function renderTopCommands(platform) {

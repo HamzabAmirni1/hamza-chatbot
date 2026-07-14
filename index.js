@@ -2495,6 +2495,62 @@ app.get('/api/errors', async (req, res) => {
   }
 });
 
+// Delete a specific error log
+app.post('/api/errors/delete', async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ ok: false, error: 'Error ID required' });
+    const success = await db.deleteErrorLog(id);
+    res.json({ ok: success });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Clear all error logs
+app.post('/api/errors/clear-all', async (req, res) => {
+  try {
+    const success = await db.clearAllErrorLogs();
+    res.json({ ok: success });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Live check of Gemini/AI connection status for error diagnostics
+app.get('/api/errors/check-status', async (req, res) => {
+  try {
+    let geminiOk = false;
+    let geminiDetails = 'No API key configured';
+    
+    if (config.geminiApiKey) {
+      try {
+        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${config.geminiApiKey}`;
+        await axios.post(testUrl, {
+          contents: [{ parts: [{ text: 'Ping' }] }]
+        }, { timeout: 4000 });
+        geminiOk = true;
+        geminiDetails = 'Active & Connected';
+      } catch (err) {
+        geminiOk = false;
+        geminiDetails = err.response?.data?.error?.message || err.message;
+      }
+    }
+    
+    res.json({
+      ok: true,
+      diagnostics: {
+        gemini: geminiOk,
+        geminiDetails,
+        internet: true,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Profanity Logs API — get all violation logs
 app.get('/api/profanity-logs', async (req, res) => {
   try {
