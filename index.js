@@ -2429,14 +2429,15 @@ app.post('/api/broadcast', async (req, res) => {
                 continue;
               }
 
-              const tagToUse = bypass24h ? 'ACCOUNT_UPDATE' : null;
+              // Note: ACCOUNT_UPDATE tag deprecated by Meta since April 27, 2026 (error_subcode 1893061).
+              // All messages now sent as standard RESPONSE type in sendFacebookMessage.
               let ok = false;
               try {
                 if (mediaBuffer && typeof sendFacebookMedia === 'function') {
                   const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken, tagToUse);
+                  await sendFacebookMedia(recipientId, mediaBuffer, fbType, formattedMessage, pageId || config.fbPageAccessToken, null);
                 } else {
-                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, tagToUse);
+                  await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, null);
                 }
                 ok = true;
               } catch (err) {
@@ -2456,8 +2457,8 @@ app.post('/api/broadcast', async (req, res) => {
                 if (err.response?.data) {
                   console.error(chalk.red('[Broadcast Facebook] API Error:'), JSON.stringify(err.response.data));
                 }
-                // Fallback to plain text
-                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, tagToUse); ok = true; } catch (__) {}
+                // Fallback to plain text (no tag - deprecated)
+                try { await sendFacebookMessage(recipientId, formattedMessage, pageId || config.fbPageAccessToken, null); ok = true; } catch (__) {}
               }
               pushLog('🔵', name, 'Facebook', ok);
               await new Promise(r => setTimeout(r, 500));
