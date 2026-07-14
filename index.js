@@ -132,7 +132,7 @@ global.syncBannedList = async (list) => {
           'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
           'giphyApiKey','hfToken','openRouterKey','geminiApiKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
           'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
-          'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS'
+          'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS', 'forceTelegramSub'
         ];
         const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
         const configPath = path.join(__dirname, 'config.js');

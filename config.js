@@ -154,6 +154,7 @@ const settings = {
     enableGithubAutoPoster: 'true',
     enableAutoDL: 'true',
     enableTTS: 'true',
+    forceTelegramSub: 'false',
 };
 
 module.exports = settings;
