@@ -40,21 +40,39 @@ module.exports = async (sock, chatId, msg, args, helpers = {}) => {
     // Detect platform
     const platform = helpers.isTelegram ? 'tg' : (helpers.isFacebook ? 'fb' : 'wa');
     const userCity = getUserCity(sender, platform);
+    const pageId = helpers.isFacebook ? (helpers.pageId || null) : null;
 
     // ─── .salat on — subscribe this user ─────────────────────────────────────
     if (sub === 'on' || sub === 'تفعيل' || sub === 'اشتراك') {
+        // For FB: store pageId in subscription too
+        const { db } = require('../../lib/supabase');
         subscribeUser(sender, userCity, 'MA', platform);
+        // Patch pageId for FB
+        if (platform === 'fb' && pageId) {
+            const { readSubs, saveSubs } = (() => {
+                // inline minimal patch
+                const fs = require('fs-extra');
+                const path = require('path');
+                const DATA_DIR = path.join(__dirname, '../../data');
+                const file = path.join(DATA_DIR, 'fb_prayer_subs.json');
+                const subs = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+                subs[sender] = { ...subs[sender], pageId };
+                fs.writeFileSync(file, JSON.stringify(subs, null, 2));
+                db.savePrayerSubs('fb', subs).catch(() => {});
+            })();
+        }
         return sock.sendMessage(chatId, {
             text:
                 `✅ *تم تفعيل تذكير أوقات الصلاة!* 🕌\n\n` +
                 `📍 *مدينتك الحالية:* ${userCity}\n\n` +
                 `سيتم إرسال تذكير تلقائي عند كل وقت صلاة.\n\n` +
-                `🌍 لتغيير المدينة: *.salat [اسم المدينة]*\n` +
+                `🌍 لتغيير المدينة: *.salat [اسم المدينة بالإنجليزية]*\n` +
                 `📲 لإيقاف التذكير: *.salat off*\n` +
                 `📅 لعرض الأوقات: *.salat now*\n\n` +
                 `⚔️ _${config.botName}_`
         }, { quoted: msg });
     }
+
 
     // ─── .salat off — unsubscribe this user ──────────────────────────────────
     if (sub === 'off' || sub === 'تعطيل' || sub === 'إلغاء') {
@@ -104,11 +122,23 @@ module.exports = async (sock, chatId, msg, args, helpers = {}) => {
         const timings = await fetchPrayerTimes(city, 'MA');
         if (!timings) {
             if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '❌', key: msg.key } });
-            return sock.sendMessage(chatId, { text: `❌ فشل العثور على مدينة باسم *${city}* في المغرب. تأكد من الاسم بالإنجليزية.` }, { quoted: msg });
+            return sock.sendMessage(chatId, { text: `❌ فشل العثور على مدينة باسم *${city}* في المغرب. تأكد من الاسم بالإنجليزية.\n\n📌 أمثلة: Casablanca, Marrakech, Fes, Rabat, Agadir, Meknes, Oujda, Tangier` }, { quoted: msg });
         }
 
-        // Update user preference
+        // Update user preference + pageId for FB
         subscribeUser(sender, city, 'MA', platform);
+        if (platform === 'fb' && pageId) {
+            try {
+                const fs = require('fs-extra');
+                const pathMod = require('path');
+                const { db } = require('../../lib/supabase');
+                const file = pathMod.join(__dirname, '../../data/fb_prayer_subs.json');
+                const subs = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+                subs[sender] = { ...subs[sender], pageId };
+                fs.writeFileSync(file, JSON.stringify(subs, null, 2));
+                db.savePrayerSubs('fb', subs).catch(() => {});
+            } catch (_) {}
+        }
         if (platform === 'wa') await sock.sendMessage(chatId, { react: { text: '✅', key: msg.key } });
 
         const prayers = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
@@ -119,6 +149,7 @@ module.exports = async (sock, chatId, msg, args, helpers = {}) => {
         table += `━━━━━━━━━━━━━━━━━━\n🔔 ستصلك التذكيرات الآن بناءً على توقيت *${city}*.\n\n⚔️ _${config.botName}_`;
         return sock.sendMessage(chatId, { text: table }, { quoted: msg });
     }
+
 
     // ─── OWNER ONLY commands ──────────────────────────────────────────────────
     if (isOwner(sender)) {
