@@ -1614,7 +1614,14 @@ app.post('/api/dev-messages/reply', async (req, res) => {
 
     if (platform === 'whatsapp') {
       const clients = global.clients || [];
-      const sock = clients.find(c => c?.user) || clients[0];
+      let sock = null;
+      if (msgObj.pageId) {
+        sock = clients.find(c => {
+          const clientPhone = (c?.user?.id?.split(':')[0] || c?._num || '').replace(/[^0-9]/g, '');
+          return clientPhone === msgObj.pageId;
+        });
+      }
+      if (!sock) sock = clients.find(c => c?.user) || clients[0];
       if (!sock) return res.status(500).json({ ok: false, error: 'لا توجد جلسة واتساب نشطة لإرسال الرد' });
       const jid = msgObj.sender.includes('@') ? msgObj.sender : `${msgObj.sender}@s.whatsapp.net`;
 
@@ -1635,8 +1642,15 @@ app.post('/api/dev-messages/reply', async (req, res) => {
       sent = true;
 
     } else if (platform === 'telegram') {
-      const botTokens = Object.keys(global.telegramBots || {});
-      if (config.telegramToken && !botTokens.includes(config.telegramToken)) botTokens.push(config.telegramToken);
+      const botTokens = [];
+      if (msgObj.pageId) {
+        botTokens.push(msgObj.pageId);
+      }
+      const allTokens = Object.keys(global.telegramBots || {});
+      if (config.telegramToken && !allTokens.includes(config.telegramToken)) allTokens.push(config.telegramToken);
+      for (const tok of allTokens) {
+        if (!botTokens.includes(tok)) botTokens.push(tok);
+      }
       for (const token of botTokens) {
         const botInstance = global.telegramBots ? global.telegramBots[token] : null;
         try {
@@ -3655,7 +3669,7 @@ async function startBot(folderName, phoneNumber) {
               await cmdFile(sock, sender, msg, args, { 
                 getAutoGPTResponse, addToHistory, delayPromise, getUptime, 
                 command, proto, generateWAMessageContent, generateWAMessageFromContent,
-                commandUsage, commandErrors 
+                commandUsage, commandErrors, whatsappSession: cleanBotPhone
               }, "ar");
               isCommand = true;
               commandUsage[command] = (commandUsage[command] || 0) + 1;
@@ -3787,7 +3801,7 @@ async function startBot(folderName, phoneNumber) {
                 await cmdFile(sock, sender, msg, rest, { 
                   getAutoGPTResponse, addToHistory, delayPromise, getUptime, 
                   command: cmdName, proto, generateWAMessageContent, generateWAMessageFromContent,
-                  commandUsage, commandErrors
+                  commandUsage, commandErrors, whatsappSession: cleanBotPhone
                 }, detectLanguage(body));
                 commandUsage[cmdName] = (commandUsage[cmdName] || 0) + 1;
                 activeUsers.add(sender);
@@ -3955,7 +3969,7 @@ async function startBot(folderName, phoneNumber) {
                 if (allCmds[command]) {
                     try {
                         const cmdFile = require(`./commands/${allCmds[command]}`);
-                        await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent }, "ar");
+                        await cmdFile(sock, sender, msg, args, { getAutoGPTResponse, addToHistory, delayPromise, getUptime, command, proto, generateWAMessageContent, generateWAMessageFromContent, whatsappSession: cleanBotPhone }, "ar");
                         commandUsage[command] = (commandUsage[command] || 0) + 1;
                         activeUsers.add(sender);
                         if (global.trackCommand) global.trackCommand(command, 'whatsapp');

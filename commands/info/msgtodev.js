@@ -35,8 +35,7 @@ module.exports = async (sock, chatId, msg, args, helpers, userLang) => {
             senderName: senderName,
             platform: platform,
             text: text,
-            timestamp: new Date().toISOString(),
-            pageId: (helpers && helpers.isFacebook && helpers.pageId) ? helpers.pageId : undefined
+            pageId: helpers ? (helpers.pageId || helpers.whatsappSession || helpers.telegramToken) : undefined
         };
 
         // Save directly to the dedicated dev_messages table in Supabase
