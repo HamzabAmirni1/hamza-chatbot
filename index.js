@@ -1673,9 +1673,35 @@ app.post('/api/dev-messages/reply', async (req, res) => {
       }
 
     } else if (platform === 'facebook') {
-      const pageTokens = Object.values(global.fbPageTokens || {});
-      if (config.fbPageAccessToken && !pageTokens.includes(config.fbPageAccessToken)) pageTokens.push(config.fbPageAccessToken);
       const { sendFacebookMessage, sendFacebookMedia } = require('./lib/facebook');
+      
+      // Determine the specific page token if pageId is available
+      let targetToken = null;
+      if (msgObj.pageId) {
+        if (global.fbPageTokens && global.fbPageTokens[msgObj.pageId]) {
+          targetToken = global.fbPageTokens[msgObj.pageId];
+        } else if (config.fbPages && Array.isArray(config.fbPages)) {
+          const found = config.fbPages.find(p => p.id === msgObj.pageId);
+          if (found && found.token) targetToken = found.token;
+        }
+      }
+
+      const pageTokens = [];
+      if (targetToken) {
+        pageTokens.push(targetToken);
+      }
+      
+      // Append others as fallback
+      const allTokens = Object.values(global.fbPageTokens || {});
+      if (config.fbPageAccessToken && !allTokens.includes(config.fbPageAccessToken)) {
+        allTokens.push(config.fbPageAccessToken);
+      }
+      for (const tok of allTokens) {
+        if (!pageTokens.includes(tok)) {
+          pageTokens.push(tok);
+        }
+      }
+
       for (const pageToken of pageTokens) {
         try {
           if (mediaBuffer && typeof sendFacebookMedia === 'function') {
@@ -1688,7 +1714,7 @@ app.post('/api/dev-messages/reply', async (req, res) => {
           break;
         } catch (e) {
           lastError = e;
-          console.error(chalk.red('[Dev Messages Reply] Failed to send Facebook media:'), e.message);
+          console.error(chalk.red('[Dev Messages Reply] Failed to send Facebook message/media:'), e.message);
           if (e.response?.data) {
             console.error(chalk.red('[Dev Messages Reply] Facebook API Error details:'), JSON.stringify(e.response.data));
           }
