@@ -1,13 +1,18 @@
-const { db } = require('../lib/supabase');
+const { supabase } = require('../lib/supabase');
+const { createClient } = require('@supabase/supabase-js');
+const config = require('../config');
+const client = createClient(config.supabaseUrl, config.supabaseKey);
 
 (async () => {
   try {
-    console.log('Testing db.getDevMessages()...');
-    const messages = await db.getDevMessages();
-    console.log('Success! Count:', messages.length);
-    if (messages.length > 0) {
-      console.log('First message:', messages[0]);
-    }
+    console.log('Deleting test messages...');
+    const { data, error } = await client
+      .from('dev_messages')
+      .delete()
+      .like('id', 'test_id_%');
+    
+    if (error) throw error;
+    console.log('Successfully deleted test rows.');
   } catch (err) {
     console.error('Error occurred:', err);
   }
