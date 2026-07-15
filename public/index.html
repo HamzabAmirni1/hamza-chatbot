@@ -6795,25 +6795,14 @@
   let _dmTargetPlatform = '';
 
   function openDirectMessageModal(num, platform, name) {
+    // Route to the unified WhatsApp-style chat modal instead of the old simple popup
     _dmTargetNumber = num;
     _dmTargetPlatform = platform;
-    clearDmMedia();
-    
-    document.getElementById('dm-recipient-name').textContent = name || 'مستخدم';
-    document.getElementById('dm-recipient-phone').textContent = num;
-    document.getElementById('dm-message-text').value = '';
-    
-    const alertEl = document.getElementById('dm-alert');
-    alertEl.style.display = 'none';
-    alertEl.className = 'alert';
-    
-    const sendBtn = document.getElementById('dm-send-btn');
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'إرسال';
-    
-    const modal = document.getElementById('direct-message-modal');
-    modal.classList.remove('hide');
-    modal.classList.add('show');
+    const modal = document.getElementById('devmsg-chat-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      openConversation(num, platform, name);
+    }
   }
 
   function closeDirectMessageModal() {
@@ -8721,7 +8710,7 @@
     }
   });
 
-  async function openConversation(senderJid) {
+  async function openConversation(senderJid, _fallbackPlatform, _fallbackName) {
     window.activeDevMsgJid = senderJid;
     const container = document.getElementById('conversation-container');
     if (!container) return;
@@ -8741,17 +8730,11 @@
       .filter(m => m.sender === senderJid)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    if (convMsgs.length === 0) {
-      container.innerHTML = `
-        <div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center;">
-          <i class="fab fa-whatsapp" style="font-size:64px; color:var(--accent); opacity:0.15; margin-bottom:16px;"></i>
-          <h3>المحادثات فارغة</h3>
-        </div>`;
-      return;
-    }
-
-    const firstMsg = convMsgs[0];
-    const platform = (firstMsg.platform || 'whatsapp').toLowerCase();
+    // For new/empty conversations, still build the full UI with header + input bar
+    const isNewConversation = convMsgs.length === 0;
+    const firstMsg = convMsgs[0] || null;
+    const platform = (firstMsg?.platform || _fallbackPlatform || 'whatsapp').toLowerCase();
+    const displayName = firstMsg?.senderName || _fallbackName || senderJid;
     let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
     if (platform === 'telegram' || platform === 'tg')  { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تليجرام'; }
     if (platform === 'facebook' || platform === 'fb')  { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
@@ -8764,7 +8747,7 @@
             <i class="${pIcon}"></i>
           </div>
           <div>
-            <div style="font-weight:700; font-size:13px; color:var(--text-main);">${firstMsg.senderName || firstMsg.sender}</div>
+            <div style="font-weight:700; font-size:13px; color:var(--text-main);">${displayName}</div>
             <div style="font-size:10px; color:var(--text-muted); direction:ltr; text-align:right;">${senderJid} · ${pLabel}</div>
           </div>
         </div>
@@ -8777,7 +8760,7 @@
 
       <!-- Messages Body -->
       <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0; direction:ltr;">
-        ${convMsgs.map(m => {
+        ${isNewConversation ? `<div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center; gap:12px;"><i class="${pIcon}" style="font-size:56px; color:${pColor}; opacity:0.18;"></i><p style="font-size:14px; margin:0;">لا توجد رسائل بعد. ابدأ المحادثة الآن 👇</p></div>` : convMsgs.map(m => {
           const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
 
           // Standalone dev reply row: text=null, replied=true, replyText set
@@ -8960,9 +8943,44 @@
       .filter(m => m.sender === senderJid)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    if (convMsgs.length === 0) return;
+    // New conversation: no prior messages — fall back to /api/send-message directly
+    if (convMsgs.length === 0) {
+      const btn = document.getElementById('chat-send-btn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      try {
+        const platform = (_dmTargetPlatform || 'whatsapp');
+        const number = senderJid;
+        const body = { number, platform, message: replyText };
+        if (mediaFile) {
+          body.mediaBase64 = await fileToBase64(mediaFile);
+          body.mediaType = mediaFile.type;
+          body.mediaName = mediaFile.name;
+          body.caption = replyText;
+          body.ptt = _devReplyIsRecorded[senderJid] || false;
+        }
+        const res = await fetch('/api/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('✅ تم إرسال الرسالة بنجاح!', 'success');
+          input.value = '';
+          clearDevReplyMedia(senderJid);
+          await loadDevMessages();
+        } else {
+          showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
+        }
+      } catch(e) {
+        showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i>'; }
+      }
+      return;
+    }
 
-    // Find the latest unanswered USER message (text != null/empty), or latest user message overall
+    // Existing conversation — find the latest unanswered user message
     // Never target standalone dev reply rows (which have text = '') as the reply target
     const userMsgs = convMsgs.filter(m => m.text && m.text.trim() !== '');
     let targetMsg = userMsgs.find(m => !m.replied);
