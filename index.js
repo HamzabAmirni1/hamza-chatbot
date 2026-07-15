@@ -1715,6 +1715,7 @@ app.post('/api/dev-messages/reply', async (req, res) => {
 
     // 1. Mark the original user message as replied (keeps conversation badges in sync)
     await db.markDevMessageReplied(id, ""); 
+    await db.markAllDevMessagesFromSenderReplied(msgObj.sender);
 
     // 2. Insert a brand new message row representing the developer's reply
     const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
