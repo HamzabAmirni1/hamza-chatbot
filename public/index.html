@@ -7669,8 +7669,11 @@
   }
 
   async function openProfanityMsgModal(jid, platform, name) {
-    let existing = document.getElementById('chat-popup-modal');
-    if (existing) existing.remove();
+    // Redirect to the unified WhatsApp-style chat modal
+    openDirectMessageModal(jid, platform, name);
+  }
+  // Deprecated old popup function placeholder to prevent references error
+  async function old_openProfanityMsgModal_deprecated(jid, platform, name) {
 
     // Fetch latest dev messages from database to ensure conversation is always loaded and up-to-date
     try {
@@ -8726,8 +8729,38 @@
     });
 
     const chats = window.devMessagesCache || [];
-    const convMsgs = chats
-      .filter(m => m.sender === senderJid)
+    const userDevMsgs = chats.filter(m => m.sender === senderJid);
+
+    // Fetch user violations from caches (profanity + ibhaya)
+    const profLogs = (window.profanityLogsCache || []).filter(l => l.jid === senderJid);
+    const ibhLogs = (window.ibhayaLogsCache || []).filter(l => l.jid === senderJid);
+    
+    const violationMsgs = [];
+    profLogs.forEach(l => {
+      violationMsgs.push({
+        id: l.timestamp + '_v',
+        sender: senderJid,
+        senderName: l.name,
+        platform: l.platform,
+        text: '⚠️ [مخالفة سب وشتم] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
+        timestamp: l.timestamp,
+        isViolation: true
+      });
+    });
+    ibhLogs.forEach(l => {
+      violationMsgs.push({
+        id: l.timestamp + '_v',
+        sender: senderJid,
+        senderName: l.name,
+        platform: l.platform,
+        text: '⚠️ [مخالفة إباحية] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
+        timestamp: l.timestamp,
+        isViolation: true
+      });
+    });
+
+    // Merge dev messages + violations and sort chronologically
+    const convMsgs = [...userDevMsgs, ...violationMsgs]
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     // For new/empty conversations, still build the full UI with header + input bar
@@ -8763,7 +8796,19 @@
         ${isNewConversation ? `<div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center; gap:12px;"><i class="${pIcon}" style="font-size:56px; color:${pColor}; opacity:0.18;"></i><p style="font-size:14px; margin:0;">لا توجد رسائل بعد. ابدأ المحادثة الآن 👇</p></div>` : convMsgs.map(m => {
           const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
 
-          // Standalone dev reply row: text=null, replied=true, replyText set
+          // Render user message, developer reply, or violation message
+          if (m.isViolation) {
+            return `
+              <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px;">
+                <div style="font-size:9px; color:var(--red); margin-bottom:4px; direction:rtl; font-weight:700; padding-left:4px;">
+                  ${m.senderName || 'مستخدم'} · ${dateStr} (مخالفة)
+                </div>
+                <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
+                  ${escapeHtml(m.text || '')}
+                </div>
+              </div>`;
+          }
+
           if (!m.text && m.replied && m.replyText) {
             const rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : dateStr;
             return `<div style="display:flex; flex-direction:column; align-items:flex-end; max-width:82%; align-self:flex-end; margin-bottom:4px;">
