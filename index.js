@@ -38,6 +38,7 @@ const {
   getGeminiResponse,
   getPollinationsResponse,
   getOpenRouterResponse,
+  getChatEverywhereAI,
   getHFVision,
   getObitoAnalyze,
   getStableAIResponse,
@@ -3858,35 +3859,48 @@ async function startBot(folderName, phoneNumber) {
           }
 
           if (!reply) {
-            const aiPromises = [];
-            if (config.geminiApiKey) aiPromises.push(getGeminiResponse(sender, body));
-            if (config.openRouterKey) aiPromises.push(getOpenRouterResponse(sender, body));
+            // Priority 1: ChatEverywhere (GPT-4) — best Arabic & Darija understanding
+            if (!reply) {
+              console.log(chalk.cyan(`[AI] Trying ChatEverywhere (GPT-4) — best Arabic/Darija...`));
+              reply = await Promise.race([
+                getChatEverywhereAI(sender, body),
+                new Promise((_, rej) => setTimeout(() => rej(), 8000))
+              ]).catch(() => null);
+              if (reply) console.log(chalk.green(`[AI] ChatEverywhere GPT-4 succeeded`));
+            }
 
-            // Add other free models to race
-            aiPromises.push(getLuminAIResponse(sender, body));
-            aiPromises.push(getAIDEVResponse(sender, body));
-            aiPromises.push(getPollinationsResponse(sender, body));
-            aiPromises.push(getBlackboxResponse(sender, body));
-            aiPromises.push(getStableAIResponse(sender, body));
-            aiPromises.push(getAutoGPTResponse(sender, body));
+            // Priority 2: Race remaining providers in parallel
+            if (!reply) {
+              const aiPromises = [];
+              if (config.geminiApiKey) aiPromises.push(getGeminiResponse(sender, body));
+              if (config.openRouterKey) aiPromises.push(getOpenRouterResponse(sender, body));
 
-            console.log(chalk.cyan(`[AI] Racing ${aiPromises.length} providers for: "${body.substring(0,30)}"`));
+              // Add other free models to race
+              aiPromises.push(getLuminAIResponse(sender, body));
+              aiPromises.push(getAIDEVResponse(sender, body));
+              aiPromises.push(getPollinationsResponse(sender, body));
+              aiPromises.push(getBlackboxResponse(sender, body));
+              aiPromises.push(getStableAIResponse(sender, body));
+              aiPromises.push(getAutoGPTResponse(sender, body));
 
-            try {
-              // Race them and return the first one that resolves with a value
-              const racePromise = Promise.any(aiPromises.map(p => p.then(res => {
-                if (!res) throw new Error("No response");
-                return res;
-              })));
+              console.log(chalk.cyan(`[AI] Racing ${aiPromises.length} providers for: "${body.substring(0,30)}"`));
 
-              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 25000));
-              reply = await Promise.race([racePromise, timeoutPromise]);
-              if (reply) console.log(chalk.green(`[AI] Got response (${reply.length} chars)`));
-            } catch (e) {
-              console.log(chalk.yellow(`[AI] Race failed (${e.message}). Trying sequential fallback...`));
-              // Sequential fallback for the most reliable one
-              reply = await getStableAIResponse(sender, body) || await getBlackboxResponse(sender, body) || await getPollinationsResponse(sender, body);
-              if (reply) console.log(chalk.green(`[AI] Sequential fallback succeeded`));
+              try {
+                // Race them and return the first one that resolves with a value
+                const racePromise = Promise.any(aiPromises.map(p => p.then(res => {
+                  if (!res) throw new Error("No response");
+                  return res;
+                })));
+
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 20000));
+                reply = await Promise.race([racePromise, timeoutPromise]);
+                if (reply) console.log(chalk.green(`[AI] Got response (${reply.length} chars)`));
+              } catch (e) {
+                console.log(chalk.yellow(`[AI] Race failed (${e.message}). Trying sequential fallback...`));
+                // Sequential fallback for the most reliable one
+                reply = await getStableAIResponse(sender, body) || await getBlackboxResponse(sender, body) || await getPollinationsResponse(sender, body);
+                if (reply) console.log(chalk.green(`[AI] Sequential fallback succeeded`));
+              }
             }
 
             // Last resort: if ALL AI providers failed, give a basic reply so user knows bot is alive
