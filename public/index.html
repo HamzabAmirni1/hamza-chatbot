@@ -8213,6 +8213,7 @@
               <tr style="border-bottom:1px solid var(--border);">
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمة</th>
                 <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">مخالفات</th>
                 <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">تحذيرات</th>
@@ -8235,6 +8236,12 @@
                     <td style="padding:10px 12px;font-size:12px;max-width:150px;">
                       <div style="font-weight:600;">${u.name || '—'}</div>
                       <div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">${u.jid}</div>
+                    </td>
+                    <td style="padding:10px 12px;text-align:center;">
+                      ${isBanned
+                        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.4);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">🚫 محظور</span>`
+                        : `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(104,211,145,0.12);color:#68d391;border:1px solid rgba(104,211,145,0.35);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">✅ نشط</span>`
+                      }
                     </td>
                     <td style="padding:10px 12px;"><code style="background:rgba(252,129,129,0.12);color:#fc8181;padding:2px 7px;border-radius:4px;">${u.bad_word}</code></td>
                     <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--purple);">${u.count}</td>
@@ -8462,6 +8469,7 @@
               <tr style="border-bottom:1px solid var(--border);">
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمة</th>
                 <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">مخالفات</th>
                 <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">تحذيرات</th>
@@ -8484,6 +8492,12 @@
                     <td style="padding:10px 12px;font-size:12px;max-width:150px;">
                       <div style="font-weight:600;">${escapeHtml(u.name || '—')}</div>
                       <div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">${u.jid}</div>
+                    </td>
+                    <td style="padding:10px 12px;text-align:center;">
+                      ${isBanned
+                        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.4);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">🚫 محظور</span>`
+                        : `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(104,211,145,0.12);color:#68d391;border:1px solid rgba(104,211,145,0.35);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">✅ نشط</span>`
+                      }
                     </td>
                     <td style="padding:10px 12px;"><code style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:2px 7px;border-radius:4px;">${escapeHtml(u.bad_word || '')}</code></td>
                     <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--purple);">${u.count}</td>
