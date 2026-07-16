@@ -3046,6 +3046,13 @@
               <span class="toggle-slider"></span>
             </label>
           </div>
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(246,173,85,0.08);border:1px solid rgba(246,173,85,0.3);border-radius:10px;padding:6px 14px;" title="المراقبة فقط: يسجل المخالفات بدون إرسال تحذيرات أو حظر">
+            <span id="profanity-monitor-label" style="font-size:12px;font-weight:700;font-family:Cairo,sans-serif;color:#f6a44e;">👁️ مراقبة فقط</span>
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="profanity-monitor-toggle" onchange="toggleProfanityMonitor(this.checked)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
           <button class="btn btn-secondary" onclick="loadProfanityLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
         </div>
       </div>
@@ -3076,6 +3083,13 @@
             <span id="ibhaya-status-label" style="font-size:12px;font-weight:700;font-family:Cairo,sans-serif;">🟢 مفعّل</span>
             <label class="toggle" style="margin:0;">
               <input type="checkbox" id="ibhaya-enabled-toggle" onchange="toggleIbhayaFeature(this.checked)" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(246,173,85,0.08);border:1px solid rgba(246,173,85,0.3);border-radius:10px;padding:6px 14px;" title="المراقبة فقط: يسجل المخالفات بدون إرسال تحذيرات أو حظر">
+            <span id="ibhaya-monitor-label" style="font-size:12px;font-weight:700;font-family:Cairo,sans-serif;color:#f6a44e;">👁️ مراقبة فقط</span>
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="ibhaya-monitor-toggle" onchange="toggleIbhayaMonitor(this.checked)" />
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -5133,12 +5147,16 @@
         profToggle.checked = data.enableProfanity !== 'false';
         if (profLabel) profLabel.textContent = profToggle.checked ? '🟢 مفعّل' : '🔴 معطَّل';
       }
+      const profMonitorToggle = document.getElementById('profanity-monitor-toggle');
+      if (profMonitorToggle) profMonitorToggle.checked = data.profanityMonitorOnly === 'true';
       const ibhToggle = document.getElementById('ibhaya-enabled-toggle');
       const ibhLabel  = document.getElementById('ibhaya-status-label');
       if (ibhToggle) {
         ibhToggle.checked = data.enableIbhaya !== 'false';
         if (ibhLabel) ibhLabel.textContent = ibhToggle.checked ? '🟢 مفعّل' : '🔴 معطَّل';
       }
+      const ibhMonitorToggle = document.getElementById('ibhaya-monitor-toggle');
+      if (ibhMonitorToggle) ibhMonitorToggle.checked = data.ibhayaMonitorOnly === 'true';
 
       // Stickers & Newsletters
       document.getElementById('s-packname').value = data.packname || '';
@@ -5262,6 +5280,8 @@
       enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
       enableProfanity: (document.getElementById('profanity-enabled-toggle') || {checked:true}).checked ? 'true' : 'false',
       enableIbhaya: (document.getElementById('ibhaya-enabled-toggle') || {checked:true}).checked ? 'true' : 'false',
+      profanityMonitorOnly: (document.getElementById('profanity-monitor-toggle') || {checked:false}).checked ? 'true' : 'false',
+      ibhayaMonitorOnly: (document.getElementById('ibhaya-monitor-toggle') || {checked:false}).checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
       duasHours: document.getElementById('s-duasHours').value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0 && x <= 23),
 
@@ -8244,7 +8264,34 @@
     }
   }
 
+  async function toggleProfanityMonitor(enabled) {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profanityMonitorOnly: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '👁️ وضع المراقبة فقط — لن يتلقى المستخدمون تحذيرات أو حظر' : '✅ العودة للوضع العادي — التحذيرات والحظر مفعّلان', enabled ? 'warning' : 'success');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function toggleIbhayaMonitor(enabled) {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ibhayaMonitorOnly: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '👁️ وضع المراقبة فقط — لن يتلقى المستخدمون تحذيرات أو حظر' : '✅ العودة للوضع العادي — التحذيرات والحظر مفعّلان', enabled ? 'warning' : 'success');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
   async function toggleProfanityFeature(enabled) {
+
     const label = document.getElementById('profanity-status-label');
     if (label) label.textContent = enabled ? '🟢 مفعّل' : '🔴 معطَّل';
     try {

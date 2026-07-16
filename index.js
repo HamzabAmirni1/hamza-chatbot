@@ -134,7 +134,7 @@ global.syncBannedList = async (list) => {
           'giphyApiKey','hfToken','openRouterKey','geminiApiKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
           'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
           'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS', 'forceTelegramSub',
-          'enableProfanity', 'enableIbhaya'
+          'enableProfanity', 'enableIbhaya', 'profanityMonitorOnly', 'ibhayaMonitorOnly'
         ];
         const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
         const configPath = path.join(__dirname, 'config.js');
@@ -789,7 +789,7 @@ app.post('/api/settings', (req, res) => {
       'giphyApiKey','hfToken','openRouterKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
       'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
       'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS',
-      'enableProfanity', 'enableIbhaya'
+      'enableProfanity', 'enableIbhaya', 'profanityMonitorOnly', 'ibhayaMonitorOnly'
     ];
     const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
     for (const key of strFields) {

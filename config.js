@@ -159,6 +159,8 @@ const settings = {
     enableTTS: 'true',
     enableProfanity: 'true',
     enableIbhaya: 'true',
+    profanityMonitorOnly: 'false',
+    ibhayaMonitorOnly: 'false',
     forceTelegramSub: 'false',
 };
 
