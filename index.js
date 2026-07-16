@@ -133,7 +133,8 @@ global.syncBannedList = async (list) => {
           'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
           'giphyApiKey','hfToken','openRouterKey','geminiApiKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
           'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
-          'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS', 'forceTelegramSub'
+          'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS', 'forceTelegramSub',
+          'enableProfanity', 'enableIbhaya'
         ];
         const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
         const configPath = path.join(__dirname, 'config.js');
@@ -787,7 +788,8 @@ app.post('/api/settings', (req, res) => {
       'waGroups','portfolio','officialChannel','packname','author','newsletterName','newsletterJid',
       'giphyApiKey','hfToken','openRouterKey','supabaseUrl','supabaseKey','telegramToken','fbPageAccessToken','fbPageId','description',
       'enableNewsAutoPoster', 'enableTrafficBooster', 'trafficIntervalMinutes', 'enableChatbot', 'enableGroupChatbot',
-      'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS'
+      'enablePrayerScheduler', 'enableDuasScheduler', 'enableRamadanScheduler', 'enableGithubAutoPoster', 'enableAutoDL', 'enableTTS',
+      'enableProfanity', 'enableIbhaya'
     ];
     const arrFields = ['ownerNumber','extraNumbers', 'trafficUrls', 'duasHours'];
     for (const key of strFields) {
@@ -2760,6 +2762,56 @@ app.post('/api/profanity/message', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('[Profanity Msg] Error:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Profanity Warn API — send automated warning message to user who used bad language
+app.post('/api/profanity/warn', async (req, res) => {
+  try {
+    const { jid, warnings_left } = req.body;
+    if (!jid) return res.status(400).json({ ok: false, error: 'jid required' });
+
+    const remaining = (typeof warnings_left === 'number') ? warnings_left : 1;
+    const warnMsg = `⚠️ *تحذير رسمي من الإدارة!*\n\nلقد تم اكتشاف استخدام كلام غير لائق في رسائلك.\n\n🔴 المتبقي لديك: *${remaining} تحذير${remaining !== 1 ? 'ات' : ''}* قبل الحظر النهائي.\n\n❌ إذا تكررت المخالفة مرة أخرى — سيتم حظرك فوراً وبشكل دائم.\n\n📋 يُرجى الالتزام بآداب الحديث واحترام الآخرين.`;
+
+    let sent = false;
+
+    if (jid.startsWith('tg:')) {
+      const tgId = jid.replace('tg:', '');
+      const bots = global.telegramBots ? Object.values(global.telegramBots) : [];
+      if (global.telegramBot) bots.unshift(global.telegramBot);
+      for (const bot of bots) {
+        try {
+          await bot.telegram.sendMessage(tgId, warnMsg, { parse_mode: 'Markdown' });
+          sent = true; break;
+        } catch (_) {}
+      }
+    } else if (jid.startsWith('fb:')) {
+      const fbId = jid.replace('fb:', '');
+      const { sendFacebookMessage } = require('./lib/facebook');
+      const fbTokens = Object.values(global.fbPageTokens || {});
+      if (config.fbPageAccessToken && !fbTokens.includes(config.fbPageAccessToken)) fbTokens.push(config.fbPageAccessToken);
+      for (const token of fbTokens) {
+        try {
+          await sendFacebookMessage(fbId, warnMsg, token);
+          sent = true; break;
+        } catch (_) {}
+      }
+    } else {
+      const cleanJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+      for (const sock of (global.clients || [])) {
+        try {
+          if (sock.user) {
+            await sock.sendMessage(cleanJid, { text: warnMsg });
+            sent = true; break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    res.json({ ok: true, sent });
+  } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
 });

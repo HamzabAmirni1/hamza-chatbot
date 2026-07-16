@@ -3033,12 +3033,21 @@
       <p>قائمة المستخدمين الذين استخدموا كلاماً بذيئاً — يمكنك إعادة ضبط تحذيراتهم أو حظرهم فوراً</p>
     </div>
     <div class="card">
-      <div class="card-header" style="justify-content:space-between;">
+      <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="card-icon" style="background:rgba(252,129,129,0.12);color:#fc8181;"><i class="fas fa-ban"></i></div>
           <div class="card-title">سجل المخالفات <span id="profanity-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
         </div>
-        <button class="btn btn-secondary" onclick="loadProfanityLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(252,129,129,0.08);border:1px solid rgba(252,129,129,0.25);border-radius:10px;padding:6px 14px;">
+            <span id="profanity-status-label" style="font-size:12px;font-weight:700;font-family:Cairo,sans-serif;">🟢 مفعّل</span>
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="profanity-enabled-toggle" onchange="toggleProfanityFeature(this.checked)" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <button class="btn btn-secondary" onclick="loadProfanityLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        </div>
       </div>
       <div id="profanity-list" style="padding:20px;">
         <div style="color:var(--text-muted);text-align:center;padding:40px;">
@@ -3057,12 +3066,21 @@
     </div>
 
     <div class="card">
-      <div class="card-header" style="justify-content:space-between;">
+      <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="card-icon" style="background:rgba(229,62,62,0.12);color:#e53e3e;"><i class="fas fa-ban"></i></div>
           <div class="card-title">سجل المخالفات <span id="ibhaya-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
         </div>
-        <button class="btn btn-secondary" onclick="loadIbhayaLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(229,62,62,0.08);border:1px solid rgba(229,62,62,0.25);border-radius:10px;padding:6px 14px;">
+            <span id="ibhaya-status-label" style="font-size:12px;font-weight:700;font-family:Cairo,sans-serif;">🟢 مفعّل</span>
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="ibhaya-enabled-toggle" onchange="toggleIbhayaFeature(this.checked)" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <button class="btn btn-secondary" onclick="loadIbhayaLogs()" style="padding:8px 16px;font-size:12px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+        </div>
       </div>
       <div id="ibhaya-list" style="padding:20px;">
         <div style="color:var(--text-muted);text-align:center;padding:40px;">
@@ -5108,6 +5126,20 @@
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
       document.getElementById('s-duasHours').value = (data.duasHours || [9, 14, 21]).join(', ');
 
+      // Profanity & Ibhaya toggles on their own pages
+      const profToggle = document.getElementById('profanity-enabled-toggle');
+      const profLabel  = document.getElementById('profanity-status-label');
+      if (profToggle) {
+        profToggle.checked = data.enableProfanity !== 'false';
+        if (profLabel) profLabel.textContent = profToggle.checked ? '🟢 مفعّل' : '🔴 معطَّل';
+      }
+      const ibhToggle = document.getElementById('ibhaya-enabled-toggle');
+      const ibhLabel  = document.getElementById('ibhaya-status-label');
+      if (ibhToggle) {
+        ibhToggle.checked = data.enableIbhaya !== 'false';
+        if (ibhLabel) ibhLabel.textContent = ibhToggle.checked ? '🟢 مفعّل' : '🔴 معطَّل';
+      }
+
       // Stickers & Newsletters
       document.getElementById('s-packname').value = data.packname || '';
       document.getElementById('s-author').value = data.author || '';
@@ -5228,6 +5260,8 @@
       enableTTS: document.getElementById('s-enableTTS').checked ? 'true' : 'false',
       enableGithubAutoPoster: document.getElementById('s-enableGithubAutoPoster').checked ? 'true' : 'false',
       enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
+      enableProfanity: (document.getElementById('profanity-enabled-toggle') || {checked:true}).checked ? 'true' : 'false',
+      enableIbhaya: (document.getElementById('ibhaya-enabled-toggle') || {checked:true}).checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
       duasHours: document.getElementById('s-duasHours').value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0 && x <= 23),
 
@@ -8207,6 +8241,63 @@
      </div>`;
     } catch(e) {
       listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ: ${e.message}</div>`;
+    }
+  }
+
+  async function toggleProfanityFeature(enabled) {
+    const label = document.getElementById('profanity-status-label');
+    if (label) label.textContent = enabled ? '🟢 مفعّل' : '🔴 معطَّل';
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableProfanity: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '✅ تم تفعيل الكشف عن الألفاظ النابية' : '⛔ تم تعطيل الكشف عن الألفاظ النابية', enabled ? 'success' : 'warning');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function toggleIbhayaFeature(enabled) {
+    const label = document.getElementById('ibhaya-status-label');
+    if (label) label.textContent = enabled ? '🟢 مفعّل' : '🔴 معطَّل';
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableIbhaya: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '✅ تم تفعيل الكشف عن المحتوى الإباحي' : '⛔ تم تعطيل الكشف عن المحتوى الإباحي', enabled ? 'success' : 'warning');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function sendProfanityWarn(jid, warningsLeft) {
+
+    const remaining = typeof warningsLeft === 'number' ? warningsLeft : '?';
+    if (!await showConfirm(`⚠️ <b>إرسال تحذير تلقائي لهذا المستخدم؟</b><br><br>سيتلقى رسالة تخبره أن لديه ${remaining} تحذير متبقٍ قبل الحظر بسبب الكلام غير اللائق.<br><br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const btn = event.target.closest('button');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      const res = await fetch('/api/profanity/warn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid, warnings_left: remaining })
+      });
+      const data = await res.json();
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      if (data.ok && data.sent) {
+        showToast('✅ تم إرسال التحذير بنجاح!', 'success');
+      } else if (data.ok && !data.sent) {
+        showToast('⚠️ تم طلب الإرسال لكن البوت غير متصل', 'warning');
+      } else {
+        showToast('❌ فشل: ' + (data.error || 'خطأ غير معروف'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
     }
   }
 

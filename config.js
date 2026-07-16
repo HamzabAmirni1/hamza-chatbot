@@ -157,6 +157,8 @@ const settings = {
     enableGithubAutoPoster: 'true',
     enableAutoDL: 'true',
     enableTTS: 'true',
+    enableProfanity: 'true',
+    enableIbhaya: 'true',
     forceTelegramSub: 'false',
 };
 
