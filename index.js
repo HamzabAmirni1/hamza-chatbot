@@ -1789,8 +1789,21 @@ app.post('/api/dev-messages/delete', async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ ok: false, error: 'Message ID is required' });
-    const ok = await db.deleteDevMessage(id);
-    if (!ok) return res.status(404).json({ ok: false, error: 'الرسالة غير موجودة' });
+    
+    const cleanId = id.endsWith('_v') ? id.slice(0, -2) : id;
+    
+    // 1. Delete from DB (by ID or timestamp)
+    await db.deleteDevMessage(cleanId);
+    
+    // 2. Delete from cache logs if it was a violation
+    let pLogs = await db.getCache('profanity_logs') || [];
+    pLogs = pLogs.filter(l => l.timestamp !== cleanId && l.timestamp + '_v' !== id);
+    await db.setCache('profanity_logs', pLogs);
+
+    let iLogs = await db.getCache('ibhaya_logs') || [];
+    iLogs = iLogs.filter(l => l.timestamp !== cleanId && l.timestamp + '_v' !== id);
+    await db.setCache('ibhaya_logs', iLogs);
+
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

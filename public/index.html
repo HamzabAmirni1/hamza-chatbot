@@ -8722,13 +8722,17 @@
 
       // Standalone violation block
       if (m.isViolation || (m.text && (m.text.includes('⚠️ [مخالفة سب وشتم]') || m.text.includes('⚠️ [مخالفة إباحية]')))) {
+        const safeViolId = (m.id || m.timestamp || '').toString().replace(/'/g, '');
         return `
-          <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px;">
+          <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px; position:relative;" class="violation-bubble-wrap">
             <div style="font-size:9px; color:var(--red); margin-bottom:4px; direction:rtl; font-weight:700; padding-left:4px;">
               ${m.senderName || 'مستخدم'} · ${dateStr} (مخالفة)
             </div>
-            <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
-              ${escapeHtml(m.text || '')}
+            <div style="position:relative; width:100%;">
+              <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
+                ${escapeHtml(m.text || '')}
+              </div>
+              <button onclick="event.stopPropagation(); deleteDevMsg('${safeViolId}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid rgba(239,68,68,0.5); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف المخالفة">✕</button>
             </div>
           </div>`;
       }
@@ -9015,13 +9019,17 @@
 
           // Render user message, developer reply, or violation message
           if (m.isViolation) {
+            const safeViolId = (m.id || m.timestamp || '').toString().replace(/'/g, '');
             return `
-              <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px;">
+              <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px; position:relative;" class="violation-bubble-wrap">
                 <div style="font-size:9px; color:var(--red); margin-bottom:4px; direction:rtl; font-weight:700; padding-left:4px;">
                   ${m.senderName || 'مستخدم'} · ${dateStr} (مخالفة)
                 </div>
-                <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
-                  ${escapeHtml(m.text || '')}
+                <div style="position:relative; width:100%;">
+                  <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
+                    ${escapeHtml(m.text || '')}
+                  </div>
+                  <button onclick="event.stopPropagation(); deleteDevMsg('${safeViolId}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid rgba(239,68,68,0.5); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف المخالفة">✕</button>
                 </div>
               </div>`;
           }
