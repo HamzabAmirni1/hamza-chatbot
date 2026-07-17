@@ -1279,10 +1279,10 @@ app.post('/api/ban', async (req, res) => {
     
     let jid = '';
     const cleanNum = number.trim();
-    const plat = platform || 'whatsapp';
-    if (plat === 'telegram') {
+    const plat = (platform || 'whatsapp').toLowerCase();
+    if (plat === 'telegram' || plat === 'tg') {
       jid = `tg:${cleanNum}`;
-    } else if (plat === 'facebook') {
+    } else if (plat === 'facebook' || plat === 'fb') {
       jid = `fb:${cleanNum}`;
     } else {
       jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
@@ -1304,10 +1304,10 @@ app.post('/api/unban', async (req, res) => {
     
     let jid = '';
     const cleanNum = number.trim();
-    const plat = platform || 'whatsapp';
-    if (plat === 'telegram') {
+    const plat = (platform || 'whatsapp').toLowerCase();
+    if (plat === 'telegram' || plat === 'tg') {
       jid = `tg:${cleanNum}`;
-    } else if (plat === 'facebook') {
+    } else if (plat === 'facebook' || plat === 'fb') {
       jid = `fb:${cleanNum}`;
     } else {
       jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
@@ -1349,10 +1349,10 @@ app.post('/api/delete-user', async (req, res) => {
     
     let jid = '';
     const cleanNum = number.trim();
-    const plat = platform || 'whatsapp';
-    if (plat === 'telegram') {
+    const plat = (platform || 'whatsapp').toLowerCase();
+    if (plat === 'telegram' || plat === 'tg') {
       jid = `tg:${cleanNum}`;
-    } else if (plat === 'facebook') {
+    } else if (plat === 'facebook' || plat === 'fb') {
       jid = `fb:${cleanNum}`;
     } else {
       jid = cleanNum.includes('@') ? cleanNum : `${cleanNum}@s.whatsapp.net`;
@@ -1374,7 +1374,8 @@ app.post('/api/send-message', async (req, res) => {
     if (!number) return res.status(400).json({ ok: false, error: 'الرقم أو المعرف مطلوب' });
     if (!message && !mediaBase64) return res.status(400).json({ ok: false, error: 'الرسالة أو الملف مطلوب' });
 
-    const plat = (platform || 'whatsapp').toLowerCase();
+    const rawPlat = (platform || 'whatsapp').toLowerCase();
+    const plat = (rawPlat === 'fb' || rawPlat === 'facebook') ? 'facebook' : (rawPlat === 'tg' || rawPlat === 'telegram') ? 'telegram' : 'whatsapp';
     const cleanNum = number.trim();
 
     // Convert base64 to Buffer if media provided
