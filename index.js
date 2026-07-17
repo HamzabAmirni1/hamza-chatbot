@@ -1380,8 +1380,14 @@ app.post('/api/send-message', async (req, res) => {
 
     // Convert base64 to Buffer if media provided
     const mediaBuffer = mediaBase64 ? Buffer.from(mediaBase64, 'base64') : null;
-    const msgCaption = caption || message || '';
     const fileName = mediaName || 'file';
+
+    const headerText = `👑 *رسالة إدارية من المطور* 👑\n━━━━━━━━━━━━━━━━━━\n\n`;
+    const footerText = `\n\n━━━━━━━━━━━━━━━━━━\n✍️ *يمكنك الرد مباشرة بكتابة:*\n\`.msgtodev [رسالتك]\``;
+    
+    const hasText = ((message || caption || '').trim().length > 0);
+    const formattedMsg = hasText ? `${headerText}${message || caption}${footerText}` : '';
+    const msgCaption = hasText ? `${headerText}${caption || message}${footerText}` : '';
 
     // Determine media category
     const isImage = mediaType && mediaType.startsWith('image/');
@@ -1407,17 +1413,17 @@ app.post('/api/send-message', async (req, res) => {
 
       if (mediaBuffer) {
         if (isImage) {
-          await sock.sendMessage(jid, { image: mediaBuffer, caption: msgCaption, mimetype: mediaType });
+          await sock.sendMessage(jid, { image: mediaBuffer, caption: msgCaption || undefined, mimetype: mediaType });
         } else if (isAudio) {
           await sock.sendMessage(jid, { audio: mediaBuffer, mimetype: mediaType, ptt: !!ptt });
-          if (message) await sock.sendMessage(jid, { text: message });
+          if (formattedMsg) await sock.sendMessage(jid, { text: formattedMsg });
         } else if (isVideo) {
-          await sock.sendMessage(jid, { video: mediaBuffer, caption: msgCaption, mimetype: mediaType });
+          await sock.sendMessage(jid, { video: mediaBuffer, caption: msgCaption || undefined, mimetype: mediaType });
         } else {
-          await sock.sendMessage(jid, { document: mediaBuffer, fileName: fileName, mimetype: mediaType || 'application/octet-stream', caption: msgCaption });
+          await sock.sendMessage(jid, { document: mediaBuffer, fileName: fileName, mimetype: mediaType || 'application/octet-stream', caption: msgCaption || undefined });
         }
       } else {
-        await sock.sendMessage(jid, { text: message });
+        await sock.sendMessage(jid, { text: formattedMsg });
       }
       return res.json({ ok: true });
 
@@ -1437,20 +1443,20 @@ app.post('/api/send-message', async (req, res) => {
             if (botInstance) {
               if (mediaBuffer) {
                 if (isImage) {
-                  await botInstance.sendPhoto(cleanNum, mediaBuffer, { caption: msgCaption }, { filename: fileName, contentType: mediaType });
+                  await botInstance.sendPhoto(cleanNum, mediaBuffer, { caption: msgCaption || undefined }, { filename: fileName, contentType: mediaType });
                 } else if (isAudio) {
                   if (ptt) {
-                    await botInstance.sendVoice(cleanNum, mediaBuffer, { caption: message || '' });
+                    await botInstance.sendVoice(cleanNum, mediaBuffer, { caption: formattedMsg || undefined });
                   } else {
-                    await botInstance.sendAudio(cleanNum, mediaBuffer, { caption: message || '' }, { filename: fileName, contentType: mediaType });
+                    await botInstance.sendAudio(cleanNum, mediaBuffer, { caption: formattedMsg || undefined }, { filename: fileName, contentType: mediaType });
                   }
                 } else if (isVideo) {
-                  await botInstance.sendVideo(cleanNum, mediaBuffer, { caption: msgCaption });
+                  await botInstance.sendVideo(cleanNum, mediaBuffer, { caption: msgCaption || undefined });
                 } else {
-                  await botInstance.sendDocument(cleanNum, mediaBuffer, { caption: msgCaption }, { filename: fileName, contentType: mediaType });
+                  await botInstance.sendDocument(cleanNum, mediaBuffer, { caption: msgCaption || undefined }, { filename: fileName, contentType: mediaType });
                 }
               } else {
-                await botInstance.sendMessage(cleanNum, message);
+                await botInstance.sendMessage(cleanNum, formattedMsg, { parse_mode: 'Markdown' });
               }
             } else {
               // Direct API call (text only fallback)
@@ -1458,7 +1464,7 @@ app.post('/api/send-message', async (req, res) => {
                 `https://api.telegram.org/bot${token}/sendMessage`,
                 {
                   chat_id: cleanNum,
-                  text: (message || msgCaption).replace(/\*/g, '').replace(/_/g, ''),
+                  text: (formattedMsg || msgCaption).replace(/\*/g, '').replace(/_/g, ''),
                   parse_mode: 'HTML'
                 },
                 { timeout: 10000 }
@@ -1496,9 +1502,9 @@ app.post('/api/send-message', async (req, res) => {
           try {
             if (mediaBuffer && (typeof sendFacebookMedia === 'function')) {
               const fbType = isImage ? 'image' : (isAudio ? 'audio' : (isVideo ? 'video' : 'file'));
-              await sendFacebookMedia(cleanNum, mediaBuffer, fbType, msgCaption, pageToken);
+              await sendFacebookMedia(cleanNum, mediaBuffer, fbType, msgCaption || undefined, pageToken);
             } else {
-              await sendFacebookMessage(cleanNum, message || msgCaption, pageToken);
+              await sendFacebookMessage(cleanNum, formattedMsg, pageToken);
             }
             sent = true;
             break;
@@ -1510,8 +1516,8 @@ app.post('/api/send-message', async (req, res) => {
             }
             // Fallback to text if media fails
             try {
-              if (message) {
-                await sendFacebookMessage(cleanNum, message, pageToken);
+              if (formattedMsg) {
+                await sendFacebookMessage(cleanNum, formattedMsg, pageToken);
                 sent = true;
                 break;
               }
@@ -2655,8 +2661,8 @@ app.post('/api/profanity/message', async (req, res) => {
     const isVideo = mediaType && mediaType.startsWith('video/') && !isAudio;
     const isDoc   = mediaBuffer && !isImage && !isAudio && !isVideo;
 
-    const headerText = `╔═══════════════════════╗\n║   📢 رسالة من مطور البوت   ║\n╚═══════════════════════╝\n\n`;
-    const footerText = `\n\n━━━━━━━━━━━━━━━━━━━━━━━\n👤 المطور: حمزة اعمرني 🇲🇦`;
+    const headerText = `👑 *رسالة إدارية من المطور* 👑\n━━━━━━━━━━━━━━━━━━\n\n`;
+    const footerText = `\n\n━━━━━━━━━━━━━━━━━━\n✍️ *يمكنك الرد مباشرة بكتابة:*\n\`.msgtodev [رسالتك]\``;
     const formattedMsg = message ? `${headerText}${message}${footerText}` : `📎 ملف مرفق`;
 
     const plat = platform.toLowerCase();
@@ -3613,7 +3619,10 @@ async function startBot(folderName, phoneNumber) {
         // Check if user is banned
         try {
           const senderJid = (userPhoneJid || sender).includes('@') ? (userPhoneJid || sender) : `${userPhoneJid || sender}@s.whatsapp.net`;
-          if (global.bannedUsersCache && global.bannedUsersCache.includes(senderJid)) continue;
+          if (global.bannedUsersCache && global.bannedUsersCache.includes(senderJid)) {
+            const isMsgToDev = body && (body.trim().startsWith('.msgtodev') || body.trim().startsWith('!msgtodev'));
+            if (!isMsgToDev) continue;
+          }
         } catch (_) {}
 
         // ===== OWNER CHECK =====

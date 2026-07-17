@@ -8720,6 +8720,19 @@
     const newHtml = convMsgs.map(m => {
       const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
 
+      // Standalone violation block
+      if (m.isViolation || (m.text && (m.text.includes('⚠️ [مخالفة سب وشتم]') || m.text.includes('⚠️ [مخالفة إباحية]')))) {
+        return `
+          <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px;">
+            <div style="font-size:9px; color:var(--red); margin-bottom:4px; direction:rtl; font-weight:700; padding-left:4px;">
+              ${m.senderName || 'مستخدم'} · ${dateStr} (مخالفة)
+            </div>
+            <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
+              ${escapeHtml(m.text || '')}
+            </div>
+          </div>`;
+      }
+
       // Standalone dev reply row
       if (!m.text && m.replied && m.replyText) {
         const rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : dateStr;
@@ -8919,34 +8932,48 @@
     });
 
     const chats = window.devMessagesCache || [];
-    const userDevMsgs = chats.filter(m => m.sender === senderJid);
+    const userDevMsgs = chats.filter(m => m.sender === senderJid).map(m => {
+      if (m.text && (m.text.includes('⚠️ [مخالفة سب وشتم]') || m.text.includes('⚠️ [مخالفة إباحية]'))) {
+        return { ...m, isViolation: true };
+      }
+      return m;
+    });
 
     // Fetch user violations from caches (profanity + ibhaya)
     const profLogs = (window.profanityLogsCache || []).filter(l => l.jid === senderJid);
     const ibhLogs = (window.ibhayaLogsCache || []).filter(l => l.jid === senderJid);
     
     const violationMsgs = [];
+    const existingTexts = new Set(userDevMsgs.map(m => m.text));
+
     profLogs.forEach(l => {
-      violationMsgs.push({
-        id: l.timestamp + '_v',
-        sender: senderJid,
-        senderName: l.name,
-        platform: l.platform,
-        text: '⚠️ [مخالفة سب وشتم] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
-        timestamp: l.timestamp,
-        isViolation: true
-      });
+      const vText = '⚠️ [مخالفة سب وشتم] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message;
+      if (!existingTexts.has(vText)) {
+        violationMsgs.push({
+          id: l.timestamp + '_v',
+          sender: senderJid,
+          senderName: l.name,
+          platform: l.platform,
+          text: vText,
+          timestamp: l.timestamp,
+          isViolation: true
+        });
+      }
     });
+
     ibhLogs.forEach(l => {
-      violationMsgs.push({
-        id: l.timestamp + '_v',
-        sender: senderJid,
-        senderName: l.name,
-        platform: l.platform,
-        text: '⚠️ [مخالفة إباحية] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
-        timestamp: l.timestamp,
-        isViolation: true
-      });
+      const vText = '⚠️ [مخالفة إباحية] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message;
+      if (!existingTexts.has(vText)) {
+        violationMsgs.push({
+          id: l.timestamp + '_v',
+          sender: senderJid,
+          senderName: l.name,
+          platform: l.platform,
+          text: vText,
+          timestamp: l.timestamp,
+          isViolation: true
+        });
+      }
     });
 
     // Merge dev messages + violations and sort chronologically
