@@ -45,19 +45,33 @@ async function fetchGoogleTTS(text, lang) {
     const encoded = encodeURIComponent(text);
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${lang}&client=tw-ob&ttsspeed=0.9`;
 
-    const res = await axios.get(url, {
-        responseType: 'arraybuffer',
-        timeout: 20000,
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
-                          'AppleWebKit/537.36 (KHTML, like Gecko) ' +
-                          'Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://translate.google.com/',
-        },
-    });
-
-    return Buffer.from(res.data);
+    try {
+        const res = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://translate.google.com/',
+            },
+        });
+        return Buffer.from(res.data);
+    } catch (e) {
+        console.warn(`[Google TTS Failed, trying Youdao]: ${e.message}`);
+        let youdaoLang = lang;
+        if (lang === 'en') youdaoLang = 'eng';
+        const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encoded}&le=${youdaoLang}`;
+        const res = await axios.get(youdaoUrl, {
+            responseType: 'arraybuffer',
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        return Buffer.from(res.data);
+    }
 }
+
+
 
 /**
  * Split long text into chunks ≤ 200 chars at word boundaries
@@ -104,12 +118,16 @@ module.exports = async (sock, sender, msg, args) => {
                   `⚔️ ${config.botName}`
         }, { quoted: msg });
     }
-
     // Parse: text | lang
     const parts = fullText.split('|');
     const textInput = parts[0].trim();
-    const langInput = parts[1] ? parts[1].trim() : 'ar';
+    let langInput = parts[1] ? parts[1].trim() : null;
 
+    if (!langInput) {
+        // Auto detect: if contains Arabic script, use 'ar', else 'en'
+        const hasArabic = /[\u0600-\u06FF]/.test(textInput);
+        langInput = hasArabic ? 'ar' : 'en';
+    }
     if (!textInput) {
         return await sock.sendMessage(sender, {
             text: `❌ أدخل النص المراد تحويله.\nمثال: .tts مرحبا بك`

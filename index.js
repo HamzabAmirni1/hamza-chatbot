@@ -444,7 +444,7 @@ app.post("/connect-wa", async (req, res) => {
 const AUTH_TOKEN = process.env.DASHBOARD_TOKEN || 'hamza-auth-token-2005';
 
 app.use('/api', (req, res, next) => {
-  if (req.path === '/login') return next();
+  if (req.path === '/login' || req.path === '/log-client-error') return next();
   const authHeader = req.headers['authorization'];
   let token = '';
   if (authHeader && authHeader.startsWith('Bearer ')) {

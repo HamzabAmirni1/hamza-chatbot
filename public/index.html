@@ -1679,6 +1679,9 @@
     <a class="nav-item" onclick="showPage('ibhaya'); closeSidebarOnMobile()" id="nav-ibhaya">
       <i class="fas fa-eye-slash" style="color:#e53e3e;"></i> <span style="color:#e53e3e;">مخالفو الإباحية</span>
     </a>
+    <a class="nav-item" onclick="showPage('violations-scanner'); closeSidebarOnMobile()" id="nav-violations-scanner" style="background:rgba(229,62,62,0.06);border:1px dashed rgba(229,62,62,0.2) !important;">
+      <i class="fas fa-search" style="color:#e53e3e;"></i> <span style="color:#e53e3e;font-weight:bold;">🔍 كاشف المخالفات الشامل</span>
+    </a>
     <a class="nav-item" onclick="showPage('banned'); closeSidebarOnMobile()" id="nav-banned">
       <i class="fas fa-user-slash" style="color:#e53e3e;"></i> <span style="color:#e53e3e;">إدارة الحظر</span>
     </a>
@@ -3105,7 +3108,40 @@
     </div>
   </div>
 
-  <!-- =================== BANNED USERS PAGE =================== -->
+    <!-- =================== VIOLATIONS SCANNER PAGE =================== -->
+  <div class="page" id="page-violations-scanner">
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1><i class="fas fa-search" style="color:#e53e3e"></i> كاشف المخالفات الشامل (الآداب والإباحية)</h1>
+        <p>فحص كامل وسريع لكل من خالف الآداب العامة (كلام بذيء) أو طلب محتوى إباحي مع إمكانية التواصل الفوري معهم</p>
+      </div>
+      <button class="btn btn-primary" onclick="performComprehensiveScan()" style="padding:10px 24px; font-weight:700; background:linear-gradient(135deg, #e53e3e, #c53030); border:none;"><i class="fas fa-search-plus"></i> تشغيل الفحص الشامل</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="card-icon" style="background:rgba(229,62,62,0.12); color:#e53e3e;"><i class="fas fa-users-cog"></i></div>
+          <div class="card-title">المخالفون الذين تم كشفهم <span id="violations-scan-count" style="font-size:12px; color:var(--text-muted); font-weight:400;"></span></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <select id="violations-filter-type" onchange="filterScanResults()" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:8px; font-family:Cairo,sans-serif; font-size:12px;">
+            <option value="all">كل المخالفات</option>
+            <option value="profanity">كلام بذيء فقط</option>
+            <option value="ibhaya">محتوى إباحي فقط</option>
+          </select>
+        </div>
+      </div>
+      <div id="violations-scan-list" style="padding:20px;">
+        <div style="color:var(--text-muted); text-align:center; padding:40px;">
+          <i class="fas fa-shield-alt" style="font-size:40px; margin-bottom:12px; display:block; opacity:0.3;"></i>
+          انقر فوق زر "تشغيل الفحص الشامل" لبدء فحص قاعدة البيانات.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- =================== BANNED USERS PAGE =================== -->
   <div class="page" id="page-banned">
     <div class="page-header">
       <h1><i class="fas fa-user-slash" style="color:#e53e3e"></i> إدارة قائمة الحظر</h1>
@@ -4422,33 +4458,35 @@
     localStorage.setItem('active_page', page);
 
     // Call page-specific data loaders and wait for them to finish rendering
-    if (page === 'sessions') await loadSessions();
-    else if (page === 'settings') await loadSettings();
-    else if (page === 'users') await loadUsers();
-    else if (page === 'subscribers') await loadSubscribers();
-    else if (page === 'cmdstats') { await loadCmdStats(); await loadCmdErrors(); }
-    else if (page === 'activity') { await loadActivity(); startActivityPolling(); }
-    else if (page === 'broadcast') await loadUsers();
-    else if (page === 'manage') await loadManagePage();
-    else if (page === 'analytics') await loadAnalytics();
-    else if (page === 'scripts') await loadScriptsPage();
-    else if (page === 'insta-hunter') await loadInstaPage();
-    else if (page === 'contacts') await loadContacts();
-    else if (page === 'devmessages') { await loadDevMessages(); startDevMessagesPolling(); }
-    else if (page === 'profanity') await loadProfanityLogs();
-    else if (page === 'ibhaya') { await loadIbhayaWords(); await loadIbhayaLogs(); }
-    else if (page === 'banned') await loadBannedUsers();
-    else if (page === 'leaderboard') await loadLeaderboard();
-    else if (page === 'apk' || page === 'cmdlimits') {
-      // Both 'apk' and 'cmdlimits' show the redesigned page-apk
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      const apkPage = document.getElementById('page-apk');
-      if (apkPage) apkPage.classList.add('active');
-      const apkNav = document.getElementById('nav-apk');
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      if (apkNav) apkNav.classList.add('active');
-      localStorage.setItem('active_page', 'apk');
-      await loadCmdLimitsPage();
+    try {
+      if (page === 'sessions') await loadSessions();
+      else if (page === 'settings') await loadSettings();
+      else if (page === 'users') await loadUsers();
+      else if (page === 'cmdstats') { await loadCmdStats(); await loadCmdErrors(); }
+      else if (page === 'activity') { await loadActivity(); startActivityPolling(); }
+      else if (page === 'broadcast') await loadUsers();
+      else if (page === 'manage') await loadManagePage();
+      else if (page === 'analytics') await loadAnalytics();
+      else if (page === 'scripts') await loadScriptsPage();
+      else if (page === 'insta-hunter') await loadInstaPage();
+      else if (page === 'contacts') await loadContacts();
+      else if (page === 'devmessages') await loadDevMessages();
+      else if (page === 'profanity') await loadProfanityLogs();
+      else if (page === 'banned') await loadBannedUsers();
+      else if (page === 'leaderboard') await loadLeaderboard();
+      else if (page === 'violations-scanner') await performComprehensiveScan();
+    } catch (err) {
+      console.error('[showPage Loader Error]:', err);
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: err ? err.message : 'Unknown loader error',
+          stack: err ? err.stack : '',
+          url: window.location.href + ' [Page: ' + page + ']'
+        })
+      }).catch(() => {});
+      showToast('⚠️ خطأ في تحميل بيانات هذه الصفحة', 'error');
     }
 
     if (!isInitialLoad) {
@@ -9377,6 +9415,166 @@
       if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); await loadBannedUsers(); }
       else showToast('❌ ' + (data.error || 'فشل'), 'error');
     } catch(e) { showToast('❌ خطأ: ' + e.message, 'error'); }
+  }
+
+  // =================== VIOLATIONS COMPREHENSIVE SCANNER ===================
+  let _violationsScanCache = [];
+  async function performComprehensiveScan() {
+    const listEl = document.getElementById('violations-scan-list');
+    const countEl = document.getElementById('violations-scan-count');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري الفحص الشامل لقاعدة البيانات...</div>`;
+    try {
+      const [profRes, ibhRes] = await Promise.all([
+        fetch('/api/profanity-logs'),
+        fetch('/api/ibhaya-logs')
+      ]);
+      const profData = await profRes.json();
+      const ibhData = await ibhRes.json();
+
+      const profLogs = profData.logs || [];
+      const ibhLogs = ibhData.logs || [];
+      const bannedList = [...new Set([...(profData.banned || []), ...(ibhData.banned || [])])];
+
+      const grouped = {};
+      
+      for (const log of profLogs) {
+        const jid = log.jid;
+        if (!grouped[jid]) {
+          grouped[jid] = {
+            jid: jid,
+            name: log.name || 'مستخدم غير معروف',
+            platform: log.platform || 'WA',
+            profCount: 0,
+            ibhCount: 0,
+            badWords: new Set(),
+            messages: [],
+            warnings_left: log.warnings_left,
+            timestamp: log.timestamp
+          };
+        }
+        grouped[jid].profCount++;
+        if (log.bad_word) grouped[jid].badWords.add(log.bad_word);
+        grouped[jid].messages.push({ type: 'profanity', word: log.bad_word, text: log.message, ts: log.timestamp });
+        if (new Date(log.timestamp) > new Date(grouped[jid].timestamp)) {
+          grouped[jid].warnings_left = log.warnings_left;
+          grouped[jid].timestamp = log.timestamp;
+        }
+      }
+
+      for (const log of ibhLogs) {
+        const jid = log.jid;
+        if (!grouped[jid]) {
+          grouped[jid] = {
+            jid: jid,
+            name: log.name || 'مستخدم غير معروف',
+            platform: log.platform || 'WA',
+            profCount: 0,
+            ibhCount: 0,
+            badWords: new Set(),
+            messages: [],
+            warnings_left: log.warnings_left,
+            timestamp: log.timestamp
+          };
+        }
+        grouped[jid].ibhCount++;
+        if (log.bad_word) grouped[jid].badWords.add(log.bad_word);
+        grouped[jid].messages.push({ type: 'ibhaya', word: log.bad_word, text: log.message, ts: log.timestamp });
+        if (new Date(log.timestamp) > new Date(grouped[jid].timestamp)) {
+          grouped[jid].warnings_left = log.warnings_left;
+          grouped[jid].timestamp = log.timestamp;
+        }
+      }
+
+      _violationsScanCache = Object.values(grouped).map(u => {
+        u.isBanned = bannedList.includes(u.jid);
+        u.badWordsList = Array.from(u.badWords);
+        return u;
+      });
+
+      _violationsScanCache.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      filterScanResults();
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ في تشغيل الفحص: ${e.message}</div>`;
+    }
+  }
+
+  function filterScanResults() {
+    const filterType = (document.getElementById('violations-filter-type') || {}).value || 'all';
+    const listEl = document.getElementById('violations-scan-list');
+    const countEl = document.getElementById('violations-scan-count');
+    if (!listEl) return;
+
+    let filtered = _violationsScanCache;
+    if (filterType === 'profanity') {
+      filtered = _violationsScanCache.filter(function(u) { return u.profCount > 0; });
+    } else if (filterType === 'ibhaya') {
+      filtered = _violationsScanCache.filter(function(u) { return u.ibhCount > 0; });
+    }
+
+    if (countEl) countEl.textContent = '(' + filtered.length + ' مستخدم مخالف)';
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد نتائج مطابقة للمرشح المحدد.</div>';
+      return;
+    }
+
+    const platformIcon = { WA: '🟢', TG: '✈️', FB: '🔵' };
+    const platformLabel = { WA: 'واتساب', TG: 'تيليغرام', FB: 'فيسبوك' };
+
+    let rows = '';
+    filtered.forEach(function(u) {
+      const types = [];
+      if (u.profCount > 0) types.push('<span style="color:#fc8181;background:rgba(252,129,129,0.1);padding:2px 6px;border-radius:4px;font-size:11px;">⚠️ كلام بذيء (' + u.profCount + ')</span>');
+      if (u.ibhCount > 0) types.push('<span style="color:#e53e3e;background:rgba(229,62,62,0.1);padding:2px 6px;border-radius:4px;font-size:11px;">🚫 إباحية (' + u.ibhCount + ')</span>');
+
+      const wordsBadge = u.badWordsList.map(function(w) {
+        return '<code style="background:rgba(255,255,255,0.06);color:var(--text-main);padding:1px 5px;border-radius:4px;font-size:11px;margin-left:4px;">' + w + '</code>';
+      }).join('');
+
+      const ts = new Date(u.timestamp).toLocaleString('ar-MA');
+      const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
+      const pkey = u.platform || 'WA';
+      const isBannedSpan = u.isBanned
+        ? '<span style="background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.4);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">🚫 محظور</span>'
+        : '<span style="background:rgba(104,211,145,0.12);color:#68d391;border:1px solid rgba(104,211,145,0.35);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">✅ نشط</span>';
+
+      rows += '<tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'">'+
+        '<td style="padding:10px 12px;white-space:nowrap;">' + (platformIcon[pkey] || '❓') + ' ' + (platformLabel[pkey] || pkey) + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;">' +
+          '<div style="font-weight:600;">' + (u.name || '—') + '</div>' +
+          '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">' + u.jid + '</div>' +
+        '</td>' +
+        '<td style="padding:10px 12px;text-align:center;">' + isBannedSpan + '</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap;">' + types.join(' ') + '</td>' +
+        '<td style="padding:10px 12px;">' + (wordsBadge || '—') + '</td>' +
+        '<td style="padding:10px 12px;color:var(--text-muted);font-size:11px;white-space:nowrap;">' + ts + '</td>' +
+        '<td style="padding:10px 12px;">' +
+          '<button onclick="openProfanityMsgModal(\'' + u.jid + '\',\'' + pkey + '\',\'' + safeName + '\')" class="btn btn-primary" style="padding:5px 12px;font-size:11px;border:none;background:linear-gradient(135deg, #3182ce, #2b6cb0);color:#fff;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="بدء محادثة مباشرة">' +
+            '<i class="fas fa-comments"></i> تواصل فوري' +
+          '</button>' +
+        '</td>' +
+        '</tr>';
+    });
+
+    listEl.innerHTML =
+      '<div style="overflow-x:auto;">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<thead>' +
+            '<tr style="border-bottom:1px solid var(--border);">' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>' +
+              '<th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">نوع المخالفات</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمات المكتشفة</th>' +
+              '<th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">آخر تحذير</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;min-width:140px;">إجراءات</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
   }
 
   // =================== HELPERS ===================
