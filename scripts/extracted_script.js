@@ -29,6 +29,41 @@
     return res.json();
   }
 
+  function formatMessageContent(content) {
+    if (!content) return '';
+    let media = null;
+    if (content.startsWith('{') && content.endsWith('}')) {
+      try {
+        media = JSON.parse(content);
+      } catch(e) {}
+    }
+    
+    if (media && media.mediaUrl) {
+      let mediaHtml = '';
+      if (media.mediaType && media.mediaType.startsWith('image/')) {
+        mediaHtml += '<img src="' + media.mediaUrl + '" style="max-width:200px;border-radius:10px;display:block;margin-bottom:5px;" />';
+      } else if (media.mediaType && (media.mediaType.startsWith('audio/') || media.mediaType.includes('ogg') || media.ptt)) {
+        mediaHtml += '<audio controls src="' + media.mediaUrl + '" style="max-width:240px;display:block;margin-bottom:5px;height:40px;outline:none;"></audio>';
+      } else {
+        mediaHtml += '<a href="' + media.mediaUrl + '" target="_blank" style="display:flex;align-items:center;gap:6px;color:#38bdf8;text-decoration:underline;margin-bottom:5px;"><i class="fas fa-file"></i> ' + escapeHtml(media.mediaName || 'ملف مرفق') + '</a>';
+      }
+      if (media.text) {
+        mediaHtml += '<div style="direction:rtl;text-align:right;">' + escapeHtml(media.text) + '</div>';
+      }
+      return mediaHtml;
+    }
+
+    // Fallback: check if the string contains a URL ending in .ogg, .mp3, etc.
+    if (content.includes('http')) {
+      const match = content.match(/https?:\/\/[^\s"'<>]+/);
+      if (match && (content.includes('.ogg') || content.includes('.mp3') || content.includes('.wav') || content.includes('.m4a'))) {
+        return '<audio controls src="' + match[0] + '" style="max-width:240px;display:block;margin-bottom:5px;height:40px;outline:none;"></audio>';
+      }
+    }
+    
+    return escapeHtml(content);
+  }
+
   function showConfirm(msg) {
     return new Promise((resolve) => {
       const modal = document.getElementById('custom-confirm-modal');
@@ -136,13 +171,23 @@
     updateClock();
     setInterval(updateClock, 1000);
 
+    // ✅ Safety net: force-hide loader after 8 seconds no matter what
+    const safetyTimer = setTimeout(() => {
+      const ov = document.getElementById('loading-overlay');
+      if (ov && !ov.classList.contains('hide')) {
+        ov.classList.add('hide');
+        console.warn('[Init] Safety timeout: forced loader hide after 8s');
+      }
+    }, 8000);
+
     const token = localStorage.getItem('auth_token');
     if (!token) {
+      clearTimeout(safetyTimer);
       showLoginOverlay();
       setTimeout(() => {
         const ov = document.getElementById('loading-overlay');
         if (ov) ov.classList.add('hide');
-      }, 500);
+      }, 400);
       return;
     }
 
@@ -180,10 +225,89 @@
         showToast('⚠️ فشل تحميل بعض البيانات — أعد تحميل الصفحة', 'error');
       }
     } finally {
+      clearTimeout(safetyTimer);
       const ov = document.getElementById('loading-overlay');
       if (ov) ov.classList.add('hide');
     }
   };
+
+  // =================== 🔔 REAL-TIME NOTIFICATIONS (SSE) ===================
+  let _msgBadgeCount = 0;
+
+  function clearMsgBadge() {
+    _msgBadgeCount = 0;
+    const b = document.getElementById('msg-badge');
+    if (b) b.style.display = 'none';
+  }
+
+  function incrementMsgBadge() {
+    _msgBadgeCount++;
+    const b = document.getElementById('msg-badge');
+    if (b) {
+      b.textContent = _msgBadgeCount;
+      b.style.display = 'inline-block';
+    }
+  }
+
+  function playNotifSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+    } catch(_) {}
+  }
+
+  function showInboxToast(data) {
+    playNotifSound();
+    incrementMsgBadge();
+    const platformIcon = data.platform === 'telegram' ? '✈️' : data.platform === 'facebook' ? '📘' : '📱';
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position:fixed;bottom:24px;right:24px;z-index:99999;
+      background:linear-gradient(135deg,#1a1f3e,#2d3268);
+      border:1px solid rgba(102,126,234,0.4);border-radius:16px;
+      padding:16px 20px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+      animation:slideInToast 0.4s cubic-bezier(.36,1.6,.5,1) both;
+      cursor:pointer;
+    `;
+    toast.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:28px;line-height:1;">🔔</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;color:#e2e8f0;margin-bottom:4px;font-size:14px;">${platformIcon} رسالة جديدة من ${data.senderName || data.sender}</div>
+          <div style="color:#a0aec0;font-size:12px;line-height:1.5;">${data.preview || '...'}</div>
+          <div style="margin-top:10px;">
+            <button onclick="showPage('devmessages'); clearMsgBadge();" style="background:rgba(102,126,234,0.3);border:1px solid rgba(102,126,234,0.5);color:#a5b4fc;padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;">📥 فتح الرسائل</button>
+          </div>
+        </div>
+        <div onclick="this.closest('div[style]').remove()" style="color:#718096;font-size:18px;cursor:pointer;padding:2px 4px;">×</div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.style.animation = 'slideOutToast 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 8000);
+  }
+
+  function connectSSE() {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    const es = new EventSource('/api/notifications/stream');
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'new_devmsg') showInboxToast(data);
+      } catch(_) {}
+    };
+    es.onerror = () => { es.close(); setTimeout(connectSSE, 10000); }; // reconnect after 10s
+  }
+
+  // Auto-connect SSE once logged in (called from onload after auth check)
+  window.addEventListener('DOMContentLoaded', () => setTimeout(connectSSE, 2000));
 
   function updateClock() {
     const now = new Date();
@@ -216,26 +340,44 @@
     if (page !== 'activity') {
       stopActivityPolling();
     }
+    if (page !== 'devmessages') {
+      stopDevMessagesPolling();
+    }
 
     // Save to localStorage
     localStorage.setItem('active_page', page);
 
     // Call page-specific data loaders and wait for them to finish rendering
-    if (page === 'sessions') await loadSessions();
-    else if (page === 'settings') await loadSettings();
-    else if (page === 'users') await loadUsers();
-    else if (page === 'cmdstats') { await loadCmdStats(); await loadCmdErrors(); }
-    else if (page === 'activity') { await loadActivity(); startActivityPolling(); }
-    else if (page === 'broadcast') await loadUsers();
-    else if (page === 'manage') await loadManagePage();
-    else if (page === 'analytics') await loadAnalytics();
-    else if (page === 'scripts') await loadScriptsPage();
-    else if (page === 'insta-hunter') await loadInstaPage();
-    else if (page === 'contacts') await loadContacts();
-    else if (page === 'devmessages') await loadDevMessages();
-    else if (page === 'profanity') await loadProfanityLogs();
-    else if (page === 'banned') await loadBannedUsers();
-    else if (page === 'leaderboard') await loadLeaderboard();
+    try {
+      if (page === 'sessions') await loadSessions();
+      else if (page === 'settings') await loadSettings();
+      else if (page === 'users') await loadUsers();
+      else if (page === 'cmdstats') { await loadCmdStats(); await loadCmdErrors(); }
+      else if (page === 'activity') { await loadActivity(); startActivityPolling(); }
+      else if (page === 'broadcast') await loadUsers();
+      else if (page === 'manage') await loadManagePage();
+      else if (page === 'analytics') await loadAnalytics();
+      else if (page === 'scripts') await loadScriptsPage();
+      else if (page === 'insta-hunter') await loadInstaPage();
+      else if (page === 'contacts') await loadContacts();
+      else if (page === 'devmessages') await loadDevMessages();
+      else if (page === 'profanity') await loadProfanityLogs();
+      else if (page === 'banned') await loadBannedUsers();
+      else if (page === 'leaderboard') await loadLeaderboard();
+      else if (page === 'violations-scanner') await performComprehensiveScan();
+    } catch (err) {
+      console.error('[showPage Loader Error]:', err);
+      fetch('/api/log-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: err ? err.message : 'Unknown loader error',
+          stack: err ? err.stack : '',
+          url: window.location.href + ' [Page: ' + page + ']'
+        })
+      }).catch(() => {});
+      showToast('⚠️ خطأ في تحميل بيانات هذه الصفحة', 'error');
+    }
 
     if (!isInitialLoad) {
       window.scrollTo(0, 0);
@@ -273,6 +415,7 @@
       else if (activePage === 'contacts') await loadContacts();
       else if (activePage === 'devmessages') await loadDevMessages();
       else if (activePage === 'profanity') await loadProfanityLogs();
+      else if (activePage === 'ibhaya') { await loadIbhayaWords(); await loadIbhayaLogs(); }
       else if (activePage === 'banned') await loadBannedUsers();
       else if (activePage === 'leaderboard') await loadLeaderboard();
       
@@ -291,7 +434,17 @@
   // =================== DASHBOARD ===================
   async function loadDashboard() {
     try {
-      const res = await fetch('/api/status');
+      const ctrl = new AbortController();
+      const fetchTimeout = setTimeout(() => ctrl.abort(), 7000);
+      let res;
+      try {
+        res = await fetch('/api/status', { signal: ctrl.signal });
+      } catch (fetchErr) {
+        clearTimeout(fetchTimeout);
+        console.warn('[loadDashboard] /api/status timeout or failed:', fetchErr.message);
+        return; // Gracefully exit — loader will hide in finally block
+      }
+      clearTimeout(fetchTimeout);
       const data = await res.json();
       
       // Compute per-platform connection
@@ -417,6 +570,13 @@
         showAlert(alert, 'error', data.error || 'فشل الربط');
       }
     } catch(e) { showAlert(alert, 'error', 'خطأ في الاتصال'); }
+  }
+
+  function toggleFbBypassContainer(val) {
+    const container = document.getElementById('fb-bypass-container');
+    if (container) {
+      container.style.display = (val === 'all' || val === 'facebook') ? 'flex' : 'none';
+    }
   }
 
   async function connectFacebookPage() {
@@ -906,6 +1066,25 @@
       document.getElementById('s-enableGithubAutoPoster').checked = data.enableGithubAutoPoster !== 'false';
       document.getElementById('s-enableAutoDL').checked = data.enableAutoDL !== 'false';
       document.getElementById('s-trafficUrls').value = (data.trafficUrls || []).join('\n');
+      document.getElementById('s-duasHours').value = (data.duasHours || [9, 14, 21]).join(', ');
+
+      // Profanity & Ibhaya toggles on their own pages
+      const profToggle = document.getElementById('profanity-enabled-toggle');
+      const profLabel  = document.getElementById('profanity-status-label');
+      if (profToggle) {
+        profToggle.checked = data.enableProfanity !== 'false';
+        if (profLabel) profLabel.textContent = profToggle.checked ? '🟢 مفعّل' : '🔴 معطَّل';
+      }
+      const profMonitorToggle = document.getElementById('profanity-monitor-toggle');
+      if (profMonitorToggle) profMonitorToggle.checked = data.profanityMonitorOnly === 'true';
+      const ibhToggle = document.getElementById('ibhaya-enabled-toggle');
+      const ibhLabel  = document.getElementById('ibhaya-status-label');
+      if (ibhToggle) {
+        ibhToggle.checked = data.enableIbhaya !== 'false';
+        if (ibhLabel) ibhLabel.textContent = ibhToggle.checked ? '🟢 مفعّل' : '🔴 معطَّل';
+      }
+      const ibhMonitorToggle = document.getElementById('ibhaya-monitor-toggle');
+      if (ibhMonitorToggle) ibhMonitorToggle.checked = data.ibhayaMonitorOnly === 'true';
 
       // Stickers & Newsletters
       document.getElementById('s-packname').value = data.packname || '';
@@ -916,6 +1095,7 @@
       // API Keys & Databases
       document.getElementById('s-giphyApiKey').value = data.giphyApiKey || '';
       document.getElementById('s-hfToken').value = data.hfToken || '';
+      document.getElementById('s-openRouterKey').value = data.openRouterKey || '';
       document.getElementById('s-supabaseUrl').value = data.supabaseUrl || '';
       document.getElementById('s-supabaseKey').value = data.supabaseKey || '';
       document.getElementById('s-telegramToken').value = data.telegramToken || '';
@@ -1026,7 +1206,12 @@
       enableTTS: document.getElementById('s-enableTTS').checked ? 'true' : 'false',
       enableGithubAutoPoster: document.getElementById('s-enableGithubAutoPoster').checked ? 'true' : 'false',
       enableAutoDL: document.getElementById('s-enableAutoDL').checked ? 'true' : 'false',
+      enableProfanity: (document.getElementById('profanity-enabled-toggle') || {checked:true}).checked ? 'true' : 'false',
+      enableIbhaya: (document.getElementById('ibhaya-enabled-toggle') || {checked:true}).checked ? 'true' : 'false',
+      profanityMonitorOnly: (document.getElementById('profanity-monitor-toggle') || {checked:false}).checked ? 'true' : 'false',
+      ibhayaMonitorOnly: (document.getElementById('ibhaya-monitor-toggle') || {checked:false}).checked ? 'true' : 'false',
       trafficUrls: document.getElementById('s-trafficUrls').value.trim().split('\n').map(u => u.trim()).filter(Boolean),
+      duasHours: document.getElementById('s-duasHours').value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0 && x <= 23),
 
       packname: document.getElementById('s-packname').value,
       author: document.getElementById('s-author').value,
@@ -1035,6 +1220,7 @@
 
       giphyApiKey: document.getElementById('s-giphyApiKey').value,
       hfToken: document.getElementById('s-hfToken').value,
+      openRouterKey: document.getElementById('s-openRouterKey').value,
       supabaseUrl: document.getElementById('s-supabaseUrl').value,
       supabaseKey: document.getElementById('s-supabaseKey').value,
       telegramToken: document.getElementById('s-telegramToken').value,
@@ -1109,6 +1295,527 @@
     }
   }
 
+  // =================== CMD LIMITS & RULES FUNCTIONS ===================
+
+  // In-memory working copy of the rules, commands, and users list
+  let _cmdRules = { commandLimits: { "ytdl": 5 }, userCommandBans: {}, userDailyLimits: {}, globalUserDailyLimit: 0 };
+  let _allCmdsList = [];
+  let _autocompleteUsers = [];
+
+  // Global limit slider helper
+  function updateGlobalLimitDisplay(val) {
+    const v = parseInt(val);
+    const display = document.getElementById('global-limit-display');
+    const hidden  = document.getElementById('global-daily-limit');
+    // 0 = slider at left = unlimited; 100 = slider at right = 100 cmds/day
+    // We store 0 in hidden when slider is at 0 (= no limit)
+    if (display) display.textContent = v === 0 ? 'بدون حد ∞' : v;
+    if (hidden)  hidden.value = v;
+  }
+
+  async function loadCmdLimitsPage() {
+    // 1. Fetch Rules & Today's Usage
+    try {
+      const res = await fetch('/api/command-rules');
+      const data = await res.json();
+      if (data.ok) {
+        if (data.rules) {
+          _cmdRules = data.rules;
+          const gVal = data.rules.globalUserDailyLimit || 0;
+          const slider = document.getElementById('global-daily-limit-range');
+          if (slider) { slider.value = gVal; updateGlobalLimitDisplay(gVal); }
+          renderCmdLimits();
+          renderUserBans();
+          renderUserLimits();
+        }
+        
+        // Dynamically save all commands
+        if (data.commands) {
+          _allCmdsList = data.commands;
+          populateCommandSelects();
+        }
+
+        renderTodayUsage(data.usage);
+        updateSummaryCounters();
+      }
+    } catch (e) { showToast('خطأ في تحميل الإعدادات والحدود', 'error'); }
+
+    // 2. Fetch Users for Search Autocomplete
+    try {
+      const resUsers = await fetch('/api/users');
+      const dataUsers = await resUsers.json();
+      if (dataUsers.ok && dataUsers.users) {
+        _autocompleteUsers = dataUsers.users;
+      }
+    } catch (e) { console.error('Error pre-loading users list:', e); }
+
+    // 3. Fetch automated duas settings for this page's card
+    try {
+      const resSettings = await fetch('/api/settings');
+      const dataSettings = await resSettings.json();
+      if (dataSettings) {
+        const isEnabled = dataSettings.enableDuasScheduler !== 'false';
+        const pageToggle = document.getElementById('page-enableDuasScheduler');
+        if (pageToggle) pageToggle.checked = isEnabled;
+        const pageHours = document.getElementById('page-duasHours');
+        if (pageHours) pageHours.value = (dataSettings.duasHours || [9, 14, 21]).join(', ');
+      }
+    } catch (e) { console.error('Error pre-loading daily duas scheduler settings:', e); }
+  }
+
+  async function saveDuasSchedulerPageSettings() {
+    try {
+      const isEnabled = document.getElementById('page-enableDuasScheduler').checked ? 'true' : 'false';
+      const hoursStr = document.getElementById('page-duasHours').value.trim();
+      const hours = hoursStr.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0 && x <= 23);
+
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enableDuasScheduler: isEnabled,
+          duasHours: hours
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('✅ تم حفظ إعدادات الأدعية والأذكار التلقائية بنجاح!', 'success');
+        // Synchronize on the main settings page toggle if it exists
+        const mainToggle = document.getElementById('s-enableDuasScheduler');
+        if (mainToggle) mainToggle.checked = (isEnabled === 'true');
+        const mainHours = document.getElementById('s-duasHours');
+        if (mainHours) mainHours.value = hours.join(', ');
+      } else {
+        showToast('❌ فشل حفظ الإعدادات: ' + (data.error || 'خطأ غير معروف'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ خطأ في الاتصال بالخادم', 'error');
+    }
+  }
+
+  function populateCommandSelects() {
+    // Left empty since we transitioned to command autocomplete search input
+  }
+
+  // Redesigned: displays user's name, platform icon/badge, and JID/ID cleanly
+  function getUserDisplayHtml(jid) {
+    if (!jid) return '';
+    const user = _autocompleteUsers.find(u => u.id === jid);
+    let name = 'مستخدم مجهول';
+    let platform = 'whatsapp';
+    if (user) {
+      name = user.name || 'مستخدم مجهول';
+      platform = user.platform || 'whatsapp';
+    } else {
+      // Guess platform from jid prefix
+      if (jid.startsWith('tg:')) {
+        platform = 'telegram';
+        name = 'تيليغرام: ' + jid.replace('tg:', '');
+      } else if (jid.startsWith('fb:')) {
+        platform = 'facebook';
+        name = 'فيسبوك: ' + jid.replace('fb:', '');
+      } else {
+        platform = 'whatsapp';
+        name = jid;
+      }
+    }
+    
+    // Platform icon & badge styling
+    let badgeColor = '#10b981';
+    let platformIcon = 'fab fa-whatsapp';
+    let platformText = 'واتساب';
+    if (platform === 'telegram') {
+      badgeColor = '#3b82f6';
+      platformIcon = 'fab fa-telegram';
+      platformText = 'تيليغرام';
+    } else if (platform === 'facebook') {
+      badgeColor = '#8b5cf6';
+      platformIcon = 'fab fa-facebook';
+      platformText = 'فيسبوك';
+    }
+
+    return `
+      <div style="display:flex;align-items:center;gap:10px;text-align:right;">
+        <span style="background:rgba(255,255,255,0.04);border:1px solid var(--border);padding:4px 8px;border-radius:12px;font-size:11px;color:${badgeColor};font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
+          <i class="${platformIcon}"></i> ${platformText}
+        </span>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;">
+          <span style="font-size:13px;font-weight:600;color:var(--text);">${name}</span>
+          <span style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-top:1px;">${jid}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Live filter commands search suggestions as user types
+  function filterCmdAutocomplete(type) {
+    const input = document.getElementById(type + '-cmd-search');
+    const list = document.getElementById(type + '-cmd-autocomplete-list');
+    const hiddenVal = document.getElementById(type + '-cmd-val');
+    
+    if (!input || !list) return;
+    
+    const val = input.value.trim().toLowerCase().replace(/^\./, '');
+    
+    if (hiddenVal) hiddenVal.value = '';
+
+    // If input is empty, show all commands sorted alphabetically
+    let matches = _allCmdsList;
+    if (val) {
+      matches = _allCmdsList.filter(c => c.toLowerCase().includes(val));
+    }
+    matches = matches.sort().slice(0, 15); // Cap at 15 matches for a clean layout
+
+    if (!matches.length) {
+      list.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted);text-align:center;">❌ لا توجد أوامر مطابقة</div>`;
+      list.classList.remove('hide');
+      return;
+    }
+
+    list.innerHTML = matches.map(c => {
+      return `<div class="autocomplete-item" onclick="selectAutocompleteCmd('${type}', '${c}')" style="padding:8px 12px;">
+        <span style="font-family:monospace;font-size:13px;font-weight:600;color:#63b3ed;">.${c}</span>
+      </div>`;
+    }).join('');
+    list.classList.remove('hide');
+  }
+
+  function selectAutocompleteCmd(type, cmd) {
+    const input = document.getElementById(type + '-cmd-search');
+    const list = document.getElementById(type + '-cmd-autocomplete-list');
+    const hiddenVal = document.getElementById(type + '-cmd-val');
+    
+    if (input) input.value = `.${cmd}`;
+    if (hiddenVal) hiddenVal.value = cmd;
+    if (list) list.classList.add('hide');
+  }
+
+  // Live filter users search suggestions as user types
+  function filterUserAutocomplete(type) {
+    const input = document.getElementById(type + '-user-search');
+    const list = document.getElementById(type + '-user-autocomplete-list');
+    const hiddenJid = document.getElementById(type + '-user-jid-val');
+    
+    if (!input || !list) return;
+    
+    const val = input.value.trim().toLowerCase();
+    
+    // Clear selection if they edit JID manually
+    if (hiddenJid) hiddenJid.value = '';
+
+    // If input is empty, show first 10 users from list
+    let matches = _autocompleteUsers;
+    if (val) {
+      matches = _autocompleteUsers.filter(u => {
+        const name = (u.name || '').toLowerCase();
+        const jid = (u.id || '').toLowerCase();
+        return name.includes(val) || jid.includes(val);
+      });
+    }
+    matches = matches.slice(0, 10); // cap at 10 matches for neat layout
+
+    if (!matches.length) {
+      list.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted);text-align:center;">❌ لم يعثر على مستخدمين</div>`;
+      list.classList.remove('hide');
+      return;
+    }
+
+    list.innerHTML = matches.map(u => {
+      // Build platform icon badge
+      let platformBadge = '';
+      if (u.platform === 'whatsapp') platformBadge = `<i class="fab fa-whatsapp" style="color:#10b981;" title="واتساب"></i>`;
+      else if (u.platform === 'telegram') platformBadge = `<i class="fab fa-telegram" style="color:#3b82f6;" title="تيليغرام"></i>`;
+      else if (u.platform === 'facebook') platformBadge = `<i class="fab fa-facebook" style="color:#8b5cf6;" title="فيسبوك"></i>`;
+      
+      const cleanJid = u.id; // full JID/ID
+      const displayName = u.name || 'مستخدم مجهول الاسم';
+
+      return `<div class="autocomplete-item" onclick="selectAutocompleteUser('${type}', '${cleanJid}', '${displayName.replace(/'/g, "\\'")}')">
+        <div class="autocomplete-user-info">
+          <span class="autocomplete-user-name">${displayName}</span>
+          <span class="autocomplete-user-id">${cleanJid}</span>
+        </div>
+        <div>${platformBadge}</div>
+      </div>`;
+    }).join('');
+    list.classList.remove('hide');
+  }
+
+  function selectAutocompleteUser(type, jid, name) {
+    const input = document.getElementById(type + '-user-search');
+    const list = document.getElementById(type + '-user-autocomplete-list');
+    const hiddenJid = document.getElementById(type + '-user-jid-val');
+    
+    if (input) input.value = `${name} (${jid})`;
+    if (hiddenJid) hiddenJid.value = jid;
+    if (list) list.classList.add('hide');
+  }
+
+  // Close suggestions lists when clicking elsewhere
+  document.addEventListener('click', function(e) {
+    const autocompleteSystems = [
+      { input: 'ban-user-search', list: 'ban-user-autocomplete-list' },
+      { input: 'ulimit-user-search', list: 'ulimit-user-autocomplete-list' },
+      { input: 'new-cmd-search', list: 'new-cmd-autocomplete-list' },
+      { input: 'ban-cmd-search', list: 'ban-cmd-autocomplete-list' }
+    ];
+    
+    autocompleteSystems.forEach(sys => {
+      const list = document.getElementById(sys.list);
+      if (list && !e.target.closest('#' + sys.input) && !e.target.closest('#' + sys.list)) {
+        list.classList.add('hide');
+      }
+    });
+  });
+
+  function updateSummaryCounters() {
+    const cmdLimCount = Object.keys(_cmdRules.commandLimits || {}).length;
+    const userBanCount = Object.entries(_cmdRules.userCommandBans || {}).flatMap(([_, cmds]) => cmds).length;
+    const customLimCount = Object.keys(_cmdRules.userDailyLimits || {}).length;
+
+    const el1 = document.getElementById('stat-cmd-limits-cnt');
+    const el2 = document.getElementById('stat-user-bans-cnt');
+    const el3 = document.getElementById('stat-user-limits-cnt');
+
+    if (el1) el1.textContent = cmdLimCount;
+    if (el2) el2.textContent = userBanCount;
+    if (el3) el3.textContent = customLimCount;
+  }
+
+  function renderCmdLimits() {
+    const list = document.getElementById('cmd-limits-list');
+    const limits = _cmdRules.commandLimits || {};
+    const keys = Object.keys(limits);
+    document.getElementById('cmd-limits-count').textContent = keys.length ? `(${keys.length})` : '';
+    if (!keys.length) {
+      list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-terminal" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا توجد حدود مضافة حتى الآن</div>';
+      return;
+    }
+    list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:right;">
+        <th style="padding:8px 12px;">الأمر</th><th style="padding:8px 12px;">الحد اليومي</th><th style="padding:8px 12px;">إجراء</th>
+      </tr></thead><tbody>
+      ${keys.map(cmd => `<tr style="border-bottom:1px solid var(--border10);">
+        <td style="padding:10px 12px;font-family:monospace;color:#63b3ed;">.${cmd}</td>
+        <td style="padding:10px 12px;"><span style="background:rgba(99,179,237,0.12);color:#63b3ed;padding:3px 10px;border-radius:20px;font-weight:700;">${limits[cmd]} / يوم</span></td>
+        <td style="padding:10px 12px;"><button onclick="removeCmdLimit('${cmd}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  function renderUserBans() {
+    const list = document.getElementById('user-bans-list');
+    const bans = _cmdRules.userCommandBans || {};
+    const entries = Object.entries(bans).flatMap(([jid, cmds]) => cmds.map(cmd => ({ jid, cmd })));
+    document.getElementById('user-bans-count').textContent = entries.length ? `(${entries.length})` : '';
+    if (!entries.length) {
+      list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-check-circle" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا توجد قيود مضافة حتى الآن</div>';
+      return;
+    }
+    list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:right;">
+        <th style="padding:8px 12px;">المستخدم</th><th style="padding:8px 12px;">الأمر الممنوع</th><th style="padding:8px 12px;">إجراء</th>
+      </tr></thead><tbody>
+      ${entries.map(({ jid, cmd }) => `<tr style="border-bottom:1px solid var(--border10);">
+        <td style="padding:10px 12px;">${getUserDisplayHtml(jid)}</td>
+        <td style="padding:10px 12px;"><span style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:3px 10px;border-radius:20px;font-weight:700;">.${cmd}</span></td>
+        <td style="padding:10px 12px;"><button onclick="removeUserBan('${jid}','${cmd}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  function renderUserLimits() {
+    const list = document.getElementById('user-limits-list');
+    const limits = _cmdRules.userDailyLimits || {};
+    const keys = Object.keys(limits);
+    document.getElementById('user-limits-count').textContent = keys.length ? `(${keys.length})` : '';
+    if (!keys.length) {
+      list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-user-check" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا توجد حدود مستخدمين مضافة حتى الآن</div>';
+      return;
+    }
+    list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:right;">
+        <th style="padding:8px 12px;">المستخدم</th><th style="padding:8px 12px;">الحد اليومي</th><th style="padding:8px 12px;">إجراءات</th>
+      </tr></thead><tbody>
+      ${keys.map(jid => `<tr style="border-bottom:1px solid var(--border10);">
+        <td style="padding:10px 12px;">${getUserDisplayHtml(jid)}</td>
+        <td style="padding:10px 12px;"><span style="background:rgba(159,122,234,0.12);color:#9f7aea;padding:3px 10px;border-radius:20px;font-weight:700;">${limits[jid]} / يوم</span></td>
+        <td style="padding:10px 12px;display:flex;gap:6px;">
+          <button onclick="removeUserLimit('${jid}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-trash"></i></button>
+          <button onclick="resetUserUsage('${jid}')" style="background:rgba(16,185,129,0.12);color:#10b981;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;" title="إعادة ضبط استخدام اليوم"><i class="fas fa-undo"></i></button>
+        </td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  function renderTodayUsage(usage) {
+    const list = document.getElementById('today-usage-list');
+    if (!list) return;
+    if (!usage || !usage.users || !Object.keys(usage.users).length) {
+      list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;"><i class="fas fa-moon" style="font-size:28px;opacity:0.2;display:block;margin-bottom:10px;"></i>لا يوجد استخدام مسجل اليوم بعد</div>';
+      return;
+    }
+    const users = Object.entries(usage.users).sort((a,b) => b[1].total - a[1].total);
+    list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:right;">
+        <th style="padding:8px 12px;">المستخدم</th><th style="padding:8px 12px;">الإجمالي</th><th style="padding:8px 12px;">تفاصيل الأوامر</th><th style="padding:8px 12px;">إعادة ضبط</th>
+      </tr></thead><tbody>
+      ${users.map(([jid, info]) => `<tr style="border-bottom:1px solid var(--border10);">
+        <td style="padding:10px 12px;">${getUserDisplayHtml(jid)}</td>
+        <td style="padding:10px 12px;"><span style="background:rgba(16,185,129,0.12);color:#10b981;padding:3px 10px;border-radius:20px;font-weight:700;">${info.total}</span></td>
+        <td style="padding:10px 12px;font-size:12px;">${Object.entries(info.commands || {}).map(([c,n]) => `<span style="background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:12px;margin:2px;display:inline-block;">.${c} ×${n}</span>`).join('')}</td>
+        <td style="padding:10px 12px;"><button onclick="resetUserUsage('${jid}')" style="background:rgba(229,62,62,0.12);color:#e53e3e;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-undo"></i></button></td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  function addCmdLimit() {
+    let cmd = document.getElementById('new-cmd-val').value;
+    if (!cmd) {
+      const typed = document.getElementById('new-cmd-search').value.trim();
+      cmd = typed.replace(/^\./, '');
+    }
+    const limit = parseInt(document.getElementById('new-cmd-limit').value);
+    if (!cmd) return showToast('يرجى اختيار أو كتابة الأمر أولاً', 'error');
+    if (!limit || limit < 1) return showToast('يرجى إدخال حد صحيح أكبر من 0', 'error');
+    
+    _cmdRules.commandLimits[cmd] = limit;
+    document.getElementById('new-cmd-search').value = '';
+    document.getElementById('new-cmd-val').value = '';
+    document.getElementById('new-cmd-limit').value = '';
+    renderCmdLimits();
+    updateSummaryCounters();
+    saveCmdRules();
+  }
+
+  function removeCmdLimit(cmd) {
+    delete _cmdRules.commandLimits[cmd];
+    renderCmdLimits();
+    updateSummaryCounters();
+    saveCmdRules();
+  }
+
+  function addUserCmdBan() {
+    const jid = document.getElementById('ban-user-jid-val').value;
+    let cmd = document.getElementById('ban-cmd-val').value;
+    if (!cmd) {
+      const typed = document.getElementById('ban-cmd-search').value.trim();
+      cmd = typed.replace(/^\./, '');
+    }
+    
+    if (!jid) {
+      // Fallback to text box content if they typed but didn't click suggestion
+      const typed = document.getElementById('ban-user-search').value.trim();
+      if (!typed) return showToast('يرجى البحث واختيار المستخدم', 'error');
+      // If it contains parenthesized ID, extract it
+      const match = typed.match(/\(([^)]+)\)$/);
+      const extractedJid = match ? match[1] : typed;
+      document.getElementById('ban-user-jid-val').value = extractedJid;
+      return addUserCmdBan();
+    }
+    
+    if (!cmd) return showToast('يرجى اختيار أو كتابة الأمر الممنوع', 'error');
+    
+    if (!_cmdRules.userCommandBans[jid]) _cmdRules.userCommandBans[jid] = [];
+    if (!_cmdRules.userCommandBans[jid].includes(cmd)) _cmdRules.userCommandBans[jid].push(cmd);
+    
+    document.getElementById('ban-user-search').value = '';
+    document.getElementById('ban-user-jid-val').value = '';
+    document.getElementById('ban-cmd-search').value = '';
+    document.getElementById('ban-cmd-val').value = '';
+    
+    renderUserBans();
+    updateSummaryCounters();
+    saveCmdRules();
+  }
+
+  function removeUserBan(jid, cmd) {
+    if (_cmdRules.userCommandBans[jid]) {
+      _cmdRules.userCommandBans[jid] = _cmdRules.userCommandBans[jid].filter(c => c !== cmd);
+      if (!_cmdRules.userCommandBans[jid].length) delete _cmdRules.userCommandBans[jid];
+    }
+    renderUserBans();
+    updateSummaryCounters();
+    saveCmdRules();
+  }
+
+  function addUserDailyLimit() {
+    const jid = document.getElementById('ulimit-jid-val').value;
+    const limit = parseInt(document.getElementById('ulimit-value').value);
+    
+    if (!jid) {
+      // Fallback
+      const typed = document.getElementById('ulimit-user-search').value.trim();
+      if (!typed) return showToast('يرجى البحث واختيار المستخدم', 'error');
+      const match = typed.match(/\(([^)]+)\)$/);
+      const extractedJid = match ? match[1] : typed;
+      document.getElementById('ulimit-jid-val').value = extractedJid;
+      return addUserDailyLimit();
+    }
+    
+    if (isNaN(limit) || limit < 0) return showToast('يرجى إدخال قيمة صحيحة (0 أو أكثر)', 'error');
+    
+    _cmdRules.userDailyLimits[jid] = limit;
+    document.getElementById('ulimit-user-search').value = '';
+    document.getElementById('ulimit-jid-val').value = '';
+    document.getElementById('ulimit-value').value = '';
+    
+    renderUserLimits();
+    updateSummaryCounters();
+    saveCmdRules();
+  }
+
+  function removeUserLimit(jid) {
+    delete _cmdRules.userDailyLimits[jid];
+    renderUserLimits();
+    updateSummaryCounters();
+    saveCmdRules();
+  }
+
+  async function resetUserUsage(jid) {
+    try {
+      const res = await fetch('/api/command-rules/reset-usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid })
+      });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم ضبط استخدام هذا المستخدم', 'success'); await loadCmdLimitsPage(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
+  async function resetAllUsage() {
+    if (!await showConfirm('إعادة ضبط استخدام جميع المستخدمين اليوم؟')) return;
+    try {
+      const res = await fetch('/api/command-rules/reset-usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم ضبط استخدام الجميع', 'success'); await loadCmdLimitsPage(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
+  async function saveCmdRules() {
+    _cmdRules.globalUserDailyLimit = parseInt(document.getElementById('global-daily-limit')?.value) || 0;
+    try {
+      const res = await fetch('/api/command-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_cmdRules)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ تم حفظ الإعدادات بنجاح', 'success');
+        updateSummaryCounters();
+      }
+      else showToast('❌ فشل الحفظ: ' + data.error, 'error');
+    } catch (e) { showToast('خطأ في الاتصال', 'error'); }
+  }
+
   async function confirmRestart() {
     if (await showConfirm('⚠️ هل أنت متأكد من إعادة تشغيل البوت؟ سيتم قطع الاتصال مؤقتاً.')) {
       fetch('/api/restart', { method: 'POST' })
@@ -1121,6 +1828,205 @@
   let _allUsers = [];
   let _bannedList = [];
   let _currentPlatformFilter = 'all';
+
+
+  // =================== SUBSCRIBERS PAGE ===================
+  let _subscribersData = [];
+  let _bsmUsers = [];
+  let _bsmPlatform = '';
+
+  async function loadSubscribers() {
+    const container = document.getElementById('subscribers-container');
+    if (!container) return;
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);grid-column:1/-1;"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:10px;display:block;"></i>جاري تحميل البيانات...</div>`;
+    try {
+      const res = await fetch('/api/bot-subscribers');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      _subscribersData = data.bots || [];
+
+      // Update stats totals
+      document.getElementById('sub-total-bots').textContent = _subscribersData.length;
+      let waCount = 0, tgCount = 0, fbCount = 0;
+      _subscribersData.forEach(b => {
+        if (b.platform === 'whatsapp') waCount += b.userCount;
+        else if (b.platform === 'telegram') tgCount += b.userCount;
+        else if (b.platform === 'facebook') fbCount += b.userCount;
+      });
+      document.getElementById('sub-wa-users').textContent = waCount;
+      document.getElementById('sub-tg-users').textContent = tgCount;
+      document.getElementById('sub-fb-users').textContent = fbCount;
+
+      renderSubscribers();
+    } catch(e) {
+      container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);grid-column:1/-1;">⚠️ خطأ في تحميل البيانات: ${e.message}</div>`;
+    }
+  }
+
+  function renderSubscribers() {
+    const container = document.getElementById('subscribers-container');
+    if (!container) return;
+
+    if (!_subscribersData.length) {
+      container.innerHTML = `<div style="text-align:center;padding:50px;color:var(--text-muted);grid-column:1/-1;"><i class="fas fa-robot" style="font-size:32px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا يوجد بوتات متصلة</div>`;
+      return;
+    }
+
+    const platformIcons = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger' };
+    const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff' };
+    const platformBg = { whatsapp: 'rgba(37,211,102,0.08)', telegram: 'rgba(56,189,248,0.08)', facebook: 'rgba(0,132,255,0.08)' };
+    const platformBorder = { whatsapp: 'rgba(37,211,102,0.2)', telegram: 'rgba(56,189,248,0.2)', facebook: 'rgba(0,132,255,0.2)' };
+
+    container.innerHTML = _subscribersData.map(bot => {
+      const col = platformColors[bot.platform] || '#a78bfa';
+      const bg = platformBg[bot.platform] || 'rgba(167,139,250,0.08)';
+      const border = platformBorder[bot.platform] || 'rgba(167,139,250,0.2)';
+      const icon = platformIcons[bot.platform] || 'fas fa-robot';
+      const cleanSub = bot.platform === 'whatsapp' ? (bot.number ? `+${bot.number}` : 'WhatsApp') : bot.platform === 'telegram' ? 'Telegram' : 'Facebook Page';
+
+      return `<div class="card" onclick="openBotStatsModal('${bot.platform}', '${bot.name.replace(/'/g, "\\'")}', '${cleanSub}', ${bot.connected})" style="background:${bg};border:1px solid ${border};border-radius:16px;padding:20px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+        <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,${col},${col}88);display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0;box-shadow:0 4px 10px ${col}33;">
+          <i class="${icon}"></i>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bot.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:6px;">
+            <span>${cleanSub}</span>
+            <span>·</span>
+            <span style="color:${bot.connected ? '#25d366' : '#fc8181'};display:flex;align-items:center;gap:3px;">
+              <span style="width:6px;height:6px;border-radius:50%;background:${bot.connected ? '#25d366' : '#fc8181'};"></span>
+              ${bot.connected ? 'متصل' : 'غير متصل'}
+            </span>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:22px;font-weight:900;color:${col};line-height:1;">${bot.userCount}</div>
+          <div style="font-size:9px;color:var(--text-muted);margin-top:2px;">مستخدم</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function openBotStatsModal(platform, name, subText, connected) {
+    _bsmPlatform = platform;
+    _bsmUsers = [];
+    document.getElementById('bsm-search').value = '';
+
+    // Show the details page
+    showPage('bot-details');
+
+    // Set initial display
+    const iconEl = document.getElementById('bsm-icon');
+    const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff' };
+    const platformIcons = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger' };
+    const col = platformColors[platform] || '#a78bfa';
+    iconEl.style.background = `linear-gradient(135deg,${col},${col}88)`;
+    iconEl.innerHTML = `<i class="${platformIcons[platform] || 'fas fa-robot'}"></i>`;
+    
+    document.getElementById('bsm-name').textContent = name;
+    document.getElementById('bsm-sub').innerHTML = `${subText} &nbsp;·&nbsp; <span style="color:${connected ? '#25d366' : '#fc8181'};"><i class="fas fa-circle" style="font-size:6px;vertical-align:middle;margin-left:3px;"></i>${connected ? 'نشط الآن' : 'غير متصل'}</span>`;
+
+    // Show loading indicators inside page
+    document.getElementById('bsm-total').textContent = '—';
+    document.getElementById('bsm-24h').textContent = '—';
+    document.getElementById('bsm-7d').textContent = '—';
+    document.getElementById('bsm-banned').textContent = '—';
+    document.getElementById('bsm-chart').innerHTML = `<div style="color:var(--text-muted);font-size:11px;width:100%;text-align:center;padding-top:30px;">جاري جلب إحصائيات النشاط...</div>`;
+    document.getElementById('bsm-chart-labels').innerHTML = '';
+    document.getElementById('bsm-cmds').innerHTML = `<div style="color:var(--text-muted);font-size:11px;padding:10px;">جاري جلب الأوامر...</div>`;
+    document.getElementById('bsm-users').innerHTML = `<div style="color:var(--text-muted);font-size:11px;text-align:center;grid-column:1/-1;padding:40px;"><i class="fas fa-spinner fa-spin"></i> جاري تحميل قائمة المستخدمين...</div>`;
+
+    try {
+      const res = await fetch(`/api/bot-stats/${platform}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+
+      // 1. KPIs
+      document.getElementById('bsm-total').textContent = data.total;
+      document.getElementById('bsm-24h').textContent = data.active24h;
+      document.getElementById('bsm-7d').textContent = data.active7d;
+      document.getElementById('bsm-banned').textContent = data.banned_count;
+
+      // 2. Activity Chart
+      const maxVal = Math.max(...data.dailyActivity.map(x => x.count), 1);
+      document.getElementById('bsm-chart').innerHTML = data.dailyActivity.map(day => {
+        const heightPct = (day.count / maxVal) * 100;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;" title="مستخدمون نشطون في ${day.label}: ${day.count}">
+          <div style="width:8px;background:${col};border-radius:4px 4px 0 0;height:${heightPct}%;min-height:2px;transition:height 0.3s;"></div>
+        </div>`;
+      }).join('');
+      document.getElementById('bsm-chart-labels').innerHTML = data.dailyActivity.map(day => {
+        return `<div style="flex:1;font-size:8px;color:var(--text-muted);text-align:center;white-space:nowrap;overflow:hidden;">${day.label}</div>`;
+      }).join('');
+
+      // 3. Top Commands
+      if (!data.topCommands || data.topCommands.length === 0) {
+        document.getElementById('bsm-cmds').innerHTML = `<div style="color:var(--text-muted);font-size:11px;padding:10px;text-align:center;">لا توجد بيانات أوامر مسجلة</div>`;
+      } else {
+        document.getElementById('bsm-cmds').innerHTML = data.topCommands.map((c, i) => {
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;background:var(--card);border-radius:6px;font-size:11px;border:1px solid var(--border);">
+            <span style="font-family:monospace;font-weight:700;color:var(--text);">${i+1}. ${c.cmd}</span>
+            <span style="color:${col};font-weight:900;">${c.count}</span>
+          </div>`;
+        }).join('');
+      }
+
+      // 4. User list
+      _bsmUsers = data.recentUsers || [];
+      renderBsmUsers();
+
+    } catch (e) {
+      console.error(e);
+      document.getElementById('bsm-users').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;grid-column:1/-1;padding:40px;">⚠️ فشل تحميل الإحصائيات: ${e.message}</div>`;
+    }
+  }
+
+  function renderBsmUsers() {
+    const container = document.getElementById('bsm-users');
+    if (!container) return;
+    const q = (document.getElementById('bsm-search').value || '').toLowerCase().trim();
+
+    const filtered = _bsmUsers.filter(u => {
+      return (u.name || '').toLowerCase().includes(q) || (u.id || '').toLowerCase().includes(q);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div style="text-align:center;grid-column:1/-1;padding:30px;color:var(--text-muted);font-size:11px;">لا يوجد مستخدمون يطابقون البحث</div>`;
+      return;
+    }
+
+    const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff' };
+    const platformBg = { whatsapp: 'rgba(37,211,102,0.07)', telegram: 'rgba(56,189,248,0.07)', facebook: 'rgba(0,132,255,0.07)' };
+    const platformBorder = { whatsapp: 'rgba(37,211,102,0.2)', telegram: 'rgba(56,189,248,0.2)', facebook: 'rgba(0,132,255,0.2)' };
+    const col = platformColors[_bsmPlatform] || '#a78bfa';
+    const bg = platformBg[_bsmPlatform] || 'rgba(167,139,250,0.07)';
+    const border = platformBorder[_bsmPlatform] || 'rgba(167,139,250,0.2)';
+
+    container.innerHTML = filtered.map(u => {
+      const displayName = u.name || (_bsmPlatform === 'whatsapp' ? `+${u.id}` : u.id);
+      const initials = (u.name || u.id || '?').charAt(0).toUpperCase();
+      const lastSeen = u.lastSeen ? new Date(u.lastSeen).toLocaleDateString('ar-MA') : '—';
+      const isBanned = u.banned;
+
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--border);transition:all 0.2s;">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,${col},${col}88);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayName}${isBanned ? ' <span style="color:#fc8181;font-size:9px;">(محظور)</span>' : ''}</div>
+          <div style="font-size:9px;color:var(--text-muted);margin-top:2px;">آخر ظهور: ${lastSeen}</div>
+        </div>
+        <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+          <button onclick="openDirectMessageModal('${u.id}','${_bsmPlatform}','${displayName.replace(/'/g,"\\'")}'); event.stopPropagation();" style="width:26px;height:26px;border-radius:50%;background:${bg};border:1px solid ${border};color:${col};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;" title="إرسال رسالة"><i class="fas fa-paper-plane"></i></button>
+          ${!isBanned
+            ? `<button onclick="quickBan('${u.id}','${_bsmPlatform}'); setTimeout(() => openBotStatsModal('${_bsmPlatform}','${document.getElementById('bsm-name').textContent}','',true), 500);" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;" title="حظر"><i class="fas fa-ban"></i></button>`
+            : `<button onclick="quickUnban('${u.id}','${_bsmPlatform}'); setTimeout(() => openBotStatsModal('${_bsmPlatform}','${document.getElementById('bsm-name').textContent}','',true), 500);" style="width:26px;height:26px;border-radius:50%;background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;" title="رفع الحظر"><i class="fas fa-unlock"></i></button>`}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterBsmUsers() {
+    renderBsmUsers();
+  }
 
   async function loadUsers() {
     try {
@@ -1596,6 +2502,45 @@
   const _devReplyRecorders = {};
   const _devReplyRecordTimers = {};
 
+  function updateDevMsgActionBtn(senderJid) {
+    const input = document.getElementById('chat-input-text');
+    const btn = document.getElementById('chat-send-btn');
+    if (!input || !btn) return;
+    
+    if (_devReplyRecorders[senderJid] && _devReplyRecorders[senderJid].state === 'recording') {
+      btn.innerHTML = '<i class="fas fa-stop" style="color: white; font-size: 14px;"></i>';
+      btn.style.background = '#ef4444';
+      return;
+    }
+    
+    const text = input.value.trim();
+    const hasFile = !!_devReplyFiles[senderJid];
+    
+    if (text.length > 0 || hasFile) {
+      btn.innerHTML = '<i class="fas fa-paper-plane" style="color: white; font-size: 14px;"></i>';
+      btn.style.background = 'linear-gradient(135deg,var(--accent),var(--blue))';
+    } else {
+      btn.innerHTML = '<i class="fas fa-microphone" style="color: white; font-size: 14px;"></i>';
+      btn.style.background = '#25d366';
+    }
+  }
+
+  function handleDevMsgActionClick(senderJid) {
+    const input = document.getElementById('chat-input-text');
+    const text = input ? input.value.trim() : '';
+    
+    if (_devReplyRecorders[senderJid] && _devReplyRecorders[senderJid].state === 'recording') {
+      toggleDevReplyRecording(senderJid);
+      return;
+    }
+    
+    if (text.length > 0 || _devReplyFiles[senderJid]) {
+      sendConversationReply(senderJid);
+    } else {
+      toggleDevReplyRecording(senderJid);
+    }
+  }
+
   let _devMsgFilter = 'all';
 
   async function setDevMsgFilter(filter) {
@@ -1629,6 +2574,7 @@
     _devReplyFiles[id] = file;
     _devReplyIsRecorded[id] = false;
     showDevReplyMediaPreview(id, file);
+    updateDevMsgActionBtn(id);
   }
 
   function showDevReplyMediaPreview(id, file) {
@@ -1663,68 +2609,167 @@
     }
   }
 
+  const _devReplyRecTimerIntervals = {};
+  const _devReplyRecSeconds = {};
+  const _devReplyWaveIntervals = {};
+
+  function _devReplyStartWaveform(id) {
+    const bars = document.querySelectorAll(`.devreply-wave-bar-${id}`);
+    _devReplyWaveIntervals[id] = setInterval(function() {
+      bars.forEach(function(b) {
+        const h = Math.floor(Math.random() * 20) + 4;
+        b.style.height = h + 'px';
+      });
+    }, 120);
+  }
+
+  function _devReplyStopWaveform(id) {
+    if (_devReplyWaveIntervals[id]) { clearInterval(_devReplyWaveIntervals[id]); delete _devReplyWaveIntervals[id]; }
+    const bars = document.querySelectorAll(`.devreply-wave-bar-${id}`);
+    bars.forEach(function(b) { b.style.height = '4px'; });
+  }
+
+  function _devReplyStartTimer(id) {
+    _devReplyRecSeconds[id] = 0;
+    const timerEl = document.getElementById(`devreply-rec-timer-${id}`);
+    _devReplyRecTimerIntervals[id] = setInterval(function() {
+      _devReplyRecSeconds[id]++;
+      const m = Math.floor(_devReplyRecSeconds[id] / 60);
+      const s = _devReplyRecSeconds[id] % 60;
+      if (timerEl) timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  }
+
+  function _devReplyStopTimer(id) {
+    if (_devReplyRecTimerIntervals[id]) { clearInterval(_devReplyRecTimerIntervals[id]); delete _devReplyRecTimerIntervals[id]; }
+  }
+
+  function toggleDevReplyAudioPreview(id) {
+    const player = document.getElementById(`devreply-audio-player-${id}`);
+    const playBtn = document.getElementById(`devreply-audio-play-btn-${id}`);
+    const fill = document.getElementById(`devreply-audio-fill-${id}`);
+    const durEl = document.getElementById(`devreply-audio-dur-${id}`);
+    if (!player) return;
+    if (player.paused) {
+      player.play();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      player.ontimeupdate = function() {
+        if (player.duration) {
+          const pct = (player.currentTime / player.duration) * 100;
+          if (fill) fill.style.width = pct + '%';
+          const s = Math.floor(player.currentTime);
+          const m = Math.floor(s / 60); const sec = s % 60;
+          if (durEl) durEl.textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
+        }
+      };
+      player.onended = function() {
+        if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        if (fill) fill.style.width = '0%';
+      };
+    } else {
+      player.pause();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+  }
+
   function clearDevReplyMedia(id) {
     delete _devReplyFiles[id];
     delete _devReplyIsRecorded[id];
-    const input = document.getElementById(`devreply-media-file-${id}`);
-    if (input) input.value = '';
+    const imgInput = document.getElementById(`devreply-media-file-image-${id}`);
+    if (imgInput) imgInput.value = '';
+    const audioInput = document.getElementById(`devreply-media-file-audio-${id}`);
+    if (audioInput) audioInput.value = '';
+    const docInput = document.getElementById(`devreply-media-file-doc-${id}`);
+    if (docInput) docInput.value = '';
+    const legacyInput = document.getElementById(`devreply-media-file-${id}`);
+    if (legacyInput) legacyInput.value = '';
     const preview = document.getElementById(`devreply-media-preview-${id}`);
     if (preview) preview.style.display = 'none';
-    const oldAudio = document.getElementById(`devreply-audio-preview-player-${id}`);
-    if (oldAudio) oldAudio.remove();
+    
+    // Reset audio preview and show main input row
+    const audioPreview = document.getElementById(`devreply-audio-preview-${id}`);
+    if (audioPreview) audioPreview.style.display = 'none';
+    const inputRow = document.getElementById(`devreply-main-input-row-${id}`);
+    if (inputRow) inputRow.style.display = 'flex';
+    
+    // Stop audio player
+    const player = document.getElementById(`devreply-audio-player-${id}`);
+    if (player) { player.pause(); player.src = ''; }
+    const playBtn = document.getElementById(`devreply-audio-play-btn-${id}`);
+    if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    const fill = document.getElementById(`devreply-audio-fill-${id}`);
+    if (fill) fill.style.width = '0%';
+
+    updateDevMsgActionBtn(id);
   }
 
   async function toggleDevReplyRecording(id) {
-    const btn = document.getElementById(`devreply-mic-btn-${id}`);
-    const label = document.getElementById(`devreply-mic-label-${id}`);
-    if (!btn || !label) return;
+    if (!_devReplyRecorders[id]) {
+      // ── START RECORDING ──
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const chunks = [];
+        const recorder = new MediaRecorder(stream);
+        _devReplyRecorders[id] = recorder;
 
-    if (_devReplyRecorders[id] && _devReplyRecorders[id].state === 'recording') {
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = () => {
+          stream.getTracks().forEach(track => track.stop());
+          _devReplyStopWaveform(id);
+          _devReplyStopTimer(id);
+          
+          // hide rec bar, show audio preview
+          const recBar = document.getElementById(`devreply-rec-bar-${id}`);
+          const inputRow = document.getElementById(`devreply-main-input-row-${id}`);
+          const audioPreview = document.getElementById(`devreply-audio-preview-${id}`);
+          if (recBar) recBar.style.display = 'none';
+          if (inputRow) inputRow.style.display = 'none';
+          if (audioPreview) {
+            audioPreview.style.display = 'flex';
+            const player = document.getElementById(`devreply-audio-player-${id}`);
+            const durEl = document.getElementById(`devreply-audio-dur-${id}`);
+            const fill = document.getElementById(`devreply-audio-fill-${id}`);
+            if (player) {
+              const url = URL.createObjectURL(new Blob(chunks, { type: 'audio/ogg; codecs=opus' }));
+              player.src = url;
+              player.onloadedmetadata = function() {
+                const total = Math.floor(player.duration);
+                const m = Math.floor(total / 60); const s = total % 60;
+                if (durEl) durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+              };
+              if (fill) fill.style.width = '0%';
+            }
+          }
+
+          const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+          const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
+          _devReplyFiles[id] = audioFile;
+          _devReplyIsRecorded[id] = true;
+          updateDevMsgActionBtn(id);
+        };
+
+        recorder.start();
+        // show rec bar, hide input row
+        const recBar = document.getElementById(`devreply-rec-bar-${id}`);
+        const inputRow = document.getElementById(`devreply-main-input-row-${id}`);
+        const audioPreview = document.getElementById(`devreply-audio-preview-${id}`);
+        if (recBar) recBar.style.display = 'flex';
+        if (inputRow) inputRow.style.display = 'none';
+        if (audioPreview) audioPreview.style.display = 'none';
+        _devReplyStartWaveform(id);
+        _devReplyStartTimer(id);
+        updateDevMsgActionBtn(id);
+      } catch (err) {
+        console.error('Error starting audio recording:', err);
+        showToast('❌ تعذر الوصول للميكروفون', 'error');
+      }
+    } else {
+      // ── STOP RECORDING ──
       _devReplyRecorders[id].stop();
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const chunks = [];
-      const recorder = new MediaRecorder(stream);
-      _devReplyRecorders[id] = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      let elapsed = 0;
-      recorder.onstop = () => {
-        stream.getTracks().forEach(track => track.stop());
-        clearInterval(_devReplyRecordTimers[id]);
-        btn.style.background = 'rgba(239,68,68,0.08)';
-        btn.style.color = '#ef4444';
-        label.textContent = 'تسجيل صوت';
-
-        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.ogg`, { type: 'audio/ogg' });
-        _devReplyFiles[id] = audioFile;
-        _devReplyIsRecorded[id] = true;
-        showDevReplyMediaPreview(id, audioFile);
-        showToast('🎤 تم حفظ التسجيل بنجاح', 'success');
-      };
-
-      recorder.start();
-      btn.style.background = '#ef4444';
-      btn.style.color = '#fff';
-      label.textContent = '🔴 إيقاف (00:00)';
-
-      _devReplyRecordTimers[id] = setInterval(() => {
-        elapsed++;
-        const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
-        const secs = String(elapsed % 60).padStart(2, '0');
-        label.textContent = `🔴 إيقاف (${mins}:${secs})`;
-      }, 1000);
-
-    } catch (err) {
-      console.error('Error starting audio recording:', err);
-      showToast('❌ تعذر الوصول للميكروفون', 'error');
+      delete _devReplyRecorders[id];
     }
   }
 
@@ -1732,25 +2777,14 @@
   let _dmTargetPlatform = '';
 
   function openDirectMessageModal(num, platform, name) {
+    // Route to the unified WhatsApp-style chat modal instead of the old simple popup
     _dmTargetNumber = num;
     _dmTargetPlatform = platform;
-    clearDmMedia();
-    
-    document.getElementById('dm-recipient-name').textContent = name || 'مستخدم';
-    document.getElementById('dm-recipient-phone').textContent = num;
-    document.getElementById('dm-message-text').value = '';
-    
-    const alertEl = document.getElementById('dm-alert');
-    alertEl.style.display = 'none';
-    alertEl.className = 'alert';
-    
-    const sendBtn = document.getElementById('dm-send-btn');
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'إرسال';
-    
-    const modal = document.getElementById('direct-message-modal');
-    modal.classList.remove('hide');
-    modal.classList.add('show');
+    const modal = document.getElementById('devmsg-chat-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      openConversation(num, platform, name);
+    }
   }
 
   function closeDirectMessageModal() {
@@ -1865,62 +2899,187 @@
   async function loadCmdErrors() {
     const tbody = document.getElementById('errors-tbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</td></tr>';
+    const badgeEl = document.getElementById('diagnostics-status-badge');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</td></tr>';
+    
+    // Live diagnostics check
+    let geminiWorking = false;
+    try {
+      if (badgeEl) badgeEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري فحص حالة الذكاء الاصطناعي...';
+      const diagRes = await fetch('/api/errors/check-status');
+      const diagData = await diagRes.json();
+      if (diagData.ok && diagData.diagnostics) {
+        geminiWorking = diagData.diagnostics.gemini;
+        window.geminiWorking = geminiWorking; // Store globally for modal use
+        if (badgeEl) {
+          if (geminiWorking) {
+            badgeEl.innerHTML = '<span style="color:#10b981;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check-circle"></i> الذكاء الاصطناعي: يعمل</span>';
+          } else {
+            badgeEl.innerHTML = `<span style="color:#ef4444;font-weight:700;display:inline-flex;align-items:center;gap:4px;" title="${diagData.diagnostics.geminiDetails}"><i class="fas fa-times-circle"></i> عطل بالـ AI (${diagData.diagnostics.geminiDetails.substring(0,18)}...)</span>`;
+          }
+        }
+      }
+    } catch (e) {
+      if (badgeEl) badgeEl.innerHTML = '<span style="color:#f59e0b;font-weight:700;"><i class="fas fa-exclamation-triangle"></i> تعذر الاتصال</span>';
+    }
+
     try {
       const res = await fetch('/api/errors?limit=100');
       const data = await res.json();
       if (!data.ok || !data.errors || data.errors.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--accent);">✅ لا توجد أخطاء مسجلة</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#10b981;font-weight:700;">✅ سجل الأعطال فارغ، لا توجد أخطاء حالياً</td></tr>';
         return;
       }
+      
+      // Store globally to avoid JSON string escaping bugs in HTML attributes
+      window.loadedErrors = data.errors;
+      
       const platformColors = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff', wa: '#25d366', tg: '#38bdf8', fb: '#0084ff', WA: '#25d366', TG: '#38bdf8', FB: '#0084ff' };
       const platformIcons  = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger', wa: 'fab fa-whatsapp', tg: 'fab fa-telegram-plane', fb: 'fab fa-facebook-messenger', WA: 'fab fa-whatsapp', TG: 'fab fa-telegram-plane', FB: 'fab fa-facebook-messenger' };
-      let errIdx = 0;
+      
       tbody.innerHTML = data.errors.map((err, i) => {
         const ptf = (err.platform || '').toLowerCase();
         const color  = platformColors[ptf] || '#a78bfa';
         const icon   = platformIcons[ptf]  || 'fas fa-robot';
         const date   = err.created_at ? new Date(err.created_at).toLocaleString('ar-MA', { hour12: false }) : '—';
         const rawMsg = (err.error_message || err.message || err.stack || '—');
-        const shortMsg = rawMsg.length > 100 ? rawMsg.substring(0, 100) + '...' : rawMsg;
-        const hasMore = rawMsg.length > 100;
-        const rowId = `err-row-${i}`;
+        
+        let statusBadge = '';
+        const isAiError = rawMsg.toLowerCase().includes('ai') || rawMsg.toLowerCase().includes('gemini') || rawMsg.toLowerCase().includes('model');
+        if (isAiError) {
+          if (geminiWorking) {
+            statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح تلقائياً</span>';
+          } else {
+            statusBadge = '<span style="color:#ef4444;background:rgba(239,68,68,0.1);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-exclamation-circle"></i> نشط (عطل Gemini)</span>';
+          }
+        } else {
+          statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح (السيرفر نشط)</span>';
+        }
+
+        const shortMsg = rawMsg.length > 55 ? rawMsg.substring(0, 55) + '...' : rawMsg;
         const userId = err.user_id || err.jid || '—';
-        return `<tr id="${rowId}" style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;vertical-align:top;" onmouseover="this.style.background='rgba(252,129,129,0.06)'" onmouseout="this.style.background='transparent'">
-          <td style="padding:10px 14px;font-weight:700;color:var(--accent);white-space:nowrap;">
+
+        return `<tr id="err-row-${err.id}" style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.2s;vertical-align:middle;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:12px 14px;font-weight:700;color:var(--accent);white-space:nowrap;">
             <code style="background:rgba(167,139,250,0.1);padding:2px 6px;border-radius:5px;font-size:12px;">${err.command || err.cmd || '—'}</code>
           </td>
-          <td style="padding:10px 14px;max-width:340px;word-break:break-word;">
-            <div id="err-short-${i}" style="color:#fc8181;font-size:12px;line-height:1.5;">${shortMsg}</div>
-            ${hasMore ? `<div id="err-full-${i}" style="display:none;color:var(--text-muted);font-size:12px;line-height:1.5;white-space:pre-wrap;">${rawMsg}</div>
-            <button onclick="toggleErrDetail(${i})" id="err-btn-${i}" style="margin-top:6px;background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:0;font-family:Cairo,sans-serif;">▼ عرض كامل</button>` : ''}
-          </td>
-          <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">${userId}</td>
-          <td style="padding:10px 14px;white-space:nowrap;">
+          <td style="padding:12px 14px;max-width:280px;word-break:break-word;color:#fc8181;font-size:12px;">${shortMsg}</td>
+          <td style="padding:12px 14px;">${statusBadge}</td>
+          <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);">${userId}</td>
+          <td style="padding:12px 14px;white-space:nowrap;">
             <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:${color};background:${color}22;padding:3px 8px;border-radius:8px;">
               <i class="${icon}"></i> ${err.platform || '—'}
             </span>
           </td>
-          <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${date}</td>
+          <td style="padding:12px 14px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${date}</td>
+          <td style="padding:12px 14px;white-space:nowrap;">
+            <div style="display:inline-flex;gap:6px;">
+              <button onclick="showErrorDetailModal(${i})" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="عرض التفاصيل"><i class="fas fa-eye"></i> تفاصيل</button>
+              <button onclick="deleteErrorLog(${err.id})" class="btn btn-danger" style="padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;" title="حذف الخطأ"><i class="fas fa-trash-alt"></i></button>
+            </div>
+          </td>
         </tr>`;
       }).join('');
     } catch(e) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات: ' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--red);">❌ خطأ في تحميل البيانات: ' + e.message + '</td></tr>';
     }
   }
 
-  function toggleErrDetail(i) {
-    const shortEl = document.getElementById(`err-short-${i}`);
-    const fullEl  = document.getElementById(`err-full-${i}`);
-    const btn     = document.getElementById(`err-btn-${i}`);
-    if (!fullEl) return;
-    const isHidden = fullEl.style.display === 'none';
-    fullEl.style.display  = isHidden ? 'block' : 'none';
-    shortEl.style.display = isHidden ? 'none'  : 'block';
-    btn.textContent       = isHidden ? '▲ إخفاء' : '▼ عرض كامل';
+  function showErrorDetailModal(index) {
+    if (!window.loadedErrors || !window.loadedErrors[index]) return;
+    const err = window.loadedErrors[index];
+    const geminiWorking = !!window.geminiWorking;
+    
+    document.getElementById('mdl-err-cmd').textContent = err.command || err.cmd || '—';
+    document.getElementById('mdl-err-platform').textContent = err.platform || '—';
+    document.getElementById('mdl-err-user').textContent = err.user_id || err.jid || '—';
+    
+    const rawMsg = err.error_message || err.message || err.stack || '—';
+    
+    // Build status html dynamically
+    let statusBadge = '';
+    const isAiError = rawMsg.toLowerCase().includes('ai') || rawMsg.toLowerCase().includes('gemini') || rawMsg.toLowerCase().includes('model');
+    if (isAiError) {
+      if (geminiWorking) {
+        statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3.5px 10px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح تلقائياً</span>';
+      } else {
+        statusBadge = '<span style="color:#ef4444;background:rgba(239,68,68,0.1);padding:3.5px 10px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-exclamation-circle"></i> نشط (عطل Gemini)</span>';
+      }
+    } else {
+      statusBadge = '<span style="color:#10b981;background:rgba(16,185,129,0.1);padding:3.5px 10px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-check"></i> تم الإصلاح (السيرفر نشط)</span>';
+    }
+    document.getElementById('mdl-err-status').innerHTML = statusBadge;
+    document.getElementById('mdl-err-msg').textContent = rawMsg;
+    
+    // Suggest solution based on content
+    const solEl = document.getElementById('mdl-err-solution');
+    const msgLower = rawMsg.toLowerCase();
+    if (msgLower.includes('unavailable') || msgLower.includes('experiencing high demand') || msgLower.includes('503')) {
+      solEl.innerHTML = `<span style="color:#10b981;font-weight:700;">خوادم Google AI تواجه ضغطاً كبيراً مؤقتاً.</span> تم تلقائياً الترقية إلى النموذج المستقر والجديد <code style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;">gemini-3.1-flash-lite</code> لحل هذا العطل.`;
+    } else if (msgLower.includes('quota') || msgLower.includes('429')) {
+      solEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">تم استهلاك حصة الـ API (Rate Limit / Quota Exceeded).</span> يرجى إما الانتظار لبضع دقائق أو تسجيل مفتاح API مجاني جديد من Google AI Studio وضبطه في الإعدادات.`;
+    } else if (msgLower.includes('api key') || msgLower.includes('api_key_invalid') || msgLower.includes('400')) {
+      solEl.innerHTML = `<span style="color:#f59e0b;font-weight:700;">مفتاح API غير صالح أو خاطئ.</span> يرجى إعادة التحقق من إدخال مفتاح Gemini الـ API بشكل صحيح في حقل <code style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;">geminiApiKey</code> في الإعدادات.`;
+    } else {
+      solEl.innerHTML = `حدث خطأ عام أثناء معالجة الطلب. يرجى الضغط على زر <code style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;">تحديث</code> لمعرفة ما إذا كان المشكل قد تم إصلاحه تلقائياً في الطلبات الجديدة.`;
+    }
+    
+    // Configure delete button inside modal
+    document.getElementById('mdl-err-del-btn').onclick = function() {
+      deleteErrorLog(err.id);
+      closeErrorDetailModal();
+    };
+    
+    document.getElementById('err-log-detail-modal').style.display = 'flex';
+  }
+
+  function closeErrorDetailModal() {
+    document.getElementById('err-log-detail-modal').style.display = 'none';
+  }
+
+  async function deleteErrorLog(id) {
+    if (!confirm('هل أنت متأكد من رغبتك في حذف هذا السجل؟')) return;
+    try {
+      const res = await fetch('/api/errors/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم حذف السجل بنجاح', 'success');
+        const row = document.getElementById(`err-row-${id}`);
+        if (row) row.remove();
+        loadCmdErrors();
+      } else {
+        showToast('فشل حذف السجل', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال بالخادم', 'error');
+    }
+  }
+
+  async function clearAllCmdErrors() {
+    if (!confirm('⚠️ هل أنت متأكد من رغبتك في حذف جميع سجلات الأعطال؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    try {
+      const res = await fetch('/api/errors/clear-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑️ تم تنظيف جميع السجلات بنجاح', 'success');
+        loadCmdErrors();
+      } else {
+        showToast('فشل مسح السجلات', 'error');
+      }
+    } catch (e) {
+      showToast('خطأ في الاتصال بالخادم', 'error');
+    }
   }
 
   function renderTopCommands(platform) {
+
     const data = window.lastCmdStatsData;
     if (!data) return;
 
@@ -2198,7 +3357,12 @@
     }
 
     try {
-      const body = { message: msg, platform };
+      const bypassEl = document.getElementById('broadcast-fb-bypass');
+      const body = { 
+        message: msg, 
+        platform,
+        bypass24h: bypassEl ? bypassEl.checked : false
+      };
       if (mediaFile) {
         showAlert(alert, 'info', '⏳ جاري رفع الملف...');
         body.mediaBase64 = await fileToBase64(mediaFile);
@@ -2234,33 +3398,36 @@
 
           const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
           const barColor = p.running ? '#6ee7b7' : (p.failed > 0 ? '#f87171' : '#34d399');
+          const skipped = p.skipped || 0;
 
-          progressPanel.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <span style="font-size:13px;font-weight:700;color:var(--text);">
-                ${p.running ? '📡 جاري الإرسال...' : '✅ اكتمل البث'}
-              </span>
-              <span style="font-size:13px;color:var(--text-muted);">${p.done}/${p.total} — ✅ ${p.sent} ❌ ${p.failed}</span>
-            </div>
-            <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:12px;">
-              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.4s ease;"></div>
-            </div>
-            <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
-              ${(p.log || []).map(entry => `
-                <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:8px;">
-                  <span>${entry.icon || '📨'}</span>
-                  <span style="flex:1;color:${entry.ok ? 'var(--text)' : '#f87171'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.name}</span>
-                  <span style="color:var(--text-muted);font-size:11px;">${entry.platform}</span>
-                  <span style="${entry.ok ? 'color:#34d399' : 'color:#f87171'};">${entry.ok ? '✅' : '❌'}</span>
-                  <span style="color:var(--text-muted);font-size:10px;white-space:nowrap;">${entry.time}</span>
-                </div>
-              `).join('')}
-            </div>`;
+          progressPanel.innerHTML = [
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">',
+            '<span style="font-size:13px;font-weight:700;color:var(--text);">' + (p.running ? '📡 جاري الإرسال...' : '✅ اكتمل البث') + '</span>',
+            '<span style="font-size:12px;display:flex;gap:10px;align-items:center;">',
+            '<span style="color:#34d399;">✅ ' + p.sent + '</span>',
+            '<span style="color:#f87171;">❌ ' + p.failed + '</span>',
+            (skipped > 0 ? '<span style="color:#fbbf24;">⏰ ' + skipped + '</span>' : ''),
+            '<span style="color:var(--text-muted);">' + p.done + '/' + p.total + '</span>',
+            '</span></div>',
+            '<div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:12px;">',
+            '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:99px;transition:width 0.4s ease;"></div></div>',
+            (skipped > 0 ? '<div style="font-size:11px;color:#fbbf24;margin-bottom:8px;padding:6px 10px;background:rgba(251,191,36,0.08);border-radius:8px;border:1px solid rgba(251,191,36,0.2);">⏰ ' + skipped + ' مستخدم خارج نافذة 24 ساعة — Facebook لا يسمح بالإرسال</div>' : ''),
+            '<div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">',
+            (p.log || []).map(function(entry) {
+              var isSk = entry.skipped;
+              var bg = isSk ? 'rgba(251,191,36,0.06)' : (entry.ok ? 'rgba(255,255,255,0.03)' : 'rgba(248,113,113,0.06)');
+              var col = isSk ? '#fbbf24' : (entry.ok ? 'var(--text)' : '#f87171');
+              var badge = isSk ? '<span style="color:#fbbf24;">⏰</span>' : (entry.ok ? '<span style="color:#34d399;">✅</span>' : '<span style="color:#f87171;">❌</span>');
+              return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;background:' + bg + ';border-radius:8px;"><span>' + (entry.icon||'📨') + '</span><span style="flex:1;color:' + col + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + entry.name + '</span><span style="color:var(--text-muted);font-size:11px;">' + entry.platform + '</span>' + badge + '<span style="color:var(--text-muted);font-size:10px;white-space:nowrap;">' + entry.time + '</span></div>';
+            }).join(''),
+            '</div>'
+          ].join('');
 
           if (!p.running) {
             clearInterval(pollInterval);
-            const statusColor = p.failed === 0 ? 'success' : 'warning';
-            showAlert(alert, statusColor, `✅ اكتمل البث: ${p.sent} وصلت، ${p.failed} فشلت من ${p.total}`);
+            var skMsg = skipped > 0 ? '، ⏰ ' + skipped + ' تخطي (24h)' : '';
+            var statusColor = p.failed === 0 ? 'success' : 'warning';
+            showAlert(alert, statusColor, '✅ اكتمل البث: ' + p.sent + ' وصلت، ' + p.failed + ' فشلت' + skMsg + ' من ' + p.total);
           }
         } catch (_) {}
       }, 800);
@@ -2342,46 +3509,244 @@
 
   // =================== PROFANITY VIOLATORS PAGE ===================
 
-  // Modal for sending message to violator
+  // =================== TTS ENGINE (Web Speech API - Google Voices) ===================
+  let _ttsUtterance = null;
+  let _ttsVoices = [];
+  let _ttsSelectedVoiceName = '';
+  let _ttsSpeaking = false;
+
+  function _ttsLoadVoices() {
+    _ttsVoices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  }
+  if (window.speechSynthesis) {
+    speechSynthesis.addEventListener('voiceschanged', _ttsLoadVoices);
+    _ttsLoadVoices();
+  }
+
+  function ttsGetVoices(lang) {
+    // prefer voices that include lang code, fallback to all
+    const all = speechSynthesis.getVoices();
+    return all.filter(v => lang ? v.lang.startsWith(lang) : true);
+  }
+
+  function ttsPopulateSelect(selectEl, lang) {
+    if (!selectEl) return;
+    const voices = ttsGetVoices(lang || 'ar');
+    const fallback = voices.length === 0 ? ttsGetVoices('') : voices;
+    selectEl.innerHTML = fallback.map(v =>
+      `<option value="${v.name}" ${v.name === _ttsSelectedVoiceName ? 'selected' : ''}>${v.name} (${v.lang})</option>`
+    ).join('');
+    if (fallback.length > 0 && !_ttsSelectedVoiceName) {
+      _ttsSelectedVoiceName = fallback[0].name;
+    }
+  }
+
+  function ttsOnVoiceChange(selectEl) {
+    if (selectEl) _ttsSelectedVoiceName = selectEl.value;
+  }
+
+  function speakText(text, lang) {
+    if (!window.speechSynthesis) {
+      showToast('\u274c \u0627\u0644\u0645\u062a\u0635\u0641\u062d \u0644\u0627 \u064a\u062f\u0639\u0645 TTS', 'error');
+      return;
+    }
+    speechSynthesis.cancel();
+    _ttsSpeaking = false;
+
+    // update all speak buttons to default
+    document.querySelectorAll('.tts-speak-btn').forEach(b => {
+      b.innerHTML = '\ud83d\udd0a';
+      b.style.background = 'rgba(37,211,102,0.1)';
+      b.style.color = '#25d366';
+    });
+
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = lang || 'ar-SA';
+
+    // pick best matching voice
+    const allVoices = speechSynthesis.getVoices();
+    let voice = allVoices.find(v => v.name === _ttsSelectedVoiceName);
+    if (!voice) voice = allVoices.find(v => v.lang.startsWith(lang || 'ar'));
+    if (voice) utt.voice = voice;
+
+    utt.rate = 0.9;
+    utt.pitch = 1;
+    utt.volume = 1;
+
+    _ttsUtterance = utt;
+    _ttsSpeaking = true;
+    speechSynthesis.speak(utt);
+
+    utt.onend = function() { _ttsSpeaking = false; };
+    utt.onerror = function() { _ttsSpeaking = false; };
+  }
+
+  function stopSpeaking() {
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    _ttsSpeaking = false;
+    document.querySelectorAll('.tts-speak-btn').forEach(b => {
+      b.innerHTML = '\ud83d\udd0a';
+      b.style.background = 'rgba(37,211,102,0.1)';
+      b.style.color = '#25d366';
+    });
+  }
+
+  function ttsSetupSelect(selectId, lang) {
+    setTimeout(function() {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      ttsPopulateSelect(sel, lang);
+      if (window.speechSynthesis) {
+        speechSynthesis.addEventListener('voiceschanged', function() {
+          ttsPopulateSelect(sel, lang);
+        });
+      }
+    }, 200);
+  }
+  // =================== END TTS ENGINE ===================
+
   // =================== FULL CONVERSATION POPUP MODAL ===================
   let _popupChatFiles    = {};
   let _popupChatRecorded = {};
   let _popupChatRecorder = null;
   let _popupChatChunks   = [];
 
-  function openProfanityMsgModal(jid, platform, name) {
-    let existing = document.getElementById('chat-popup-modal');
-    if (existing) existing.remove();
+  function updatePopupActionBtn(jid) {
+    const input = document.getElementById('popup-chat-input');
+    const btn = document.getElementById('popup-send-btn');
+    if (!input || !btn) return;
+    
+    if (_popupChatRecorder && _popupChatRecorder.state === 'recording') {
+      btn.innerHTML = '<i class="fas fa-stop" style="color: white;"></i>';
+      btn.style.background = '#ef4444';
+      return;
+    }
+    
+    const text = input.value.trim();
+    const hasFile = !!_popupChatFiles[jid];
+    
+    if (text.length > 0 || hasFile) {
+      btn.innerHTML = '<i class="fas fa-paper-plane" style="color: white;"></i>';
+      btn.style.background = 'linear-gradient(135deg,var(--accent),var(--blue))';
+    } else {
+      btn.innerHTML = '<i class="fas fa-microphone" style="color: white;"></i>';
+      btn.style.background = '#25d366';
+    }
+  }
 
-    // Get message history for this user
-    const allMsgs  = global.devMessagesCache || [];
-    const convMsgs = allMsgs
-      .filter(function(m) { return m.sender === jid; })
+  function handlePopupActionClick(jid, platform) {
+    const input = document.getElementById('popup-chat-input');
+    const text = input ? input.value.trim() : '';
+    
+    if (_popupChatRecorder && _popupChatRecorder.state === 'recording') {
+      togglePopupRecording(jid);
+      return;
+    }
+    
+    if (text.length > 0 || _popupChatFiles[jid]) {
+      sendPopupChatMsg(jid, platform);
+    } else {
+      togglePopupRecording(jid);
+    }
+  }
+
+  async function openProfanityMsgModal(jid, platform, name) {
+    // Redirect to the unified WhatsApp-style chat modal
+    openDirectMessageModal(jid, platform, name);
+  }
+  // Deprecated old popup function placeholder to prevent references error
+  async function old_openProfanityMsgModal_deprecated(jid, platform, name) {
+
+    // Fetch latest dev messages from database to ensure conversation is always loaded and up-to-date
+    try {
+      const res = await fetch('/api/dev-messages');
+      const data = await res.json();
+      if (data.ok && data.messages) {
+        window.devMessagesCache = data.messages;
+      }
+    } catch (e) {
+      console.error('Failed to pre-fetch dev messages cache:', e);
+    }
+
+    // 1. Get direct dev messages
+    const allMsgs  = window.devMessagesCache || [];
+    const userDevMsgs = allMsgs.filter(function(m) { return m.sender === jid; });
+
+    // 2. Fetch user violations from caches (profanity + ibhaya)
+    const profLogs = (window.profanityLogsCache || []).filter(function(l) { return l.jid === jid; });
+    const ibhLogs = (window.ibhayaLogsCache || []).filter(function(l) { return l.jid === jid; });
+    
+    // Convert violations to bubble-like format
+    const violationMsgs = [];
+    profLogs.forEach(function(l) {
+      violationMsgs.push({
+        id: l.timestamp + '_v',
+        sender: jid,
+        senderName: l.name,
+        platform: l.platform,
+        text: '⚠️ [مخالفة سب وشتم] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
+        timestamp: l.timestamp,
+        isViolation: true
+      });
+    });
+    ibhLogs.forEach(function(l) {
+      violationMsgs.push({
+        id: l.timestamp + '_v',
+        sender: jid,
+        senderName: l.name,
+        platform: l.platform,
+        text: '⚠️ [مخالفة إباحية] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message,
+        timestamp: l.timestamp,
+        isViolation: true
+      });
+    });
+
+    // Merge both list and sort chronologically
+    const convMsgs = [...userDevMsgs, ...violationMsgs]
       .sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
 
     const plat = (platform || 'whatsapp').toLowerCase();
-    let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = '\u0648\u0627\u062a\u0633\u0627\u0628';
-    if (plat === 'telegram') { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = '\u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645'; }
-    if (plat === 'facebook') { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = '\u0641\u064a\u0633\u0628\u0648\u0643'; }
+    let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
+    if (plat === 'telegram' || plat === 'tg') { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تيليغرام'; }
+    if (plat === 'facebook' || plat === 'fb') { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
 
     let bubblesHtml = '';
     if (convMsgs.length === 0) {
       bubblesHtml = '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);opacity:0.5;padding:30px 0;">'
         + '<i class="' + pIcon + '" style="font-size:48px;color:' + pColor + ';opacity:0.18;"></i>'
-        + '<span style="font-size:12px;">\u0644\u0627 \u062a\u0648\u062c\u062f \u0631\u0633\u0627\u0626\u0644 \u0633\u0627\u0628\u0642\u0629</span>'
+        + '<span style="font-size:12px;">لا توجد رسائل سابقة</span>'
         + '</div>';
     } else {
       convMsgs.forEach(function(m) {
         var t = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour:'2-digit', minute:'2-digit'}) : '';
-        bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;">'
-          + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;">' + (m.senderName || '\u0645\u0633\u062a\u062e\u062f\u0645') + ' \u00b7 ' + t + '</div>'
-          + '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 2px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(m.text || '') + '</div>'
-          + '</div>';
+        
+        // Render user message or violation
+        if (m.isViolation) {
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;margin-bottom:10px;">'
+            + '<div style="font-size:9px;color:var(--red);margin-bottom:4px;direction:rtl;font-weight:700;padding-left:4px;">' + (m.senderName || 'مستخدم') + ' · ' + t + ' (مخالفة)</div>'
+            + '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:13px;color:#fc8181;line-height:1.6;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;box-shadow: 0 2px 6px rgba(239,68,68,0.08);">' + escapeHtml(m.text || '') + '</div>'
+            + '</div>';
+        } else if (m.text) {
+          var safeText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-start;max-width:82%;align-self:flex-start;margin-bottom:10px;">'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:4px;direction:rtl;padding-left:4px;"><span style="font-weight:700;">' + (m.senderName || 'مستخدم') + '</span> · ' + t + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;">'
+            + '<div style="background:rgba(255, 255, 255, 0.04);border:1px solid rgba(255, 255, 255, 0.07);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:13px;color:var(--text-main);line-height:1.6;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;box-shadow: 0 2px 6px rgba(0,0,0,0.15);">' + formatMessageContent(m.text || '') + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeText + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>'
+            + '</div>'
+            + '</div>';
+        }
+
+        // Render developer replies
         if (m.replied && m.replyText) {
           var rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : '';
-          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;">'
-            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + rt + '</div>'
-            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(m.replyText) + '</div>'
+          var safeReply = (m.replyText || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+          bubblesHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;margin-bottom:10px;">'
+            + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:4px;direction:rtl;padding-right:4px;"><span style="font-weight:700;color:var(--accent);">المطور</span> · ' + rt + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;flex-direction:row-reverse;">'
+            + '<div style="background:linear-gradient(135deg, rgba(37, 211, 102, 0.16) 0%, rgba(18, 140, 126, 0.06) 100%);border:1px solid rgba(37, 211, 102, 0.22);border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:13px;color:var(--text-main);line-height:1.6;white-space:pre-wrap;word-break:break-word;direction:rtl;text-align:right;box-shadow: 0 2px 8px rgba(37,211,102,0.06);">' + formatMessageContent(m.replyText) + '</div>'
+            + '<button class="tts-speak-btn" onclick="speakText(\'' + safeReply + '\', \'ar\')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>'
+            + '</div>'
             + '</div>';
         }
       });
@@ -2409,21 +3774,54 @@
       + '</div>'
 
       // ── Chat Body ──
-      + '<div id="popup-chat-body" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background-image:radial-gradient(var(--border) 0.5px,transparent 0);background-size:16px 16px;min-height:0;">'
+      + '<div id="popup-chat-body" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background-image:radial-gradient(var(--border) 0.5px,transparent 0);background-size:16px 16px;min-height:0;direction:ltr;">'
       +   bubblesHtml
       + '</div>'
 
       // ── Footer ──
       + '<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--card);display:flex;flex-direction:column;gap:7px;flex-shrink:0;">'
-      +   '<div style="display:flex;gap:8px;align-items:flex-end;">'
-      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u0633\u0627\u0644\u062a\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')}"></textarea>'
-      +     '<button id="popup-send-btn" onclick="sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\')" style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--blue));border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;"><i class="fas fa-paper-plane"></i></button>'
+
+      // recording waveform bar (hidden by default)
+      + '<div id="popup-rec-bar" style="display:none;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">'
+      +   '<button onclick="togglePopupRecording(\'' + jid + '\')" style="width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-stop"></i></button>'
+      +   '<div style="display:flex;align-items:center;gap:2px;flex:1;height:28px;">'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +     '<span class="popup-wave-bar" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;"></span>'
+      +   '</div>'
+      +   '<span id="popup-rec-timer" style="font-size:12px;font-weight:700;color:#ef4444;font-family:monospace;flex-shrink:0;">0:00</span>'
+      +   '<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:blink 1s infinite;flex-shrink:0;"></span>'
+      + '</div>'
+
+      // audio preview bar (hidden by default)
+      + '<div id="popup-audio-preview" style="display:none;align-items:center;gap:8px;background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">'
+      +   '<button id="popup-audio-play-btn" onclick="togglePopupAudioPreview(\'' + jid + '\',\'' + platform + '\')" style="width:32px;height:32px;border-radius:50%;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-play"></i></button>'
+      +   '<div style="flex:1;">'
+      +     '<div style="font-size:10px;font-weight:700;color:#25d366;margin-bottom:3px;text-align:left;">🎤 رسالة صوتية</div>'
+      +     '<audio id="popup-audio-player" style="display:none;"></audio>'
+      +     '<div id="popup-audio-progress" style="height:3px;background:rgba(37,211,102,0.2);border-radius:2px;overflow:hidden;"><div id="popup-audio-fill" style="height:100%;background:#25d366;width:0%;transition:width 0.1s;"></div></div>'
+      +     '<div id="popup-audio-dur" style="font-size:9px;color:var(--text-muted);margin-top:2px;text-align:left;">0:00</div>'
+      +   '</div>'
+      +   '<button onclick="clearPopupMedia(\'' + jid + '\')" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;"><i class="fas fa-trash"></i></button>'
+      +   '<button onclick="sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\',\'' + safeName + '\')" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,211,102,0.3);"><i class="fas fa-paper-plane"></i></button>'
+      + '</div>'
+
+      // main input row
+      +   '<div id="popup-main-input-row" style="display:flex;gap:8px;align-items:flex-end;direction:ltr;">'
+      +     '<textarea id="popup-chat-input" placeholder="\u0627\u0643\u062a\u0628 \u0631\u062f\u0643 \u0647\u0646\u0627..." style="flex:1;min-height:36px;max-height:100px;height:36px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;resize:none;box-sizing:border-box;line-height:1.4;direction:rtl;text-align:right;" oninput="updatePopupActionBtn(\'' + jid + '\')" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendPopupChatMsg(\'' + jid + '\',\'' + platform + '\',\'' + safeName + '\')}"></textarea>'
+      +     '<button id="popup-send-btn" onclick="handlePopupActionClick(\'' + jid + '\',\'' + platform + '\',\'' + safeName + '\')" style="width:42px;height:42px;border-radius:50%;background:#25d366;border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;box-shadow:0 2px 8px rgba(37,211,102,0.35);transition:all 0.2s;"><i class="fas fa-microphone"></i></button>'
       +   '</div>'
       +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
       +     '<input type="file" id="popup-media-file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onPopupMediaChange(\'' + jid + '\',this)" />'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'image/*\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:6px;color:#38bdf8;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-image"></i> \u0635\u0648\u0631\u0629</button>'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'audio/*\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:6px;color:#a78bfa;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-music"></i> \u0635\u0648\u062a</button>'
-      +     '<button type="button" id="popup-mic-btn" onclick="togglePopupRecording(\'' + jid + '\')" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-microphone"></i> <span id="popup-mic-label">\u062a\u0633\u062c\u064a\u0644</span></button>'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'.pdf,.doc,.docx,.zip,.txt\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:6px;color:#fbbf24;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-file"></i> \u0645\u0644\u0641</button>'
       +     '<button type="button" onclick="document.getElementById(\'popup-media-file\').accept=\'video/*\';document.getElementById(\'popup-media-file\').click()" style="padding:4px 10px;font-size:11px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:6px;color:#34d399;cursor:pointer;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fas fa-video"></i> \u0641\u064a\u062f\u064a\u0648</button>'
       +     '<div id="popup-media-preview" style="display:none;flex:1;max-width:180px;">'
@@ -2433,8 +3831,10 @@
       +         '<button type="button" onclick="clearPopupMedia(\'' + jid + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;"><i class="fas fa-times"></i></button>'
       +       '</div>'
       +     '</div>'
+      +     '</div>'
       +   '</div>'
       + '</div>'
+      + '<button id="popup-mic-btn" style="display:none;"><span id="popup-mic-label"></span></button>'
       + '</div>';
 
     document.body.appendChild(modal);
@@ -2462,6 +3862,7 @@
       else if (file.type.startsWith('video/'))  iconEl.className = 'fas fa-video';
       else                                       iconEl.className = 'fas fa-file';
     }
+    updatePopupActionBtn(jid);
   }
 
   function clearPopupMedia(jid) {
@@ -2471,12 +3872,90 @@
     if (preview) preview.style.display = 'none';
     var fi = document.getElementById('popup-media-file');
     if (fi) fi.value = '';
+    
+    // Reset audio preview and show main input row
+    var audioPreview = document.getElementById('popup-audio-preview');
+    if (audioPreview) audioPreview.style.display = 'none';
+    var inputRow = document.getElementById('popup-main-input-row');
+    if (inputRow) inputRow.style.display = 'flex';
+    
+    // Stop audio player
+    var player = document.getElementById('popup-audio-player');
+    if (player) { player.pause(); player.src = ''; }
+    var playBtn = document.getElementById('popup-audio-play-btn');
+    if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    var fill = document.getElementById('popup-audio-fill');
+    if (fill) fill.style.width = '0%';
+
+    updatePopupActionBtn(jid);
+  }
+
+  var _popupRecTimerInterval = null;
+  var _popupRecSeconds = 0;
+  var _popupWaveInterval = null;
+
+  function _popupStartWaveform() {
+    var bars = document.querySelectorAll('#popup-rec-bar .popup-wave-bar');
+    _popupWaveInterval = setInterval(function() {
+      bars.forEach(function(b) {
+        var h = Math.floor(Math.random() * 20) + 4;
+        b.style.height = h + 'px';
+      });
+    }, 120);
+  }
+
+  function _popupStopWaveform() {
+    if (_popupWaveInterval) { clearInterval(_popupWaveInterval); _popupWaveInterval = null; }
+    var bars = document.querySelectorAll('#popup-rec-bar .popup-wave-bar');
+    bars.forEach(function(b) { b.style.height = '4px'; });
+  }
+
+  function _popupStartTimer() {
+    _popupRecSeconds = 0;
+    var timerEl = document.getElementById('popup-rec-timer');
+    _popupRecTimerInterval = setInterval(function() {
+      _popupRecSeconds++;
+      var m = Math.floor(_popupRecSeconds / 60);
+      var s = _popupRecSeconds % 60;
+      if (timerEl) timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  }
+
+  function _popupStopTimer() {
+    if (_popupRecTimerInterval) { clearInterval(_popupRecTimerInterval); _popupRecTimerInterval = null; }
+  }
+
+  function togglePopupAudioPreview(jid, platform) {
+    var player = document.getElementById('popup-audio-player');
+    var playBtn = document.getElementById('popup-audio-play-btn');
+    var fill = document.getElementById('popup-audio-fill');
+    var durEl = document.getElementById('popup-audio-dur');
+    if (!player) return;
+    if (player.paused) {
+      player.play();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      player.ontimeupdate = function() {
+        if (player.duration) {
+          var pct = (player.currentTime / player.duration) * 100;
+          if (fill) fill.style.width = pct + '%';
+          var s = Math.floor(player.currentTime);
+          var m = Math.floor(s / 60); s = s % 60;
+          if (durEl) durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        }
+      };
+      player.onended = function() {
+        if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        if (fill) fill.style.width = '0%';
+      };
+    } else {
+      player.pause();
+      if (playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
   }
 
   async function togglePopupRecording(jid) {
-    var micBtn   = document.getElementById('popup-mic-btn');
-    var micLabel = document.getElementById('popup-mic-label');
     if (!_popupChatRecorder) {
+      // ── START RECORDING ──
       try {
         var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         _popupChatChunks = [];
@@ -2487,29 +3966,55 @@
           var file = new File([blob], 'voice_note.ogg', { type: 'audio/ogg' });
           _popupChatFiles[jid] = file;
           _popupChatRecorded[jid] = true;
-          var preview = document.getElementById('popup-media-preview');
-          var nameEl  = document.getElementById('popup-media-name');
-          var iconEl  = document.getElementById('popup-media-icon');
-          if (preview) preview.style.display = 'flex';
-          if (nameEl)  nameEl.textContent = '\u0631\u0633\u0627\u0644\u0629 \u0635\u0648\u062a\u064a\u0629';
-          if (iconEl)  iconEl.className = 'fas fa-microphone';
           stream.getTracks().forEach(function(t) { t.stop(); });
+          _popupStopWaveform();
+          _popupStopTimer();
+          // hide rec bar, show audio preview
+          var recBar = document.getElementById('popup-rec-bar');
+          var inputRow = document.getElementById('popup-main-input-row');
+          var audioPreview = document.getElementById('popup-audio-preview');
+          if (recBar) recBar.style.display = 'none';
+          if (inputRow) inputRow.style.display = 'none';
+          if (audioPreview) {
+            audioPreview.style.display = 'flex';
+            var player = document.getElementById('popup-audio-player');
+            var durEl = document.getElementById('popup-audio-dur');
+            var fill = document.getElementById('popup-audio-fill');
+            if (player) {
+              var url = URL.createObjectURL(blob);
+              player.src = url;
+              player.onloadedmetadata = function() {
+                var total = Math.floor(player.duration);
+                var m = Math.floor(total / 60); var s = total % 60;
+                if (durEl) durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+              };
+              if (fill) fill.style.width = '0%';
+            }
+          }
+          updatePopupActionBtn(jid);
         };
         _popupChatRecorder.start();
-        if (micBtn)   micBtn.style.background = 'rgba(239,68,68,0.22)';
-        if (micLabel) micLabel.textContent = '\u0625\u064a\u0642\u0627\u0641';
+        // show rec bar, hide input row
+        var recBar = document.getElementById('popup-rec-bar');
+        var inputRow = document.getElementById('popup-main-input-row');
+        var audioPreview = document.getElementById('popup-audio-preview');
+        if (recBar) recBar.style.display = 'flex';
+        if (inputRow) inputRow.style.display = 'none';
+        if (audioPreview) audioPreview.style.display = 'none';
+        _popupStartWaveform();
+        _popupStartTimer();
+        updatePopupActionBtn(jid);
       } catch (e) {
         showToast('\u274c \u0641\u0634\u0644 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u0645\u064a\u0643\u0631\u0648\u0641\u0648\u0646', 'error');
       }
     } else {
+      // ── STOP RECORDING ──
       _popupChatRecorder.stop();
       _popupChatRecorder = null;
-      if (micBtn)   micBtn.style.background = 'rgba(239,68,68,0.08)';
-      if (micLabel) micLabel.textContent = '\u062a\u0633\u062c\u064a\u0644';
     }
   }
 
-  async function sendPopupChatMsg(jid, platform) {
+  async function sendPopupChatMsg(jid, platform, name) {
     var input = document.getElementById('popup-chat-input');
     var text  = input ? input.value.trim() : '';
     var file  = _popupChatFiles[jid];
@@ -2543,20 +4048,12 @@
       if (data.ok) {
         showToast('\u2705 \u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u0628\u0646\u062c\u0627\u062d!', 'success');
 
-        var chatBody = document.getElementById('popup-chat-body');
-        if (chatBody) {
-          var now = new Date().toLocaleTimeString('ar-MA', {hour:'2-digit', minute:'2-digit'});
-          var msgText = text || (file ? ('\uD83D\uDCCE ' + file.name) : '');
-          var bubble = document.createElement('div');
-          bubble.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;max-width:82%;align-self:flex-end;animation:bubble-in 0.2s ease;';
-          bubble.innerHTML = '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;">\u0627\u0644\u0645\u0637\u0648\u0631 \u00b7 ' + now + '</div>'
-            + '<div style="background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(66,153,225,0.03));border:1px solid rgba(99,179,237,0.25);border-radius:14px 14px 2px 14px;padding:8px 12px;font-size:12.5px;color:var(--text-main);line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(msgText) + '</div>';
-          chatBody.appendChild(bubble);
-          chatBody.scrollTop = chatBody.scrollHeight;
-        }
-
         if (input) input.value = '';
         clearPopupMedia(jid);
+
+        // Reload dev messages cache and re-open modal to render playable player
+        await loadDevMessages();
+        openProfanityMsgModal(jid, platform, name);
       } else {
         showToast('\u274c \u0641\u0634\u0644: ' + (data.error || '\u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641'), 'error');
       }
@@ -2568,14 +4065,37 @@
   }
 
 
+  async function banProfanityUser(jid) {
+    if (!await showConfirm(`حظر هذا المستخدم فوراً؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      // Determine platform key from jid format
+      let number = jid, platform = 'whatsapp';
+      if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
+      else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
+      else if (jid.includes('@')) { number = jid.split('@')[0]; }
+      const res = await fetch('/api/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
+      const data = await res.json();
+      if (data.ok) { showToast('🚫 تم حظر المستخدم', 'success'); await loadProfanityLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
 
-    async function unbanProfanityUser(jid) {
-    // Derive number/platform for unban
+  async function resetProfanityWarnings(jid) {
+    if (!await showConfirm(`إعادة ضبط تحذيرات هذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const res = await fetch('/api/profanity/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم إعادة ضبط التحذيرات', 'success'); await loadProfanityLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function unbanProfanityUser(jid) {
     let number = jid, platform = 'whatsapp';
     if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
     else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
     else if (jid.includes('@')) { number = jid.split('@')[0]; }
-    if (!confirm(`هل تريد رفع الحظر عن هذا المستخدم؟\n${jid}`)) return;
+    if (!await showConfirm(`هل تريد رفع الحظر عن هذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
     try {
       const res = await fetch('/api/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
       const data = await res.json();
@@ -2593,6 +4113,8 @@
       const res = await fetch('/api/profanity-logs');
       const data = await res.json();
       const logs = data.logs || [];
+      const banned = data.banned || [];
+      window.profanityLogsCache = logs;
       if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
       if (logs.length === 0) {
         listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد مخالفات مسجلة حالياً. ✅</div>`;
@@ -2619,6 +4141,7 @@
               <tr style="border-bottom:1px solid var(--border);">
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>
                 <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمة</th>
                 <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">مخالفات</th>
                 <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">تحذيرات</th>
@@ -2628,9 +4151,10 @@
             </thead>
             <tbody>
               ${users.map(u => {
+                const isBanned = banned.includes(u.jid);
                 const wLeft = u.warnings_left;
-                const wColor = wLeft <= 0 ? '#fc8181' : wLeft === 1 ? '#f6a623' : '#68d391';
-                const wLabel = wLeft <= 0 ? '🚫 محظور' : `${wLeft} / 3`;
+                const wColor = isBanned ? '#fc8181' : (wLeft === 1 ? '#f6a623' : '#68d391');
+                const wLabel = isBanned ? '🚫 محظور' : `${wLeft <= 0 ? 3 : wLeft} / 3`;
                 const ts = new Date(u.timestamp).toLocaleString('ar-MA');
                 const pkey = u.platform;
                 const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
@@ -2640,6 +4164,12 @@
                     <td style="padding:10px 12px;font-size:12px;max-width:150px;">
                       <div style="font-weight:600;">${u.name || '—'}</div>
                       <div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">${u.jid}</div>
+                    </td>
+                    <td style="padding:10px 12px;text-align:center;">
+                      ${isBanned
+                        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.4);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">🚫 محظور</span>`
+                        : `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(104,211,145,0.12);color:#68d391;border:1px solid rgba(104,211,145,0.35);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">✅ نشط</span>`
+                      }
                     </td>
                     <td style="padding:10px 12px;"><code style="background:rgba(252,129,129,0.12);color:#fc8181;padding:2px 7px;border-radius:4px;">${u.bad_word}</code></td>
                     <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--purple);">${u.count}</td>
@@ -2669,24 +4199,285 @@
     }
   }
 
+  async function toggleProfanityMonitor(enabled) {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profanityMonitorOnly: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '👁️ وضع المراقبة فقط — لن يتلقى المستخدمون تحذيرات أو حظر' : '✅ العودة للوضع العادي — التحذيرات والحظر مفعّلان', enabled ? 'warning' : 'success');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function toggleIbhayaMonitor(enabled) {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ibhayaMonitorOnly: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '👁️ وضع المراقبة فقط — لن يتلقى المستخدمون تحذيرات أو حظر' : '✅ العودة للوضع العادي — التحذيرات والحظر مفعّلان', enabled ? 'warning' : 'success');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function toggleProfanityFeature(enabled) {
+
+    const label = document.getElementById('profanity-status-label');
+    if (label) label.textContent = enabled ? '🟢 مفعّل' : '🔴 معطَّل';
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableProfanity: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '✅ تم تفعيل الكشف عن الألفاظ النابية' : '⛔ تم تعطيل الكشف عن الألفاظ النابية', enabled ? 'success' : 'warning');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function toggleIbhayaFeature(enabled) {
+    const label = document.getElementById('ibhaya-status-label');
+    if (label) label.textContent = enabled ? '🟢 مفعّل' : '🔴 معطَّل';
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableIbhaya: enabled ? 'true' : 'false' })
+      });
+      const data = await res.json();
+      if (data.success) showToast(enabled ? '✅ تم تفعيل الكشف عن المحتوى الإباحي' : '⛔ تم تعطيل الكشف عن المحتوى الإباحي', enabled ? 'success' : 'warning');
+      else showToast('❌ فشل الحفظ', 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function sendProfanityWarn(jid, warningsLeft) {
+
+    const remaining = typeof warningsLeft === 'number' ? warningsLeft : '?';
+    if (!await showConfirm(`⚠️ <b>إرسال تحذير تلقائي لهذا المستخدم؟</b><br><br>سيتلقى رسالة تخبره أن لديه ${remaining} تحذير متبقٍ قبل الحظر بسبب الكلام غير اللائق.<br><br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const btn = event.target.closest('button');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      const res = await fetch('/api/profanity/warn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid, warnings_left: remaining })
+      });
+      const data = await res.json();
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      if (data.ok && data.sent) {
+        showToast('✅ تم إرسال التحذير بنجاح!', 'success');
+      } else if (data.ok && !data.sent) {
+        showToast('⚠️ تم طلب الإرسال لكن البوت غير متصل', 'warning');
+      } else {
+        showToast('❌ فشل: ' + (data.error || 'خطأ غير معروف'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
+    }
+  }
+
+  // =================== IBHAYA VIOLATORS PAGE ===================
+
+  async function loadIbhayaWords() {
+    const listEl = document.getElementById('ibhaya-words-list');
+    const countEl = document.getElementById('ibhaya-words-count');
+    if (!listEl) return;
+    try {
+      const res = await fetch('/api/ibhaya-words');
+      const data = await res.json();
+      const words = data.words || [];
+      if (countEl) countEl.textContent = `(${words.length} كلمة)`;
+      listEl.innerHTML = words.map(w =>
+        `<code style="background:rgba(229,62,62,0.1);color:#e53e3e;padding:3px 8px;border-radius:6px;font-size:11px;">${escapeHtml(w)}</code>`
+      ).join('');
+    } catch (e) {
+      listEl.innerHTML = `<span style="color:var(--red);font-size:12px;">خطأ: ${e.message}</span>`;
+    }
+  }
+
+  async function resetIbhayaWarnings(jid) {
+    if (!await showConfirm(`إعادة ضبط تحذيرات الإباحية لهذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const res = await fetch('/api/ibhaya/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم إعادة ضبط التحذيرات', 'success'); await loadIbhayaLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function sendIbhayaWarn(jid, warningsLeft) {
+    const remaining = typeof warningsLeft === 'number' ? warningsLeft : '?';
+    if (!await showConfirm(`⚠️ <b>إرسال تحذير تلقائي لهذا المستخدم؟</b><br><br>سيتلقى رسالة تخبره أن لديه ${remaining} تحذير متبقٍ قبل الحظر.<br><br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const btn = event.target.closest('button');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      const res = await fetch('/api/ibhaya/warn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid, warnings_left: remaining })
+      });
+      const data = await res.json();
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      if (data.ok && data.sent) {
+        showToast('✅ تم إرسال التحذير بنجاح!', 'success');
+      } else if (data.ok && !data.sent) {
+        showToast('⚠️ تم طلب الإرسال لكن البوت غير متصل', 'warning');
+      } else {
+        showToast('❌ فشل: ' + (data.error || 'خطأ غير معروف'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
+    }
+  }
+
+  async function banIbhayaUser(jid) {
+    if (!await showConfirm(`حظر هذا المستخدم فوراً؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const res = await fetch('/api/ibhaya/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم الحظر', 'success'); await loadIbhayaLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function unbanIbhayaUser(jid) {
+    let number = jid, platform = 'whatsapp';
+    if (jid.startsWith('tg:')) { number = jid.replace('tg:', ''); platform = 'telegram'; }
+    else if (jid.startsWith('fb:')) { number = jid.replace('fb:', ''); platform = 'facebook'; }
+    else if (jid.includes('@')) { number = jid.split('@')[0]; }
+    if (!await showConfirm(`رفع الحظر عن هذا المستخدم؟<br><small style="color:var(--text-muted);font-family:monospace;">${jid}</small>`)) return;
+    try {
+      const res = await fetch('/api/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number, platform }) });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); await loadIbhayaLogs(); }
+      else showToast('❌ فشل: ' + data.error, 'error');
+    } catch (e) { showToast('❌ خطأ في الاتصال', 'error'); }
+  }
+
+  async function loadIbhayaLogs() {
+    const listEl = document.getElementById('ibhaya-list');
+    const countEl = document.getElementById('ibhaya-count');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري التحميل...</div>`;
+    try {
+      const res = await fetch('/api/ibhaya-logs');
+      const data = await res.json();
+      const logs = data.logs || [];
+      const banned = data.banned || [];
+      window.ibhayaLogsCache = logs;
+      if (countEl) countEl.textContent = `(${logs.length} مخالفة)`;
+      if (logs.length === 0) {
+        listEl.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد مخالفات مسجلة حالياً. ✅</div>`;
+        return;
+      }
+      const grouped = {};
+      for (const log of logs) {
+        if (!grouped[log.jid]) grouped[log.jid] = { ...log, count: 0 };
+        grouped[log.jid].count++;
+        if (new Date(log.timestamp) >= new Date(grouped[log.jid].timestamp)) {
+          grouped[log.jid].warnings_left = log.warnings_left;
+          grouped[log.jid].timestamp = log.timestamp;
+        }
+      }
+      const users = Object.values(grouped);
+      const platformIcon = { WA: '🟢', TG: '✈️', FB: '🔵' };
+      const platformLabel = { WA: 'واتساب', TG: 'تيليغرام', FB: 'فيسبوك' };
+      listEl.innerHTML = `
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمة</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">مخالفات</th>
+                <th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">تحذيرات</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">آخر مخالفة</th>
+                <th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;min-width:260px;">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map(u => {
+                const isBanned = banned.includes(u.jid);
+                const wLeft = u.warnings_left;
+                const wColor = isBanned ? '#fc8181' : (wLeft === 1 ? '#f6a623' : '#68d391');
+                const wLabel = isBanned ? '🚫 محظور' : `${wLeft <= 0 ? 3 : wLeft} / 3`;
+                const ts = new Date(u.timestamp).toLocaleString('ar-MA');
+                const pkey = u.platform;
+                const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
+                return `
+                  <tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+                    <td style="padding:10px 12px;white-space:nowrap;">${platformIcon[pkey] || '❓'} ${platformLabel[pkey] || pkey}</td>
+                    <td style="padding:10px 12px;font-size:12px;max-width:150px;">
+                      <div style="font-weight:600;">${escapeHtml(u.name || '—')}</div>
+                      <div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">${u.jid}</div>
+                    </td>
+                    <td style="padding:10px 12px;text-align:center;">
+                      ${isBanned
+                        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.4);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">🚫 محظور</span>`
+                        : `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(104,211,145,0.12);color:#68d391;border:1px solid rgba(104,211,145,0.35);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">✅ نشط</span>`
+                      }
+                    </td>
+                    <td style="padding:10px 12px;"><code style="background:rgba(229,62,62,0.12);color:#e53e3e;padding:2px 7px;border-radius:4px;">${escapeHtml(u.bad_word || '')}</code></td>
+                    <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--purple);">${u.count}</td>
+                    <td style="padding:10px 12px;text-align:center;font-weight:700;color:${wColor};">${wLabel}</td>
+                    <td style="padding:10px 12px;color:var(--text-muted);font-size:11px;white-space:nowrap;">${ts}</td>
+                    <td style="padding:10px 12px;">
+                      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                        <button onclick="speakText('${(u.message||u.bad_word||'').replace(/'/g,'')}','ar')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(37,211,102,0.4);background:rgba(37,211,102,0.08);color:#25d366;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="استمع للرسالة">
+                          🔊 استمع
+                        </button>
+                        <button onclick="openProfanityMsgModal('${u.jid}','${pkey}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة">
+                          <i class="fas fa-paper-plane"></i> رسالة
+                        </button>
+                        <button onclick="sendIbhayaWarn('${u.jid}', ${u.warnings_left !== undefined ? u.warnings_left : 2})" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,173,85,0.5);background:rgba(246,173,85,0.1);color:#f6a44e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال تحذير تلقائي للمستخدم">
+                          ⚠️ تحذير (${u.warnings_left !== undefined ? u.warnings_left : '?'})
+                        </button>
+                        <button onclick="resetIbhayaWarnings('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(104,211,145,0.4);background:rgba(104,211,145,0.08);color:#68d391;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إعادة ضبط التحذيرات">
+                          <i class="fas fa-redo"></i> إعادة ضبط
+                        </button>
+                        <button onclick="banIbhayaUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(252,129,129,0.4);background:rgba(252,129,129,0.08);color:#fc8181;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="حظر المستخدم"><i class="fas fa-ban"></i> حظر</button>
+                        <button onclick="unbanIbhayaUser('${u.jid}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(246,224,94,0.4);background:rgba(246,224,94,0.08);color:#f6e05e;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="رفع الحظر"><i class="fas fa-unlock"></i> رفع حظر</button>
+                      </div>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ: ${e.message}</div>`;
+    }
+  }
+
   // =================== DEV MESSAGES CHAT INBOX ===================
-  global.activeDevMsgJid = null;
-  global.devMessagesCache = [];
+  window.activeDevMsgJid = null;
+  window.devMessagesCache = [];
 
   async function loadDevMessages() {
     const listEl = document.getElementById('chats-list-container');
     const countEl = document.getElementById('devmsg-count');
-    if (!listEl) return;
 
     try {
       const res = await fetch('/api/dev-messages');
       const data = await res.json();
       if (!data.ok || !data.messages) {
-        listEl.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red); font-size:12px;">فشل التحميل</div>`;
+        if (listEl) listEl.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red); font-size:12px;">فشل التحميل</div>`;
         return;
       }
 
-      global.devMessagesCache = data.messages;
+      window.devMessagesCache = data.messages;
+      if (!listEl) return;
+
       const messages = data.messages;
 
       // Group messages by sender
@@ -2732,21 +4523,17 @@
             <i class="fas fa-inbox" style="font-size:32px; margin-bottom:12px; opacity:0.3;"></i>
             لا توجد محادثات نشطة.
           </div>`;
-        
-        // Show default placeholder on the right
-        const rightContainer = document.getElementById('conversation-container');
-        if (rightContainer) {
-          rightContainer.innerHTML = `
-            <div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center;">
-              <i class="fab fa-whatsapp" style="font-size:64px; color:var(--accent); opacity:0.15; margin-bottom:16px;"></i>
-              <h3>لا توجد محادثة محددة</h3>
-            </div>`;
-        }
         return;
       }
 
-      const platformIcon = { whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger' };
-      const platformColor = { whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff' };
+      const platformIcon = { 
+        whatsapp: 'fab fa-whatsapp', telegram: 'fab fa-telegram-plane', facebook: 'fab fa-facebook-messenger',
+        wa: 'fab fa-whatsapp', tg: 'fab fa-telegram-plane', fb: 'fab fa-facebook-messenger'
+      };
+      const platformColor = { 
+        whatsapp: '#25d366', telegram: '#38bdf8', facebook: '#0084ff',
+        wa: '#25d366', tg: '#38bdf8', fb: '#0084ff'
+      };
 
       listEl.innerHTML = convList.map(c => {
         const plat = (c.platform || 'whatsapp').toLowerCase();
@@ -2756,37 +4543,179 @@
         // Get the absolute latest message text snippet
         const sorted = [...c.messages].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         const latestMsg = sorted[0];
-        const snippet = latestMsg.text ? (latestMsg.text.length > 30 ? latestMsg.text.substring(0, 30) + '...' : latestMsg.text) : '[ملف مرفق]';
+        let snippet = '[ملف مرفق]';
+        if (latestMsg.text) {
+          snippet = latestMsg.text.length > 50 ? latestMsg.text.substring(0, 50) + '...' : latestMsg.text;
+        } else if (latestMsg.replyText) {
+          try {
+            const parsed = JSON.parse(latestMsg.replyText);
+            snippet = `الرد: ${parsed.text ? (parsed.text.length > 50 ? parsed.text.substring(0, 50) + '...' : parsed.text) : '[ملف صادر]'}`;
+          } catch(e) {
+            snippet = `الرد: ${latestMsg.replyText.length > 50 ? latestMsg.replyText.substring(0, 50) + '...' : latestMsg.replyText}`;
+          }
+        }
         const timeStr = c.latestTimestamp ? new Date(c.latestTimestamp).toLocaleDateString('ar-MA', {month:'numeric', day:'numeric'}) : '';
         const isUnread = c.messages.some(m => !m.replied);
-        const isActive = global.activeDevMsgJid === c.sender;
 
         return `
-          <div class="chat-list-item${isActive ? ' active' : ''}" data-jid="${c.sender}" onclick="openConversation('${c.sender}')" style="display:flex; align-items:center; gap:12px; padding:12px; border-right:4px solid transparent; cursor:pointer; border-bottom:1px solid var(--border);">
-            <div style="width:36px; height:36px; border-radius:50%; background:${pColor}18; display:flex; align-items:center; justify-content:center; color:${pColor}; font-size:16px; flex-shrink:0;">
-              <i class="${pIcon}"></i>
-            </div>
-            <div style="flex:1; min-width:0;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-                <div class="chat-item-name" style="font-weight:700; font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.senderName || c.sender}</div>
-                <div style="font-size:10px; color:var(--text-muted); white-space:nowrap;">${timeStr}</div>
+          <div class="chat-list-item" data-jid="${c.sender}" style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px; background:var(--card); border:1px solid var(--border); border-radius:12px; transition:all 0.2s;">
+            <div style="display:flex; align-items:center; gap:14px; flex:1; min-width:0; direction:rtl;">
+              <div style="width:40px; height:40px; border-radius:50%; background:${pColor}18; display:flex; align-items:center; justify-content:center; color:${pColor}; font-size:18px; flex-shrink:0;">
+                <i class="${pIcon}"></i>
               </div>
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; direction:rtl; text-align:right;">${snippet}</div>
-                ${isUnread ? `<div class="unread-dot" style="width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; flex-shrink:0;"></div>` : ''}
+              <div style="flex:1; min-width:0; text-align:right;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                  <span class="chat-item-name" style="font-weight:700; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.senderName || c.sender}</span>
+                  ${isUnread ? `<span style="background:rgba(239, 68, 68, 0.12); color:#fc8181; border:1px solid rgba(239, 68, 68, 0.25); font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; margin-right:4px;">لم يتم الرد</span>` : ''}
+                  <span style="font-size:10px; color:var(--text-muted); margin-right:auto; direction:ltr;">${timeStr}</span>
+                </div>
+                <div style="color:var(--text-muted); font-size:11px; font-family:monospace; margin-bottom:4px;">${c.sender}</div>
+                <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:90%;">${snippet}</div>
               </div>
-              <div class="chat-item-jid" style="display:none;">${c.sender}</div>
             </div>
+            
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button onclick="openDevMsgChatModal('${c.sender}')" class="btn btn-primary" style="padding:6px 14px; font-size:12px; font-family:Cairo,sans-serif; white-space:nowrap;">
+                <i class="fas fa-reply"></i> رد
+              </button>
+            </div>
+            <div class="chat-item-jid" style="display:none;">${c.sender}</div>
           </div>`;
       }).join('');
 
       // Auto-open/reload the active conversation if set
-      if (global.activeDevMsgJid) {
-        openConversation(global.activeDevMsgJid);
+      if (window.activeDevMsgJid) {
+        updateActiveConversationMessages(window.activeDevMsgJid);
       }
 
     } catch(e) {
       listEl.innerHTML = `<div style="color:var(--red); text-align:center; padding:20px; font-size:12px;">خطأ: ${e.message}</div>`;
+    }
+  }
+
+  // Helper to dynamically update messages in an open chat modal without losing textarea focus/values
+  function updateActiveConversationMessages(senderJid) {
+    const chatBody = document.getElementById('chat-body-container');
+    if (!chatBody) {
+      // If modal container is open but conversation is not rendered, render full layout
+      openConversation(senderJid);
+      return;
+    }
+
+    const chats = window.devMessagesCache || [];
+    const convMsgs = chats
+      .filter(m => m.sender === senderJid)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    const newHtml = convMsgs.map(m => {
+      const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
+
+      // Standalone violation block
+      if (m.isViolation || (m.text && (m.text.includes('⚠️ [مخالفة سب وشتم]') || m.text.includes('⚠️ [مخالفة إباحية]')))) {
+        const safeViolId = (m.id || m.timestamp || '').toString().replace(/'/g, '');
+        return `
+          <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px; position:relative;" class="violation-bubble-wrap">
+            <div style="font-size:9px; color:var(--red); margin-bottom:4px; direction:rtl; font-weight:700; padding-left:4px;">
+              ${m.senderName || 'مستخدم'} · ${dateStr} (مخالفة)
+            </div>
+            <div style="position:relative; width:100%;">
+              <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
+                ${escapeHtml(m.text || '')}
+              </div>
+              <button onclick="event.stopPropagation(); deleteDevMsg('${safeViolId}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid rgba(239,68,68,0.5); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف المخالفة">✕</button>
+            </div>
+          </div>`;
+      }
+
+      // Standalone dev reply row
+      if (!m.text && m.replied && m.replyText) {
+        const rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : dateStr;
+        return `<div style="display:flex; flex-direction:column; align-items:flex-end; max-width:82%; align-self:flex-end; margin-bottom:4px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-right:4px;">
+            <span style="font-weight:700; color:var(--accent);">المطور</span>
+            <span style="opacity:0.5;">·</span>
+            <span>${rt}</span>
+          </div>
+          <div style="background:linear-gradient(135deg, rgba(37,211,102,0.16) 0%, rgba(18,140,126,0.06) 100%); border:1px solid rgba(37,211,102,0.22); border-radius:18px 18px 4px 18px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow:0 2px 8px rgba(37,211,102,0.06);">
+            ${formatMessageContent(m.replyText)}
+          </div>
+        </div>`;
+      }
+
+      const safeUserText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+      const userBubble = m.text ? `
+        <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; position:relative; margin-bottom: 4px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-left: 4px;">
+            <span style="font-weight:700;">${m.senderName || 'مستخدم'}</span>
+            <span style="opacity:0.5;">·</span>
+            <span>${dateStr}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+              ${formatMessageContent(m.text)}
+              <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف الرسالة">✕</button>
+            </div>
+            <button class="tts-speak-btn" onclick="speakText('${safeUserText}','ar')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>
+          </div>
+        </div>` : '';
+
+      const safeReplyTxt = (m.replyText || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+      const replyBubble = m.text && m.replied && m.replyText ? `
+        <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:82%; align-self:flex-end; margin-bottom: 4px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-right: 4px;">
+            <span style="font-weight:700; color:var(--accent);">المطور</span>
+            <span style="opacity:0.5;">·</span>
+            <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : ''}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; flex-direction:row-reverse;">
+            <div style="background:linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,126,0.06)); border:1px solid rgba(37,211,102,0.22); border-radius:18px 18px 4px 18px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow:0 2px 8px rgba(37,211,102,0.06);">
+              ${formatMessageContent(m.replyText)}
+            </div>
+            <button class="tts-speak-btn" onclick="speakText('${safeReplyTxt}','ar')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>
+          </div>
+        </div>` : '';
+
+      return userBubble + replyBubble;
+    }).join('');
+
+    if (chatBody.innerHTML !== newHtml) {
+      chatBody.innerHTML = newHtml;
+      chatBody.scrollTop = chatBody.scrollHeight;
+
+      // Re-apply hover styles to show delete buttons on new bubbles
+      const bubbles = chatBody.querySelectorAll(':scope > div');
+      bubbles.forEach(b => {
+        b.addEventListener('mouseenter', () => {
+          const delBtn = b.querySelector('.delete-msg-btn');
+          if (delBtn) delBtn.style.display = 'flex';
+        });
+        b.addEventListener('mouseleave', () => {
+          const delBtn = b.querySelector('.delete-msg-btn');
+          if (delBtn) delBtn.style.display = 'none';
+        });
+      });
+    }
+  }
+
+  let _devMessagesPollInterval = null;
+
+  function startDevMessagesPolling() {
+    stopDevMessagesPolling();
+    // Poll every 3 seconds to fetch new user messages dynamically
+    _devMessagesPollInterval = setInterval(async () => {
+      const activePage = localStorage.getItem('active_page');
+      if (activePage === 'devmessages') {
+        await loadDevMessages();
+      } else {
+        stopDevMessagesPolling();
+      }
+    }, 3000);
+  }
+
+  function stopDevMessagesPolling() {
+    if (_devMessagesPollInterval) {
+      clearInterval(_devMessagesPollInterval);
+      _devMessagesPollInterval = null;
     }
   }
 
@@ -2804,8 +4733,85 @@
     });
   }
 
-  async function openConversation(senderJid) {
-    global.activeDevMsgJid = senderJid;
+  function openDevMsgChatModal(senderJid) {
+    const modal = document.getElementById('devmsg-chat-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      openConversation(senderJid);
+    }
+  }
+
+  function closeDevMsgModal() {
+    const modal = document.getElementById('devmsg-chat-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      window.activeDevMsgJid = null;
+    }
+  }
+
+  // ── WhatsApp Style Attachments Helpers ──
+  if (!document.getElementById('attach-menu-styles')) {
+    const style = document.createElement('style');
+    style.id = 'attach-menu-styles';
+    style.innerHTML = `
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(10px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .attach-menu-popover button:hover {
+        background: rgba(255,255,255,0.08) !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  window.toggleAttachmentMenu = function(jid, event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('attach-menu-' + jid);
+    const icon = document.getElementById('attach-icon-' + jid);
+    if (!menu) return;
+    const isHidden = menu.style.display === 'none';
+    
+    // Close other attachment menus
+    document.querySelectorAll('.attach-menu-popover').forEach(m => m.style.display = 'none');
+    document.querySelectorAll('[id^="attach-icon-"]').forEach(i => i.style.transform = 'rotate(0deg)');
+
+    if (isHidden) {
+      menu.style.display = 'flex';
+      if (icon) icon.style.transform = 'rotate(45deg)';
+    } else {
+      menu.style.display = 'none';
+      if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+  };
+
+  window.selectAttachmentOption = function(jid, type) {
+    const menu = document.getElementById('attach-menu-' + jid);
+    const icon = document.getElementById('attach-icon-' + jid);
+    if (menu) menu.style.display = 'none';
+    if (icon) icon.style.transform = 'rotate(0deg)';
+    
+    let fileInput;
+    if (type === 'image') {
+      fileInput = document.getElementById('devreply-media-file-image-' + jid);
+    } else if (type === 'audio') {
+      fileInput = document.getElementById('devreply-media-file-audio-' + jid);
+    } else {
+      fileInput = document.getElementById('devreply-media-file-doc-' + jid);
+    }
+    if (fileInput) fileInput.click();
+  };
+
+  // Close when clicking anywhere outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="attach-toggle-btn-"]') && !e.target.closest('.attach-menu-popover')) {
+      document.querySelectorAll('.attach-menu-popover').forEach(m => m.style.display = 'none');
+      document.querySelectorAll('[id^="attach-icon-"]').forEach(i => i.style.transform = 'rotate(0deg)');
+    }
+  });
+
+  async function openConversation(senderJid, _fallbackPlatform, _fallbackName) {
+    window.activeDevMsgJid = senderJid;
     const container = document.getElementById('conversation-container');
     if (!container) return;
 
@@ -2819,25 +4825,63 @@
       }
     });
 
-    const chats = global.devMessagesCache || [];
-    const convMsgs = chats
-      .filter(m => m.sender === senderJid)
+    const chats = window.devMessagesCache || [];
+    const userDevMsgs = chats.filter(m => m.sender === senderJid).map(m => {
+      if (m.text && (m.text.includes('⚠️ [مخالفة سب وشتم]') || m.text.includes('⚠️ [مخالفة إباحية]'))) {
+        return { ...m, isViolation: true };
+      }
+      return m;
+    });
+
+    // Fetch user violations from caches (profanity + ibhaya)
+    const profLogs = (window.profanityLogsCache || []).filter(l => l.jid === senderJid);
+    const ibhLogs = (window.ibhayaLogsCache || []).filter(l => l.jid === senderJid);
+    
+    const violationMsgs = [];
+    const existingTexts = new Set(userDevMsgs.map(m => m.text));
+
+    profLogs.forEach(l => {
+      const vText = '⚠️ [مخالفة سب وشتم] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message;
+      if (!existingTexts.has(vText)) {
+        violationMsgs.push({
+          id: l.timestamp + '_v',
+          sender: senderJid,
+          senderName: l.name,
+          platform: l.platform,
+          text: vText,
+          timestamp: l.timestamp,
+          isViolation: true
+        });
+      }
+    });
+
+    ibhLogs.forEach(l => {
+      const vText = '⚠️ [مخالفة إباحية] الكلمة: ' + l.bad_word + '\nالرسالة: ' + l.message;
+      if (!existingTexts.has(vText)) {
+        violationMsgs.push({
+          id: l.timestamp + '_v',
+          sender: senderJid,
+          senderName: l.name,
+          platform: l.platform,
+          text: vText,
+          timestamp: l.timestamp,
+          isViolation: true
+        });
+      }
+    });
+
+    // Merge dev messages + violations and sort chronologically
+    const convMsgs = [...userDevMsgs, ...violationMsgs]
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    if (convMsgs.length === 0) {
-      container.innerHTML = `
-        <div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center;">
-          <i class="fab fa-whatsapp" style="font-size:64px; color:var(--accent); opacity:0.15; margin-bottom:16px;"></i>
-          <h3>المحادثات فارغة</h3>
-        </div>`;
-      return;
-    }
-
-    const firstMsg = convMsgs[0];
-    const platform = (firstMsg.platform || 'whatsapp').toLowerCase();
+    // For new/empty conversations, still build the full UI with header + input bar
+    const isNewConversation = convMsgs.length === 0;
+    const firstMsg = convMsgs[0] || null;
+    const platform = (firstMsg?.platform || _fallbackPlatform || 'whatsapp').toLowerCase();
+    const displayName = firstMsg?.senderName || _fallbackName || senderJid;
     let pColor = '#25d366', pIcon = 'fab fa-whatsapp', pLabel = 'واتساب';
-    if (platform === 'telegram')  { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تليجرام'; }
-    if (platform === 'facebook')  { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
+    if (platform === 'telegram' || platform === 'tg')  { pColor = '#38bdf8'; pIcon = 'fab fa-telegram-plane'; pLabel = 'تليجرام'; }
+    if (platform === 'facebook' || platform === 'fb')  { pColor = '#0084ff'; pIcon = 'fab fa-facebook-messenger'; pLabel = 'فيسبوك'; }
 
     container.innerHTML = `
       <!-- Conversation Header -->
@@ -2847,42 +4891,83 @@
             <i class="${pIcon}"></i>
           </div>
           <div>
-            <div style="font-weight:700; font-size:13px; color:var(--text-main);">${firstMsg.senderName || firstMsg.sender}</div>
+            <div style="font-weight:700; font-size:13px; color:var(--text-main);">${displayName}</div>
             <div style="font-size:10px; color:var(--text-muted); direction:ltr; text-align:right;">${senderJid} · ${pLabel}</div>
           </div>
         </div>
-        <div style="display:flex; gap:6px;">
+        <div style="display:flex; gap:6px; align-items:center;">
           <button class="btn btn-secondary" onclick="banProfanityUser('${senderJid}')" style="padding:4px 10px; font-size:10px; border-color:rgba(252,129,129,0.3); color:#fc8181; background:rgba(252,129,129,0.05); font-family:Cairo,sans-serif;"><i class="fas fa-ban"></i> حظر</button>
           <button class="btn btn-secondary" onclick="unbanProfanityUser('${senderJid}')" style="padding:4px 10px; font-size:10px; border-color:rgba(246,224,94,0.3); color:#f6e05e; background:rgba(246,224,94,0.05); font-family:Cairo,sans-serif;"><i class="fas fa-unlock"></i> إلغاء حظر</button>
+          <button onclick="closeDevMsgModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:6px;" title="إغلاق">&times;</button>
         </div>
       </div>
 
       <!-- Messages Body -->
-      <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0;">
-        ${convMsgs.map(m => {
+      <div id="chat-body-container" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:12px; background-image: radial-gradient(var(--border) 0.5px, transparent 0); background-size: 16px 16px; min-height:0; direction:ltr;">
+        ${isNewConversation ? `<div style="flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--text-muted); padding:40px; text-align:center; gap:12px;"><i class="${pIcon}" style="font-size:56px; color:${pColor}; opacity:0.18;"></i><p style="font-size:14px; margin:0;">لا توجد رسائل بعد. ابدأ المحادثة الآن 👇</p></div>` : convMsgs.map(m => {
           const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : '';
-          const userBubble = `
-            <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:85%; align-self:flex-start; position:relative;">
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted);">
-                <span>${m.senderName || 'مستخدم'}</span>
-                <span>·</span>
-                <span>${dateStr}</span>
+
+          // Render user message, developer reply, or violation message
+          if (m.isViolation) {
+            const safeViolId = (m.id || m.timestamp || '').toString().replace(/'/g, '');
+            return `
+              <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; margin-bottom:10px; position:relative;" class="violation-bubble-wrap">
+                <div style="font-size:9px; color:var(--red); margin-bottom:4px; direction:rtl; font-weight:700; padding-left:4px;">
+                  ${m.senderName || 'مستخدم'} · ${dateStr} (مخالفة)
+                </div>
+                <div style="position:relative; width:100%;">
+                  <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:#fc8181; line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow: 0 2px 6px rgba(239,68,68,0.08);">
+                    ${escapeHtml(m.text || '')}
+                  </div>
+                  <button onclick="event.stopPropagation(); deleteDevMsg('${safeViolId}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid rgba(239,68,68,0.5); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف المخالفة">✕</button>
+                </div>
+              </div>`;
+          }
+
+          if (!m.text && m.replied && m.replyText) {
+            const rt = m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : dateStr;
+            return `<div style="display:flex; flex-direction:column; align-items:flex-end; max-width:82%; align-self:flex-end; margin-bottom:4px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-right:4px;">
+                <span style="font-weight:700; color:var(--accent);">المطور</span>
+                <span style="opacity:0.5;">·</span>
+                <span>${rt}</span>
               </div>
-              <div style="background:var(--card); border:1px solid var(--border); border-radius:14px 14px 14px 2px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word; position:relative;">
-                ${escapeHtml(m.text || '')}
-                <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:9px; cursor:pointer; display:none; align-items:center; justify-content:center;" class="delete-msg-btn" title="حذف الرسالة">✕</button>
+              <div style="background:linear-gradient(135deg, rgba(37,211,102,0.16) 0%, rgba(18,140,126,0.06) 100%); border:1px solid rgba(37,211,102,0.22); border-radius:18px 18px 4px 18px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow:0 2px 8px rgba(37,211,102,0.06);">
+                ${formatMessageContent(m.replyText)}
               </div>
             </div>`;
+          }
 
-          const replyBubble = m.replied && m.replyText ? `
-            <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:85%; align-self:flex-end;">
-              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px; font-size:9px; color:var(--text-muted);">
-                <span>المطور</span>
-                <span>·</span>
-                <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+          const safeUserText = (m.text || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+          const userBubble = m.text ? `
+            <div style="display:flex; flex-direction:column; align-items:flex-start; max-width:82%; align-self:flex-start; position:relative; margin-bottom: 4px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-left: 4px;">
+                <span style="font-weight:700;">${m.senderName || 'مستخدم'}</span>
+                <span style="opacity:0.5;">·</span>
+                <span>${dateStr}</span>
               </div>
-              <div style="background:linear-gradient(135deg, rgba(99,179,237,0.12), rgba(66,153,225,0.03)); border:1px solid rgba(99,179,237,0.25); border-radius:14px 14px 2px 14px; padding:8px 12px; font-size:12.5px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; word-break:break-word;">
-                ${escapeHtml(m.replyText)}
+              <div style="display:flex; align-items:center; gap:6px;">
+                <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:18px 18px 18px 4px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; position:relative; direction:rtl; text-align:right; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+                  ${formatMessageContent(m.text)}
+                  <button onclick="event.stopPropagation(); deleteDevMsg('${m.id}')" style="position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--bg); border:1px solid var(--border); color:var(--red); font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3);" class="delete-msg-btn" title="حذف الرسالة">✕</button>
+                </div>
+                <button class="tts-speak-btn" onclick="speakText('${safeUserText}','ar')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>
+              </div>
+            </div>` : '';
+
+          const safeReplyTxt = (m.replyText || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
+          const replyBubble = m.text && m.replied && m.replyText ? `
+            <div style="display:flex; flex-direction:column; align-items:flex-end; max-width:82%; align-self:flex-end; margin-bottom: 4px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:9px; color:var(--text-muted); direction:rtl; padding-right: 4px;">
+                <span style="font-weight:700; color:var(--accent);">المطور</span>
+                <span style="opacity:0.5;">·</span>
+                <span>${m.replyTimestamp ? new Date(m.replyTimestamp).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'}) : ''}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; flex-direction:row-reverse;">
+                <div style="background:linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,126,0.06)); border:1px solid rgba(37,211,102,0.22); border-radius:18px 18px 4px 18px; padding:10px 14px; font-size:13px; color:var(--text-main); line-height:1.6; white-space:pre-wrap; word-break:break-word; direction:rtl; text-align:right; box-shadow:0 2px 8px rgba(37,211,102,0.06);">
+                  ${formatMessageContent(m.replyText)}
+                </div>
+                <button class="tts-speak-btn" onclick="speakText('${safeReplyTxt}','ar')" title="استمع" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:rgba(56,189,248,0.1);color:#38bdf8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔊</button>
               </div>
             </div>` : '';
 
@@ -2892,33 +4977,76 @@
 
       <!-- Footer / Input Form -->
       <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--card); display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
-        <div style="display:flex; gap:8px; align-items:flex-end;">
-          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4;" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
+
+        <!-- Recording Waveform Bar (hidden by default) -->
+        <div id="devreply-rec-bar-${senderJid}" style="display:none;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">
+          <button onclick="toggleDevReplyRecording('${senderJid}')" style="width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-stop"></i></button>
+          <div style="display:flex;align-items:center;gap:2px;flex:1;height:28px;">
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+            <span class="devreply-wave-bar-${senderJid}" style="display:inline-block;width:3px;border-radius:2px;background:#ef4444;height:4px;"></span>
+          </div>
+          <span id="devreply-rec-timer-${senderJid}" style="font-size:12px;font-weight:700;color:#ef4444;font-family:monospace;flex-shrink:0;">0:00</span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:blink 1s infinite;flex-shrink:0;"></span>
+        </div>
+
+        <!-- Audio Preview Bar (hidden by default) -->
+        <div id="devreply-audio-preview-${senderJid}" style="display:none;align-items:center;gap:8px;background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:8px 12px;direction:ltr;">
+          <button id="devreply-audio-play-btn-${senderJid}" onclick="toggleDevReplyAudioPreview('${senderJid}')" style="width:32px;height:32px;border-radius:50%;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;"><i class="fas fa-play"></i></button>
+          <div style="flex:1;">
+            <div style="font-size:10px;font-weight:700;color:#25d366;margin-bottom:3px;text-align:left;">🎤 رسالة صوتية</div>
+            <audio id="devreply-audio-player-${senderJid}" style="display:none;"></audio>
+            <div style="height:3px;background:rgba(37,211,102,0.2);border-radius:2px;overflow:hidden;"><div id="devreply-audio-fill-${senderJid}" style="height:100%;background:#25d366;width:0%;transition:width 0.1s;"></div></div>
+            <div id="devreply-audio-dur-${senderJid}" style="font-size:9px;color:var(--text-muted);margin-top:2px;text-align:left;">0:00</div>
+          </div>
+          <button onclick="clearDevReplyMedia('${senderJid}')" style="width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;"><i class="fas fa-trash"></i></button>
+          <button onclick="sendConversationReply('${senderJid}')" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,211,102,0.3);"><i class="fas fa-paper-plane"></i></button>
+        </div>
+
+        <!-- Main Input Row -->
+        <div id="devreply-main-input-row-${senderJid}" style="display:flex; gap:8px; align-items:flex-end; direction:ltr;">
+          <textarea id="chat-input-text" placeholder="اكتب ردك هنا..." style="flex:1; min-height:36px; max-height:100px; height:36px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:Cairo,sans-serif; font-size:12px; resize:none; box-sizing:border-box; line-height:1.4; direction:rtl; text-align:right;" oninput="updateDevMsgActionBtn('${senderJid}')" onkeydown="handleChatInputKeyDown(event, '${senderJid}')"></textarea>
           
-          <button onclick="sendConversationReply('${senderJid}')" class="btn btn-primary" id="chat-send-btn" style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0;">
-            <i class="fas fa-paper-plane" style="font-size:14px;"></i>
+          <!-- Attachment Button & Popover -->
+          <div style="position: relative; display: flex; align-items: center; flex-shrink: 0;">
+            <input type="file" id="devreply-media-file-image-${senderJid}" accept="image/*" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
+            <input type="file" id="devreply-media-file-audio-${senderJid}" accept="audio/*" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
+            <input type="file" id="devreply-media-file-doc-${senderJid}" accept=".pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
+            
+            <button type="button" id="attach-toggle-btn-${senderJid}" onclick="toggleAttachmentMenu('${senderJid}', event)" style="width:36px; height:36px; border-radius:50%; background:var(--card2); border:1px solid var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; transition:all 0.2s;" title="إرفاق ملف">
+              <i class="fas fa-plus" id="attach-icon-${senderJid}" style="transition: transform 0.2s;"></i>
+            </button>
+
+            <div id="attach-menu-${senderJid}" class="attach-menu-popover" style="display:none; position:absolute; bottom:42px; right:0; background:var(--card2); border:1px solid var(--border); border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,0.55); padding:6px; flex-direction:column; gap:2px; z-index:9999; min-width:110px; animation: slideUp 0.15s ease-out;">
+              <button type="button" onclick="selectAttachmentOption('${senderJid}', 'image')" style="width:100%; padding:6px 10px; font-size:11px; background:transparent; border:none; border-radius:8px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; font-family:Cairo,sans-serif; text-align:right; transition: background 0.2s;">
+                <span style="width:22px; height:22px; border-radius:50%; background:rgba(56,189,248,0.15); color:#38bdf8; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;"><i class="fas fa-image"></i></span>
+                صورة
+              </button>
+              <button type="button" onclick="selectAttachmentOption('${senderJid}', 'audio')" style="width:100%; padding:6px 10px; font-size:11px; background:transparent; border:none; border-radius:8px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; font-family:Cairo,sans-serif; text-align:right; transition: background 0.2s;">
+                <span style="width:22px; height:22px; border-radius:50%; background:rgba(167,139,250,0.15); color:#a78bfa; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;"><i class="fas fa-music"></i></span>
+                صوت
+              </button>
+              <button type="button" onclick="selectAttachmentOption('${senderJid}', 'doc')" style="width:100%; padding:6px 10px; font-size:11px; background:transparent; border:none; border-radius:8px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; font-family:Cairo,sans-serif; text-align:right; transition: background 0.2s;">
+                <span style="width:22px; height:22px; border-radius:50%; background:rgba(251,191,36,0.15); color:#fbbf24; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;"><i class="fas fa-file"></i></span>
+                ملف
+              </button>
+            </div>
+          </div>
+
+          <button onclick="handleDevMsgActionClick('${senderJid}')" id="chat-send-btn" style="width:42px; height:42px; border-radius:50%; background:#25d366; border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0; font-size:18px; box-shadow:0 2px 8px rgba(37,211,102,0.35); transition:all 0.2s;">
+            <i class="fas fa-microphone" style="font-size:16px;"></i>
           </button>
         </div>
 
         <!-- Media Bar -->
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; gap:5px;">
-            <input type="file" id="devreply-media-file-${senderJid}" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.zip,.txt" style="display:none;" onchange="onDevReplyMediaChange('${senderJid}', this)" />
-            
-            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'image/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:6px; color:#38bdf8; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-image"></i> صورة
-            </button>
-            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', 'audio/*'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); border-radius:6px; color:#a78bfa; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-music"></i> صوت
-            </button>
-            <button type="button" id="devreply-mic-btn-${senderJid}" onclick="toggleDevReplyRecording('${senderJid}')" style="padding:4px 8px; font-size:10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:6px; color:#ef4444; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-microphone"></i> <span id="devreply-mic-label-${senderJid}">تسجيل</span>
-            </button>
-            <button type="button" onclick="setDevReplyFileAccept('${senderJid}', '.pdf,.doc,.docx,.zip,.txt'); document.getElementById('devreply-media-file-${senderJid}').click()" style="padding:4px 8px; font-size:10px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px; color:#fbbf24; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:Cairo,sans-serif;">
-              <i class="fas fa-file"></i> ملف
-            </button>
-          </div>
-          
           <div id="devreply-media-preview-${senderJid}" style="display:none; flex:1; max-width:200px;">
             <div style="display:flex; align-items:center; gap:5px; padding:3px 6px; background:rgba(37,211,102,0.06); border:1px solid rgba(37,211,102,0.15); border-radius:6px;">
               <i id="devreply-media-icon-${senderJid}" class="fas fa-file" style="font-size:11px; color:#25d366; flex-shrink:0;"></i>
@@ -2970,17 +5098,58 @@
     }
 
     // Find the latest message for this sender to attach the reply
-    const chats = global.devMessagesCache || [];
+    const chats = window.devMessagesCache || [];
     const convMsgs = chats
       .filter(m => m.sender === senderJid)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    if (convMsgs.length === 0) return;
+    // New conversation: no prior messages — fall back to /api/send-message directly
+    if (convMsgs.length === 0) {
+      const btn = document.getElementById('chat-send-btn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      try {
+        const platform = (_dmTargetPlatform || 'whatsapp');
+        const number = senderJid;
+        const body = { number, platform, message: replyText };
+        if (mediaFile) {
+          body.mediaBase64 = await fileToBase64(mediaFile);
+          body.mediaType = mediaFile.type;
+          body.mediaName = mediaFile.name;
+          body.caption = replyText;
+          body.ptt = _devReplyIsRecorded[senderJid] || false;
+        }
+        const res = await fetch('/api/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('✅ تم إرسال الرسالة بنجاح!', 'success');
+          input.value = '';
+          clearDevReplyMedia(senderJid);
+          await loadDevMessages();
+        } else {
+          showToast('❌ ' + (data.error || 'فشل الإرسال'), 'error');
+        }
+      } catch(e) {
+        showToast('❌ خطأ في الاتصال: ' + e.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i>'; }
+      }
+      return;
+    }
 
-    // Find the latest unanswered message, or latest overall
-    let targetMsg = convMsgs.find(m => !m.replied);
+    // Existing conversation — find the latest unanswered user message
+    // Never target standalone dev reply rows (which have text = '') as the reply target
+    const userMsgs = convMsgs.filter(m => m.text && m.text.trim() !== '');
+    let targetMsg = userMsgs.find(m => !m.replied);
     if (!targetMsg) {
-      targetMsg = convMsgs[convMsgs.length - 1];
+      targetMsg = userMsgs[userMsgs.length - 1];
+    }
+    if (!targetMsg) {
+      showToast('⚠️ لا توجد رسالة مستخدم للرد عليها', 'error');
+      return;
     }
 
     const btn = document.getElementById('chat-send-btn');
@@ -3025,7 +5194,7 @@
   }
 
   async function deleteDevMsg(id) {
-    if (!confirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
+    if (!await showConfirm('هل تريد حذف هذه الرسالة نهائياً؟')) return;
     try {
       const res = await fetch('/api/dev-messages/delete', {
         method: 'POST',
@@ -3045,7 +5214,7 @@
   }
 
   async function clearAllDevMessages() {
-    if (!confirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
+    if (!await showConfirm('هل تريد حذف جميع الرسائل الواردة نهائياً؟')) return;
     try {
       const res = await fetch('/api/dev-messages/clear-all', {
         method: 'POST',
@@ -3054,7 +5223,7 @@
       const data = await res.json();
       if (data.ok) {
         showToast('🗑️ تم حذف جميع الرسائل', 'success');
-        global.activeDevMsgJid = null;
+        window.activeDevMsgJid = null;
         await loadDevMessages();
       } else {
         showToast('❌ ' + (data.error || 'فشل الحذف'), 'error');
@@ -3088,13 +5257,20 @@
           const medal = medals[i] || `<span style="color:var(--text-muted);font-weight:700;">#${i+1}</span>`;
           const name = escapeHtml(u.name || u.jid || u.id || 'مجهول');
           const count = u.count || 0;
+          const safeName = name.replace(/'/g, "\\'");
+          const userJid = (u.jid || u.id || '').replace(/'/g, "\\'");
           return `<div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
             <span style="font-size:20px;min-width:28px;text-align:center;">${medal}</span>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
               <div style="font-size:11px;color:var(--text-muted);font-family:monospace;">${u.jid || u.id || ''}</div>
             </div>
-            <div style="font-size:13px;font-weight:700;color:var(--accent);background:rgba(56,189,248,0.1);padding:4px 10px;border-radius:20px;white-space:nowrap;">${count} رسالة</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="font-size:13px;font-weight:700;color:var(--accent);background:rgba(56,189,248,0.1);padding:4px 10px;border-radius:20px;white-space:nowrap;">${count} رسالة</div>
+              <button onclick="openProfanityMsgModal('${userJid}','${platform}','${safeName}')" style="padding:4px 9px;font-size:11px;border:1px solid rgba(99,179,237,0.4);background:rgba(99,179,237,0.08);color:#63b3ed;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="إرسال رسالة أو صورة">
+                <i class="fas fa-paper-plane"></i> رسالة
+              </button>
+            </div>
           </div>`;
         }).join('');
       }
@@ -3164,6 +5340,166 @@
       if (data.ok) { showToast('✅ تم رفع الحظر', 'success'); await loadBannedUsers(); }
       else showToast('❌ ' + (data.error || 'فشل'), 'error');
     } catch(e) { showToast('❌ خطأ: ' + e.message, 'error'); }
+  }
+
+  // =================== VIOLATIONS COMPREHENSIVE SCANNER ===================
+  let _violationsScanCache = [];
+  async function performComprehensiveScan() {
+    const listEl = document.getElementById('violations-scan-list');
+    const countEl = document.getElementById('violations-scan-count');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>جاري الفحص الشامل لقاعدة البيانات...</div>`;
+    try {
+      const [profRes, ibhRes] = await Promise.all([
+        fetch('/api/profanity-logs'),
+        fetch('/api/ibhaya-logs')
+      ]);
+      const profData = await profRes.json();
+      const ibhData = await ibhRes.json();
+
+      const profLogs = profData.logs || [];
+      const ibhLogs = ibhData.logs || [];
+      const bannedList = [...new Set([...(profData.banned || []), ...(ibhData.banned || [])])];
+
+      const grouped = {};
+      
+      for (const log of profLogs) {
+        const jid = log.jid;
+        if (!grouped[jid]) {
+          grouped[jid] = {
+            jid: jid,
+            name: log.name || 'مستخدم غير معروف',
+            platform: log.platform || 'WA',
+            profCount: 0,
+            ibhCount: 0,
+            badWords: new Set(),
+            messages: [],
+            warnings_left: log.warnings_left,
+            timestamp: log.timestamp
+          };
+        }
+        grouped[jid].profCount++;
+        if (log.bad_word) grouped[jid].badWords.add(log.bad_word);
+        grouped[jid].messages.push({ type: 'profanity', word: log.bad_word, text: log.message, ts: log.timestamp });
+        if (new Date(log.timestamp) > new Date(grouped[jid].timestamp)) {
+          grouped[jid].warnings_left = log.warnings_left;
+          grouped[jid].timestamp = log.timestamp;
+        }
+      }
+
+      for (const log of ibhLogs) {
+        const jid = log.jid;
+        if (!grouped[jid]) {
+          grouped[jid] = {
+            jid: jid,
+            name: log.name || 'مستخدم غير معروف',
+            platform: log.platform || 'WA',
+            profCount: 0,
+            ibhCount: 0,
+            badWords: new Set(),
+            messages: [],
+            warnings_left: log.warnings_left,
+            timestamp: log.timestamp
+          };
+        }
+        grouped[jid].ibhCount++;
+        if (log.bad_word) grouped[jid].badWords.add(log.bad_word);
+        grouped[jid].messages.push({ type: 'ibhaya', word: log.bad_word, text: log.message, ts: log.timestamp });
+        if (new Date(log.timestamp) > new Date(grouped[jid].timestamp)) {
+          grouped[jid].warnings_left = log.warnings_left;
+          grouped[jid].timestamp = log.timestamp;
+        }
+      }
+
+      _violationsScanCache = Object.values(grouped).map(u => {
+        u.isBanned = bannedList.includes(u.jid);
+        u.badWordsList = Array.from(u.badWords);
+        return u;
+      });
+
+      _violationsScanCache.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      filterScanResults();
+    } catch(e) {
+      listEl.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px;font-size:12px;">خطأ في تشغيل الفحص: ${e.message}</div>`;
+    }
+  }
+
+  function filterScanResults() {
+    const filterType = (document.getElementById('violations-filter-type') || {}).value || 'all';
+    const listEl = document.getElementById('violations-scan-list');
+    const countEl = document.getElementById('violations-scan-count');
+    if (!listEl) return;
+
+    let filtered = _violationsScanCache;
+    if (filterType === 'profanity') {
+      filtered = _violationsScanCache.filter(function(u) { return u.profCount > 0; });
+    } else if (filterType === 'ibhaya') {
+      filtered = _violationsScanCache.filter(function(u) { return u.ibhCount > 0; });
+    }
+
+    if (countEl) countEl.textContent = '(' + filtered.length + ' مستخدم مخالف)';
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px;"><i class="fas fa-shield-alt" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>لا توجد نتائج مطابقة للمرشح المحدد.</div>';
+      return;
+    }
+
+    const platformIcon = { WA: '🟢', TG: '✈️', FB: '🔵' };
+    const platformLabel = { WA: 'واتساب', TG: 'تيليغرام', FB: 'فيسبوك' };
+
+    let rows = '';
+    filtered.forEach(function(u) {
+      const types = [];
+      if (u.profCount > 0) types.push('<span style="color:#fc8181;background:rgba(252,129,129,0.1);padding:2px 6px;border-radius:4px;font-size:11px;">⚠️ كلام بذيء (' + u.profCount + ')</span>');
+      if (u.ibhCount > 0) types.push('<span style="color:#e53e3e;background:rgba(229,62,62,0.1);padding:2px 6px;border-radius:4px;font-size:11px;">🚫 إباحية (' + u.ibhCount + ')</span>');
+
+      const wordsBadge = u.badWordsList.map(function(w) {
+        return '<code style="background:rgba(255,255,255,0.06);color:var(--text-main);padding:1px 5px;border-radius:4px;font-size:11px;margin-left:4px;">' + w + '</code>';
+      }).join('');
+
+      const ts = new Date(u.timestamp).toLocaleString('ar-MA');
+      const safeName = (u.name || 'مستخدم').replace(/'/g, "\\'");
+      const pkey = u.platform || 'WA';
+      const isBannedSpan = u.isBanned
+        ? '<span style="background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.4);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">🚫 محظور</span>'
+        : '<span style="background:rgba(104,211,145,0.12);color:#68d391;border:1px solid rgba(104,211,145,0.35);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">✅ نشط</span>';
+
+      rows += '<tr style="border-bottom:1px solid var(--border);transition:background 0.2s;" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'">'+
+        '<td style="padding:10px 12px;white-space:nowrap;">' + (platformIcon[pkey] || '❓') + ' ' + (platformLabel[pkey] || pkey) + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;">' +
+          '<div style="font-weight:600;">' + (u.name || '—') + '</div>' +
+          '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;word-break:break-all;">' + u.jid + '</div>' +
+        '</td>' +
+        '<td style="padding:10px 12px;text-align:center;">' + isBannedSpan + '</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap;">' + types.join(' ') + '</td>' +
+        '<td style="padding:10px 12px;">' + (wordsBadge || '—') + '</td>' +
+        '<td style="padding:10px 12px;color:var(--text-muted);font-size:11px;white-space:nowrap;">' + ts + '</td>' +
+        '<td style="padding:10px 12px;">' +
+          '<button onclick="openProfanityMsgModal(\'' + u.jid + '\',\'' + pkey + '\',\'' + safeName + '\')" class="btn btn-primary" style="padding:5px 12px;font-size:11px;border:none;background:linear-gradient(135deg, #3182ce, #2b6cb0);color:#fff;border-radius:6px;cursor:pointer;font-family:Cairo,sans-serif;white-space:nowrap;" title="بدء محادثة مباشرة">' +
+            '<i class="fas fa-comments"></i> تواصل فوري' +
+          '</button>' +
+        '</td>' +
+        '</tr>';
+    });
+
+    listEl.innerHTML =
+      '<div style="overflow-x:auto;">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<thead>' +
+            '<tr style="border-bottom:1px solid var(--border);">' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المنصة</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">المستخدم</th>' +
+              '<th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">الحالة</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">نوع المخالفات</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;">الكلمات المكتشفة</th>' +
+              '<th style="padding:10px 12px;text-align:center;color:var(--text-muted);font-weight:600;">آخر تحذير</th>' +
+              '<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:600;min-width:140px;">إجراءات</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
   }
 
   // =================== HELPERS ===================
@@ -3620,13 +5956,29 @@
       
       if (data && data.ok && data.message) {
         const msg = data.message;
-        const cleanedBody = msg.textBody || msg.body || 'لا توجد تفاصيل';
+        let cleanedBody = 'لا توجد تفاصيل';
+        if (msg.textBody) {
+          cleanedBody = msg.textBody;
+        } else if (msg.body) {
+          if (typeof msg.body === 'object') {
+            cleanedBody = msg.body.text || msg.body.html || 'لا توجد تفاصيل';
+          } else {
+            cleanedBody = msg.body;
+          }
+        }
+        
+        let displayDate = msg.date || '';
+        try {
+          if (msg.date) {
+            displayDate = new Date(msg.date).toLocaleString('ar-MA');
+          }
+        } catch(e) {}
         
         viewer.innerHTML = `
           <div style="border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:12px; direction:rtl; text-align:right;">
             <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
               <span><strong>من:</strong> ${escapeHtml(msg.from)}</span>
-              <span><strong>التاريخ:</strong> ${escapeHtml(msg.date)}</span>
+              <span><strong>التاريخ:</strong> ${escapeHtml(displayDate)}</span>
             </div>
             <div style="font-size:13px; font-weight:700; color:var(--accent); margin-top:6px;"><strong>الموضوع:</strong> ${escapeHtml(msg.subject || 'بدون موضوع')}</div>
           </div>
