@@ -3376,9 +3376,19 @@ async function startBot(folderName, phoneNumber) {
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
-      console.log(chalk.yellow(`🔑 [${folderName}] New QR Code generated`));
       global.pendingQrs = global.pendingQrs || {};
       global.pendingQrs[folderName] = qr;
+      // Count QR attempts to avoid infinite loop when nobody is scanning
+      global._qrAttempts = global._qrAttempts || {};
+      global._qrAttempts[folderName] = (global._qrAttempts[folderName] || 0) + 1;
+      const attempt = global._qrAttempts[folderName];
+      console.log(chalk.yellow(`🔑 [${folderName}] New QR Code generated (attempt ${attempt})`));
+      if (attempt >= 20) {
+        console.log(chalk.red(`⚠️ [${folderName}] QR not scanned after ${attempt} attempts. Stopping auto-reconnect. Scan QR from dashboard to reconnect.`));
+        try { sock.ev.removeAllListeners(); } catch(_) {}
+        global._qrAttempts[folderName] = 0; // reset counter for next manual connect
+        return;
+      }
     }
     if (num) await db.updateWAStatus(num, connection || 'disconnected');
 

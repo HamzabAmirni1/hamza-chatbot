@@ -3264,7 +3264,7 @@
             <button id="devmsg-filter-all" onclick="setDevMsgFilter('all')" style="padding:5px 13px;font-size:11px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:linear-gradient(135deg, var(--accent), var(--blue));color:white;transition:all 0.2s;">الكل</button>
             <button id="devmsg-filter-unanswered" onclick="setDevMsgFilter('unanswered')" style="padding:5px 13px;font-size:11px;font-family:Cairo,sans-serif;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:transparent;color:var(--text-muted);transition:all 0.2s;">غير مُجاب</button>
           </div>
-          <button class="btn btn-secondary" onclick="loadDevMessages()" style="padding:6px 12px;font-size:11px;"><i class="fas fa-sync-alt"></i> تحديث</button>
+          <button id="devmsg-refresh-btn" class="btn btn-secondary" onclick="devmsgRefresh()" style="padding:6px 12px;font-size:11px;"><i class="fas fa-sync-alt"></i> تحديث</button>
           <button class="btn btn-secondary" onclick="clearAllDevMessages()" style="padding:6px 12px;font-size:11px;background:rgba(252,129,129,0.08);color:var(--red);border-color:rgba(252,129,129,0.25);"><i class="fas fa-trash-alt"></i> حذف الكل</button>
         </div>
       </div>
@@ -8572,6 +8572,22 @@
   // =================== DEV MESSAGES CHAT INBOX ===================
   window.activeDevMsgJid = null;
   window.devMessagesCache = [];
+
+  async function devmsgRefresh() {
+    const btn = document.getElementById('devmsg-refresh-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> جاري...';
+    }
+    try {
+      await loadDevMessages();
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> تحديث';
+      }
+    }
+  }
 
   async function loadDevMessages() {
     const listEl = document.getElementById('chats-list-container');
