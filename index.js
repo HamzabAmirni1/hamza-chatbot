@@ -121,6 +121,14 @@ global.syncBannedList = async (list) => {
     }
     console.log(`[Banned Users] Initialized persistent banned list with ${global.bannedUsersCache.length} users.`);
 
+    // Initialize subscription memory cache
+    try {
+      const { autoSubscribeUser } = require('./lib/subscription'); // Triggers lazy load of cache
+      autoSubscribeUser('test', 'wa'); // Dry-run to trigger loader
+    } catch (e) {
+      console.error('[Subscription Init] Cache load error:', e.message);
+    }
+
     // Sync config from Supabase cache to local config.js and in-memory config
     try {
       console.log(chalk.cyan("🔄 Initializing config from Supabase cache..."));
@@ -3642,6 +3650,25 @@ async function startBot(folderName, phoneNumber) {
         const senderNum = (userPhoneJid || sender).replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
         const isOwner = config.ownerNumber.some(n => n.replace(/[^0-9]/g, '') === senderNum);
         // ===== END OWNER CHECK =====
+
+        // ===== SUBSCRIPTION GATE FOR NEW USERS (DMs ONLY) =====
+        if (!isGroup && !isOwner && !msg.key.fromMe) {
+          const isMsgToDev = body && (body.trim().startsWith('.msgtodev') || body.trim().startsWith('!msgtodev'));
+          if (!isMsgToDev) {
+            const gateStatus = checkSubscriptionGate(sender, 'wa');
+            if (gateStatus === 'blocked') {
+              await sendWithChannelButton(sock, sender, getSubscriptionMessage('wa'), msg);
+              continue;
+            } else if (gateStatus === 'pending') {
+              await sendWithChannelButton(sock, sender, getWelcomeMessage(), msg);
+              // Let the first command run as normal
+            }
+          }
+          // Auto-subscribe existing users to daily reminders & prayers
+          const { autoSubscribeUser } = require('./lib/subscription');
+          autoSubscribeUser(sender, 'wa');
+        }
+        // ========================================================
 
         // Check for profanity / bad language (exclude owner)
         if (body && !msg.key.fromMe && !isOwner) {
