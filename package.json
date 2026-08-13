@@ -24,6 +24,7 @@
         "pino": "^7.0.0",
         "qrcode": "^1.5.4",
         "ruhend-scraper": "^9.0.8",
+        "ws": "^8.16.0",
         "yt-search": "^2.11.0"
     },
     "engines": {
