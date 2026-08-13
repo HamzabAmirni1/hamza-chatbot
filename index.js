@@ -672,65 +672,84 @@ app.get('/auth/facebook', (req, res) => {
   const redirectUri = `${protocol}://${host}/auth/facebook/callback`;
   const scope = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata';
   
-  const fbLoginUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
+  const fbLoginUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
   res.redirect(fbLoginUrl);
 });
 
 app.get('/auth/facebook/callback', async (req, res) => {
-  try {
-    const { code, error, error_description } = req.query;
-    if (error) {
-      return res.send(`<html><body><script>alert("خطأ في تسجيل الدخول بفيسبوك: ${encodeURIComponent(error_description || error)}"); window.location.href="/";</script></body></html>`);
-    }
-    if (!code) {
-      return res.redirect('/');
-    }
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <title>تسجيل الدخول فيسبوك</title>
+      <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+        .card { background: #1e293b; padding: 35px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 420px; border: 1px solid rgba(255,255,255,0.1); }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-left-color: #0084ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 20px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="spinner"></div>
+        <h3 id="status-title" style="margin-top:0; font-size:20px;">جاري التوصيل بحساب فيسبوك...</h3>
+        <p id="status-desc" style="color:#94a3b8; font-size:14px; margin-bottom:0;">الرجاء الانتظار ثوانٍ معدودة لربط صفحاتك تلقائياً...</p>
+      </div>
+      <script>
+        (async function() {
+          const hash = window.location.hash.substring(1);
+          const params = new URLSearchParams(hash);
+          const accessToken = params.get('access_token');
+          const errorDesc = new URLSearchParams(window.location.search).get('error_description');
 
-    const appId = process.env.FB_APP_ID || '1219213910354519';
-    const appSecret = process.env.FB_APP_SECRET || '';
-    const host = req.get('host');
-    const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-    const redirectUri = `${protocol}://${host}/auth/facebook/callback`;
-
-    if (appSecret) {
-      const tokenRes = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
-        params: {
-          client_id: appId,
-          client_secret: appSecret,
-          redirect_uri: redirectUri,
-          code: code
-        }
-      });
-      const userToken = tokenRes.data.access_token;
-      if (userToken) {
-        const pageRes = await axios.get('https://graph.facebook.com/v18.0/me/accounts', {
-          params: {
-            fields: 'id,name,access_token,category,picture{url}',
-            access_token: userToken
+          if (errorDesc) {
+            alert("خطأ في تسجيل الدخول بفيسبوك: " + errorDesc);
+            window.location.href = "/";
+            return;
           }
-        });
-        const pages = pageRes.data.data || [];
-        for (const p of pages) {
-          const formattedName = `${p.name}|${p.id}`;
-          await db.insertBotConfig({
-            bot_token: p.access_token,
-            bot_name: formattedName,
-            bot_type: 'facebook'
-          });
-          global.fbPageTokens = global.fbPageTokens || {};
-          global.fbPageTokens[p.id] = p.access_token;
-        }
-        return res.send(`<html><body><script>alert("تم ربط ${pages.length} صفحة فيسبوك بنجاح! 🎉"); window.location.href="/";</script></body></html>`);
-      }
-    }
 
-    // If App Secret is not set in backend, pass code back to dashboard
-    return res.send(`<html><body><script>window.location.href="/?fb_code=${code}";</script></body></html>`);
-  } catch (e) {
-    console.error('[FB OAuth Callback Error]:', e.response?.data || e.message);
-    const msg = e.response?.data?.error?.message || e.message;
-    return res.send(`<html><body><script>alert("فشل الربط التلقائي: ${msg}"); window.location.href="/";</script></body></html>`);
-  }
+          if (!accessToken) {
+            alert("لم يتم الحصول على توثيق فيسبوك، يرجى المحاولة مجدداً.");
+            window.location.href = "/";
+            return;
+          }
+
+          try {
+            document.getElementById('status-desc').innerText = "جاري جلب صفحاتك من فيسبوك...";
+            const resPages = await fetch('/api/fb-fetch-pages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userToken: accessToken })
+            });
+            const dataPages = await resPages.json();
+
+            if (dataPages.success && dataPages.pages && dataPages.pages.length > 0) {
+              document.getElementById('status-desc').innerText = "تم العثور على " + dataPages.pages.length + " صفحة، جاري الحفظ بنجاح...";
+              let connectedCount = 0;
+              for (const p of dataPages.pages) {
+                await fetch('/api/connect-fb', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token: p.access_token, name: p.name, pageId: p.id })
+                });
+                connectedCount++;
+              }
+              alert("🎉 تم تسجيل الدخول بـ Facebook وربط " + connectedCount + " صفحة بنجاح فـ السكربت!");
+              window.location.href = "/";
+            } else {
+              alert(dataPages.error || "لم يتم العثور على أي صفحات فـ حسابك.");
+              window.location.href = "/";
+            }
+          } catch(e) {
+            alert("حدث خطأ أثناء الربط التلقائي: " + e.message);
+            window.location.href = "/";
+          }
+        })();
+      </script>
+    </body>
+    </html>
+  `);
 });
 
 app.post('/api/delete-config', async (req, res) => {

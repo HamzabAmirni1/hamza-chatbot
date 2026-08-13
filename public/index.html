@@ -4737,63 +4737,12 @@
     }
   }
 
-  async function loginWithFacebookSDK() {
+  function loginWithFacebookSDK() {
     const alert = document.getElementById('alert-pairing-fb');
-    let appId = localStorage.getItem('fb_app_id');
-    const userTokenInput = document.getElementById('fb-user-token')?.value?.trim();
-
-    if (userTokenInput) {
-      return fetchFbPagesWithUserToken(userTokenInput);
-    }
-
-    if (!appId) {
-      appId = prompt('أدخل معرّف تطبيق فيسبوك (Facebook App ID) للربط التلقائي، أو اضغط Cancel لاستخدام User Token أدناه:');
-      if (appId) {
-        localStorage.setItem('fb_app_id', appId.trim());
-      } else {
-        const tokenInput = document.getElementById('fb-user-token');
-        if (tokenInput) tokenInput.focus();
-        showAlert(alert, 'info', 'الرجاء إدخال User Access Token في الخانة أدناه لجلب صفحاتك تلقائياً');
-        return;
-      }
-    }
-
-    showAlert(alert, 'info', 'جاري التواصل مع فيسبوك لتسجيل الدخول...');
-
-    if (!window.FB) {
-      try {
-        await new Promise((resolve, reject) => {
-          window.fbAsyncInit = function() {
-            FB.init({
-              appId: appId.trim(),
-              cookie: true,
-              xfbml: true,
-              version: 'v18.0'
-            });
-            resolve();
-          };
-          const script = document.createElement('script');
-          script.src = "https://connect.facebook.net/en_US/sdk.js";
-          script.async = true;
-          script.defer = true;
-          script.onerror = () => reject(new Error('فشل تحميل فيسبوك SDK'));
-          document.body.appendChild(script);
-        });
-      } catch (err) {
-        showAlert(alert, 'error', err.message);
-        return;
-      }
-    }
-
-    if (window.FB) {
-      FB.login(function(response) {
-        if (response.authResponse && response.authResponse.accessToken) {
-          fetchFbPagesWithUserToken(response.authResponse.accessToken);
-        } else {
-          showAlert(alert, 'error', 'تم إلغاء تسجيل الدخول بفيسبوك أو لم يتم منح الصلاحيات');
-        }
-      }, { scope: 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata' });
-    }
+    showAlert(alert, 'info', 'جاري توجيهك الآن إلى موقع فيسبوك لتسجيل الدخول واختيار صفحتك...');
+    setTimeout(() => {
+      window.location.href = '/auth/facebook';
+    }, 500);
   }
 
   async function fetchFbPagesWithUserToken(tokenOverride) {
