@@ -1,0 +1,5 @@
+from base64 import b85decode
+
+encoded = b'3JPg$aBp&SAa8RDX>D+Ca&#bbd2<SHb1rjvb97~GC}MeZWpgN7F)%SKATcs9EFdv4GAtl5F)=J4F)=hOATcpEEFd#7EFd^AEFd^JEFd^EEFd>BEFd>IEFd>HEFd>BEFd>IEFd>GEFd;HEFd;9T`4YPWn*t-Whf~tb9r+vaB^j4X?QDQd30rSC|ff!EFd#DEFd#DEFd#7T`4YPWn*t-Whf~tVtI6Bb0}LeFflA3F)}bLATcpAEFdv4F)Sc4F*Gb7F)=nQATu&7AUH5AAUHWJAUHHEAU85BAU8QIAU8NHAUQQGAT~KHAUHTIAT~KHAT~EFAUHKFAUHHEAT~8DAT~BEAU8HFAT~KHAT}{wDK2DXV{c?-C@Cv*d2=phcx7XCbYWs_Wh-KNbY*iWTQf2&ATu~DATu~DATu&uDK2DXV{c?-C@Cvqd30rSC|fi(EFd&DT`4YPWn*t-Whf~iD<C3Jd0}X6Wn?aMZz3rQ3I'
+decoded = b85decode(encoded).decode('utf-8')
+print(decoded)
