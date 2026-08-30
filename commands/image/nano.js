@@ -1,110 +1,93 @@
 /**
-   • الميزة: تعديل الصور بالذكاء الاصطناعي - نانو بنانا
-   • المطور: حمزة اعمرني (𝐇𝐀𝐌𝐙𝐀 𝐀𝐌𝐈𝐑𝐍𝐈)
-   • القناة: https://whatsapp.com/channel/0029ValXRoHCnA7yKopcrn1p
- **/
+ * 🍌 Nano-Banana AI Multi-Engine (نظام نانو بنانا لتوليد وتعديل ودمج الصور)
+ * المطور: حمزة اعمرني (Hamza Amirni)
+ *
+ * 🛠️ الميزات:
+ * 1. .nano <الوصف> : توليد ورسم صور جديدة بالذكاء الاصطناعي
+ * 2. الرد على صورة بـ .nano <التعديل> : تعديل الصورة بالذكاء الاصطناعي
+ * 3. .nanopro : وضع تجميع الصور (حتى 4 صور)
+ * 4. .nanopro done <الوصف> : دمج جميع الصور المجمعة باحترافية
+ */
 
-const axios = require("axios");
-const CryptoJS = require("crypto-js");
-const fs = require("fs");
-const path = require("path");
-const config = require("../../config");
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs-extra');
+const path = require('path');
+const config = require('../../config');
+const { uploadToBestProvider } = require('../../lib/media');
 
-const AES_KEY = "ai-enhancer-web__aes-key";
-const AES_IV = "aienhancer-aesiv";
+// In-memory collector session for NanoPro multi-image blending
+const bananaSession = {};
 
-function encryptSettings(obj) {
-    return CryptoJS.AES.encrypt(
-        JSON.stringify(obj),
-        CryptoJS.enc.Utf8.parse(AES_KEY),
-        {
-            iv: CryptoJS.enc.Utf8.parse(AES_IV),
-            mode: CryptoJS.mode.CBC,
-            padding: CryptoJS.pad.Pkcs7
-        }
-    ).toString();
-}
-
-async function processImageAI(buffer, prompt) {
+async function uploadImageBuffer(buffer) {
+    if (!buffer) return null;
     try {
-        const img = buffer.toString("base64");
-
-        const settingsData = encryptSettings({
-            prompt,
-            size: "2K",
-            aspect_ratio: "match_input_image",
-            output_format: "jpeg",
-            max_images: 1
+        // Method 1: tmp.malvryx.dev
+        const form = new FormData();
+        form.append('file', buffer, { filename: 'image.jpg', contentType: 'image/jpeg' });
+        form.append('type', 'permanent');
+        const res = await axios.post('https://tmp.malvryx.dev/upload', form, {
+            headers: form.getHeaders(),
+            timeout: 15000
         });
+        const cdnUrl = res.data?.cdnUrl || res.data?.directUrl;
+        if (cdnUrl) return cdnUrl;
+    } catch (_) {}
 
-        const headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10)",
-            "Content-Type": "application/json",
-            Origin: "https://aienhancer.ai",
-            Referer: "https://aienhancer.ai/ai-image-editor"
-        };
+    // Method 2: uploadToBestProvider fallback
+    try {
+        const fallbackUrl = await uploadToBestProvider(buffer);
+        if (fallbackUrl) return fallbackUrl;
+    } catch (_) {}
 
-        const create = await axios.post(
-            "https://aienhancer.ai/api/v1/r/image-enhance/create",
-            {
-                model: 2,
-                function: "image-edit",
-                image: `data:image/jpeg;base64,${img}`,
-                settings: settingsData
-            },
-            { headers }
-        );
-
-        const id = create?.data?.data?.id;
-        if (!id) throw new Error("لم يتم العثور على معرف المهمة");
-
-        for (let i = 0; i < 15; i++) {
-            await new Promise(r => setTimeout(r, 4000));
-
-            const r = await axios.post(
-                "https://aienhancer.ai/api/v1/k/image-enhance/result",
-                { task_id: id },
-                { headers }
-            );
-
-            const data = r?.data?.data;
-            if (!data) continue;
-
-            if (data.status === "success") {
-                return {
-                    id,
-                    output: data.output,
-                    input: data.input
-                };
-            }
-
-            if (data.status === "failed") {
-                throw new Error(data.error || "فشلت العملية");
-            }
-        }
-
-        throw new Error("استغرق الأمر وقتاً طويلاً جداً");
-
-    } catch (e) {
-        throw e;
-    }
+    return null;
 }
 
-module.exports = async (sock, chatId, msg, args, helpers) => {
-    const isTelegram = helpers && helpers.isTelegram;
-    let targetMsg = msg;
-    let buffer;
+function getGuideMessage(usedPrefix = '.') {
+    return `🍌 *الذكاء الاصطناعي نانو بنانا (Nano-Banana AI)*
+━━━━━━━━━━━━━━━━━━━━
 
+_توليد ورسم الصور وتعديلها بالذكاء الاصطناعي، مع إمكانية دمج حتى 4 صور معاً باحترافية!_ 🎨
+
+📌 *طريقة الاستعمال:*
+
+← *${usedPrefix}nano <الوصف>*
+رسم وتوليد صورة جديدة بالذكاء الاصطناعي من النص
+
+← *رد على أي صورة بـ ${usedPrefix}nano <التعديل>*
+تعديل وتحويل ديك الصورة بالذكاء الاصطناعي
+
+← *${usedPrefix}nanopro*
+تفعيل وضع التجميع (صيفط الصور وحدة بوحدة حتى لـ 4)
+
+← *${usedPrefix}nanopro done <الوصف>*
+دمج جميع الصور المجموعة مع الوصف ديالك
+
+━━━━━━━━━━━━━━━━━━━━
+💡 *أمثلة:*
+• ${usedPrefix}nano قطة كترتدي نظارات شمسية فالفضاء 4k
+• ${usedPrefix}nanopro done ادمج هاد الصور بأسلوب أنمي سينمائي
+
+⚡ _bot amirni hamza • حمزة اعمرني_`;
+}
+
+module.exports = async (sock, chatId, msg, args, helpers = {}) => {
+    const isTelegram = helpers && helpers.isTelegram;
+    const isFacebook = helpers && helpers.isFacebook;
+    const usedPrefix = helpers.prefix || '.';
+    const command = (helpers.command || 'nano').toLowerCase();
+    const sender = helpers.sender || chatId;
+
+    let targetMsg = msg;
+    let buffer = null;
+
+    // ── 1. Extract Media Buffer (if quoted or attached) ──
     if (isTelegram) {
-        // Telegram Media Logic
-        buffer = await sock.downloadMedia(msg);
-        if (!buffer) {
-            return await sock.sendMessage(chatId, {
-                text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* .nano تحويل الوجه إلى أنمي\n*✨ ──────────────── ✨*`
-            }, { quoted: msg });
-        }
-    } else {
-        // WhatsApp Media Logic
+        try {
+            buffer = await sock.downloadMedia(msg);
+        } catch (_) {}
+    } else if (!isFacebook) {
+        // WhatsApp Baileys
         const { downloadMediaMessage } = require("@whiskeysockets/baileys");
         if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
             const quotedInfo = msg.message.extendedTextMessage.contextInfo;
@@ -118,85 +101,226 @@ module.exports = async (sock, chatId, msg, args, helpers) => {
             };
         }
 
-        const mime = targetMsg.message?.imageMessage?.mimetype || targetMsg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || "";
+        const mime = targetMsg.message?.imageMessage?.mimetype || 
+                     targetMsg.message?.documentWithCaptionMessage?.message?.imageMessage?.mimetype || "";
 
-        if (!mime.startsWith("image/")) {
+        if (mime.startsWith("image/")) {
+            try {
+                buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, {
+                    logger: undefined,
+                    reuploadRequest: sock.updateMediaMessage
+                });
+            } catch (_) {}
+        }
+    }
+
+    const text = args.join(' ').trim();
+    const isNanoPro = command.includes('nanopro');
+
+    // ── 2. Handle NanoPro Collector Mode (.nanopro / .nanopro done) ──
+    if (isNanoPro) {
+        if (!bananaSession[sender]) bananaSession[sender] = { images: [] };
+
+        if (text.toLowerCase().startsWith('done')) {
+            const session = bananaSession[sender];
+            const finalPrompt = text.replace(/^done\s*/i, '').trim();
+
+            if (session.images.length < 2) {
+                return await sock.sendMessage(chatId, {
+                    text: `⚠️ *نانو بنانا برو (NanoPro)*\n\nخاصك تصيفط صورتين على الأقل قبل إتمام عملية الدمج.\nاستخدم: *${usedPrefix}nanopro* لإرسال الصور أولاً.`
+                }, { quoted: msg });
+            }
+
+            if (!finalPrompt) {
+                return await sock.sendMessage(chatId, {
+                    text: `⚠️ *الوصف مطلوب*\n\nيرجى كتابة طريقة الدمج المطلوبة، مثال:\n*${usedPrefix}nanopro done ادمج هذه الصور بأسلوب سينمائي أنمي*`
+                }, { quoted: msg });
+            }
+
+            try { await sock.sendMessage(chatId, { react: { text: "🕒", key: msg.key } }); } catch (_) {}
+            const waitMsg = await sock.sendMessage(chatId, { text: "🍌 جاري دمج الصور المجمعة بواسطة نانو بنانا برو... يرجى الانتظار." }, { quoted: msg });
+
+            try {
+                let apiUrl = `https://omegatech-api.dixonomega.tech/api/ai/nanobana-pro-v3?prompt=${encodeURIComponent(finalPrompt)}`;
+                session.images.forEach((url, i) => {
+                    apiUrl += `&image${i + 1}=${encodeURIComponent(url)}`;
+                });
+
+                const { data: initRes } = await axios.get(apiUrl, { timeout: 20000 });
+                if (!initRes?.success) throw new Error('فشل بدء عملية الدمج في السيرفر.');
+
+                const taskId = initRes.task_id;
+                let resultUrl = null;
+                let attempts = 0;
+
+                while (!resultUrl && attempts < 25) {
+                    await new Promise(r => setTimeout(r, 4000));
+                    const { data: check } = await axios.get(`https://omegatech-api.dixonomega.tech/api/ai/nano-banana2-result?task_id=${taskId}`, { timeout: 15000 });
+                    if (check?.status === 'completed' && check.image_url) {
+                        resultUrl = check.image_url;
+                        break;
+                    }
+                    if (check?.status === 'failed') throw new Error('أبلغ السيرفر عن فشل الدمج.');
+                    attempts++;
+                }
+
+                if (!resultUrl) throw new Error('استغرق الأمر وقتاً طويلاً.');
+
+                const caption = `🍌 *تم دمج الصور بنجاح (Nano-Banana Pro)*\n━━━━━━━━━━━━━━━━━━━━\n🖼️ *عدد الصور المدمجة:* ${session.images.length}\n📝 *الوصف:* ${finalPrompt}\n⚡ *bot amirni hamza • حمزة اعمرني*`;
+
+                const imgRes = await axios.get(resultUrl, { responseType: 'arraybuffer', timeout: 30000 });
+                const finalBuffer = Buffer.from(imgRes.data, 'binary');
+
+                try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (_) {}
+
+                await sock.sendMessage(chatId, {
+                    image: finalBuffer,
+                    caption
+                }, { quoted: msg });
+
+                try { await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } }); } catch (_) {}
+                delete bananaSession[sender];
+            } catch (e) {
+                try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (_) {}
+                try { await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch (_) {}
+                await sock.sendMessage(chatId, {
+                    text: `❌ *فشل دمج الصور:* ${e.message}`
+                }, { quoted: msg });
+                delete bananaSession[sender];
+            }
+            return;
+        }
+
+        // Upload and collect image for NanoPro
+        if (!buffer) {
+            return await sock.sendMessage(chatId, { text: getGuideMessage(usedPrefix) }, { quoted: msg });
+        }
+
+        const uploadedUrl = await uploadImageBuffer(buffer);
+        if (!uploadedUrl) {
+            return await sock.sendMessage(chatId, { text: "❌ تعذر رفع الصورة للسيرفر. يرجى المحاولة لاحقاً." }, { quoted: msg });
+        }
+
+        if (bananaSession[sender].images.length >= 4) {
             return await sock.sendMessage(chatId, {
-                text: `*✨ ──────────────── ✨*\n*⚠️ يرجى إرسال أو الرد على صورة*\n\n*مثال:* .nano تحويل الوجه إلى أنمي\n*✨ ──────────────── ✨*`
+                text: `❌ *تم الوصول للحد الأقصى*\n\nالحد الأقصى هو 4 صور فقط.\nاكتب الآن:\n*${usedPrefix}nanopro done <الوصف>*`
             }, { quoted: msg });
         }
 
-        buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, {
-            logger: undefined,
-            reuploadRequest: sock.updateMediaMessage
-        });
-    }
+        bananaSession[sender].images.push(uploadedUrl);
+        try { await sock.sendMessage(chatId, { react: { text: "📥", key: msg.key } }); } catch (_) {}
 
-    const text = args.join(" ");
-    if (!text) {
         return await sock.sendMessage(chatId, {
-            text: `*✨ ──────────────── ✨*\n*📝 يرجى كتابة وصف التعديل*\n\n*مثال:* .nano تغيير الملابس إلى بدلة رسمية\n*✨ ──────────────── ✨*`
+            text: `✅ *تمت إضافة الصورة (${bananaSession[sender].images.length}/4)*\n\nأرسل صورة أخرى مع *${usedPrefix}nanopro* أو اكتب:\n*${usedPrefix}nanopro done <الوصف>*`
         }, { quoted: msg });
     }
 
-    await sock.sendMessage(chatId, {
-        react: { text: "🕒", key: msg.key }
-    });
+    // ── 3. Handle Standard Nano (.nano) ──
+    if (!text && !buffer) {
+        return await sock.sendMessage(chatId, { text: getGuideMessage(usedPrefix) }, { quoted: msg });
+    }
 
-    const waitMsg = await sock.sendMessage(chatId, { text: "🔄 جاري معالجة طلبك وتعديل الصورة بذكاء نانو... يرجى الانتظار." }, { quoted: msg });
+    // Case A: Image-to-Image Editing (replying to photo)
+    if (buffer) {
+        if (!text) {
+            return await sock.sendMessage(chatId, {
+                text: `⚠️ *يرجى كتابة التعديل المطلوب*\n\nمثال: قم بالرد على الصورة بـ:\n*${usedPrefix}nano حول الملابس إلى بدلة أنيقة*`
+            }, { quoted: msg });
+        }
 
-    try {
-        if (!buffer) throw new Error("فشل تحميل الصورة");
+        try { await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } }); } catch (_) {}
+        const waitMsg = await sock.sendMessage(chatId, { text: "🍌 جاري تعديل صورتك بذكاء نانو بنانا... يرجى الانتظار." }, { quoted: msg });
 
-        const result = await processImageAI(buffer, text);
+        try {
+            const imageUrl = await uploadImageBuffer(buffer);
+            if (!imageUrl) throw new Error("تعذر رفع الصورة");
 
-        try { await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (e) { }
+            const { data: init } = await axios.get(
+                `https://omegatech-api.dixonomega.tech/api/ai/nano-banana2?prompt=${encodeURIComponent(text)}&image=${encodeURIComponent(imageUrl)}`,
+                { timeout: 20000 }
+            );
 
-        const caption = `
-*✨ ───❪ HAMZA AMIRNI AI ❫─── ✨*
-
-✅ *تم تعديل الصورة بنجاح*
-
-📝 *الوصف:* ${text}
-
-*🚀 تـم الـتـولـيـد بـوسـاطـة نـانـو AI*
-`.trim();
-
-        const imgRes = await axios.get(result.output, { responseType: 'arraybuffer', timeout: 30000 });
-        const finalBuffer = Buffer.from(imgRes.data, 'binary');
-
-        await sock.sendMessage(
-            chatId,
-            {
-                image: finalBuffer,
-                caption: caption,
-                contextInfo: {
-                    externalAdReply: {
-                        title: "Nano AI Image Editor",
-                        body: "𝐇𝐀𝐌𝐙𝐀 𝐀𝐌𝐈𝐑𝐍𝐈",
-                        thumbnailUrl: result.output,
-                        sourceUrl: "https://whatsapp.com/channel/0029ValXRoHCnA7yKopcrn1p",
-                        mediaType: 1,
-                        renderLargerThumbnail: true
+            let resultUrl = null;
+            if (init?.task_id) {
+                for (let i = 0; i < 20; i++) {
+                    await new Promise(r => setTimeout(r, 4000));
+                    const { data: check } = await axios.get(
+                        `https://omegatech-api.dixonomega.tech/api/ai/nano-banana2-result?task_id=${init.task_id}`,
+                        { timeout: 15000 }
+                    );
+                    if (check?.status === 'completed' && check.image_url) {
+                        resultUrl = check.image_url;
+                        break;
                     }
                 }
-            },
-            { quoted: msg }
-        );
+            }
+
+            if (!resultUrl) throw new Error("استغرق التعديل وقتاً طويلاً");
+
+            const imgRes = await axios.get(resultUrl, { responseType: 'arraybuffer', timeout: 30000 });
+            const finalBuffer = Buffer.from(imgRes.data, 'binary');
+
+            try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (_) {}
+
+            const caption = `✨ *تم تعديل الصورة بنجاح (Nano AI)*\n━━━━━━━━━━━━━━━━━━━━\n📝 *الوصف:* ${text}\n⚡ *bot amirni hamza • حمزة اعمرني*`;
+
+            await sock.sendMessage(chatId, {
+                image: finalBuffer,
+                caption
+            }, { quoted: msg });
+
+            try { await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } }); } catch (_) {}
+        } catch (e) {
+            try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (_) {}
+            try { await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch (_) {}
+            await sock.sendMessage(chatId, {
+                text: `❌ *فشل تعديل الصورة:* ${e.message}\nتأكد من وضوح الصورة وتفاصيل الوصف.`
+            }, { quoted: msg });
+        }
+        return;
+    }
+
+    // Case B: Text-to-Image Generation (.nano <prompt>)
+    try { await sock.sendMessage(chatId, { react: { text: "⏳", key: msg.key } }); } catch (_) {}
+    const waitMsg = await sock.sendMessage(chatId, { text: `🍌 جاري رسم وتوليد الصورة بذكاء نانو: *"${text}"*...` }, { quoted: msg });
+
+    try {
+        let finalImageUrl = null;
+
+        // Method 1: Nano Banana Pro API
+        try {
+            const { data } = await axios.get(
+                `https://omegatech-api.dixonomega.tech/api/ai/nano-banana-pro?prompt=${encodeURIComponent(text)}`,
+                { timeout: 25000 }
+            );
+            if (data?.image) finalImageUrl = data.image;
+        } catch (_) {}
+
+        // Method 2: Pollinations HD fallback with random seed
+        if (!finalImageUrl) {
+            const seed = Math.floor(Math.random() * 999999);
+            finalImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(text)}?width=1024&height=1024&seed=${seed}&nologo=true&enhance=true`;
+        }
+
+        const imgRes = await axios.get(finalImageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const finalBuffer = Buffer.from(imgRes.data, 'binary');
+
+        try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (_) {}
+
+        const caption = `🍌 *تم توليد الصورة بنجاح (Nano AI)*\n━━━━━━━━━━━━━━━━━━━━\n📝 *الوصف:* ${text}\n⚡ *bot amirni hamza • حمزة اعمرني*`;
 
         await sock.sendMessage(chatId, {
-            react: { text: "✅", key: msg.key }
-        });
-
-    } catch (e) {
-        console.error(e);
-        try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (err) { }
-        await sock.sendMessage(chatId, {
-            text: `*✨ ──────────────── ✨*\n*❌ فشل التعديل*\n\n📌 تأكد من أن الصورة واضحة والوصف مفهوم\n⚠️ ${e.message}\n*✨ ──────────────── ✨*`
+            image: finalBuffer,
+            caption
         }, { quoted: msg });
 
+        try { await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } }); } catch (_) {}
+    } catch (e) {
+        try { if (waitMsg) await sock.sendMessage(chatId, { delete: waitMsg.key }); } catch (_) {}
+        try { await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch (_) {}
         await sock.sendMessage(chatId, {
-            react: { text: "❌", key: msg.key }
-        });
+            text: `❌ *فشل توليد الصورة:* ${e.message}`
+        }, { quoted: msg });
     }
-}
+};
+
