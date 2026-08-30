@@ -1,0 +1,675 @@
+﻿diff --git a/README.md b/README.md
+index 51e8050..57df067 100644
+--- a/README.md
++++ b/README.md
+@@ -83,6 +83,10 @@ Built-in support for auto-restart and DNS optimization for bypass blocks.
+ - **Instagram:** [@hamza_amirni_01](https://instagram.com/hamza_amirni_01)
+ - **Official Channel:** [WhatsApp Channel](https://whatsapp.com/channel/0029ValXRoHCnA7yKopcrn1p)
+ 
++
++mosdwda3 dyal had lmchro3 script lbot https://github.com/HamzabAmirni1/hamza-chatbot
++
++mosdwda3 site dyale bot https://github.com/HamzabAmirni1/wibe-site-bot-hamzaamirni
+ ---
+ 
+ *Made with ÔØñ´©Å in Morocco for the global community.*
+diff --git a/dashboard.html b/dashboard.html
+index 185f685..da5ed73 100644
+--- a/dashboard.html
++++ b/dashboard.html
+@@ -24,15 +24,15 @@
+                 <p class="text-slate-400">┘åÏ©Ïº┘à ÏÑÏ»ÏºÏ▒Ï® Ïº┘äÏ¿┘êÏ¬ÏºÏ¬ Ïº┘ä┘àÏ¬┘âÏº┘à┘ä</p>
+             </div>
+             <div id="connection-indicator" class="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
+-                <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+-                <span class="text-green-500 text-sm font-semibold">Real-time Connected</span>
++                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
++                <span id="bot-count-total" class="text-green-500 text-xs font-bold uppercase tracking-tighter">0 Bots Connected</span>
+             </div>
+         </header>
+ 
+         <!-- Stats Grid -->
+-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
++        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+             <div class="glass p-6 rounded-3xl">
+-                <p class="text-slate-400 text-sm mb-1">Ïº┘äÏ▒Ï│ÏºÏª┘ä Ïº┘ä┘àÏ╣Ïº┘äÏ¼Ï®</p>
++                <p class="text-slate-400 text-sm mb-1">Ïº┘äÏ▒Ï│Ïº┘è┘ä Ïº┘ä┘ä┘è Ï»ÏºÏ▓Ï¬ (Processed)</p>
+                 <h2 id="total-messages" class="text-3xl font-bold">--</h2>
+             </div>
+             <div class="glass p-6 rounded-3xl border-sky-500/30">
+@@ -40,8 +40,13 @@
+                 <h2 id="ram-usage" class="text-3xl font-bold text-sky-400">--</h2>
+             </div>
+             <div class="glass p-6 rounded-3xl">
+-                <p class="text-slate-400 text-sm mb-1">Ï¡┘êÏºÏ▒ÏºÏ¬ AI</p>
+-                <h2 id="uptime" class="text-3xl font-bold">--</h2>
++                <p class="text-slate-400 text-sm mb-1">Ï╣Ï»Ï» Ïº┘ä┘åÏºÏ│ (Users)</p>
++                <h2 id="total-users" class="text-3xl font-bold text-green-400">--</h2>
++            </div>
++            <div class="glass p-6 rounded-3xl bg-yellow-500/5">
++                <p class="text-yellow-500 text-sm mb-1 font-bold">Ï▓┘èÏºÏ▒ÏºÏ¬ Ïº┘ä┘à┘ê┘éÏ╣ (Traffic)</p>
++                <h2 id="traffic-visits" class="text-2xl font-black">--</h2>
++                <p class="text-[10px] text-slate-500 uppercase">Visits Generated</p>
+             </div>
+         </div>
+ 
+@@ -161,18 +166,45 @@
+                 .subscribe();
+         }
+ 
++        let globalStatsData = {};
++
+         async function fetchStats() {
++            try {
++                // Try API first for real-time bot specific stats
++                const resp = await fetch(`${KOYEB_API_URL}/stats`);
++                if (resp.ok) {
++                    const data = await resp.json();
++                    globalStatsData = data;
++                    updateStatsUI(data);
++                    // Refresh WA sessions to show counts
++                    fetchWASessions();
++                    return;
++                }
++            } catch (e) {}
++
+             const { data } = await supabase.from('bot_stats').select('*').single();
+-            if (data) updateStatsUI(data);
++            if (data) {
++                globalStatsData = data;
++                updateStatsUI(data);
++            }
+         }
+ 
+         function updateStatsUI(data) {
+             document.getElementById('total-messages').innerText = data.messages_handled || 0;
+             document.getElementById('ram-usage').innerText = data.ram_usage || '0MB';
+-            document.getElementById('uptime').innerText = data.total_users || 0;
++            document.getElementById('total-users').innerText = data.total_users || 0;
++            document.getElementById('traffic-visits').innerText = data.visits || 0;
++            
++            const totalIndicator = document.getElementById('bot-count-total');
++            if (totalIndicator) totalIndicator.innerText = `${data.active_bots || 0} Bots Running`;
+ 
+             // Update Top Commands
+             const topList = document.getElementById('top-commands-list');
++            const unusedList = document.getElementById('unused-commands-list');
++            
++            // Primary unique commands for tracking
++            const allPrimaryCmds = ['salat', 'dua', 'quran', 'ytdl', 'fb', 'ig', 'tiktok', 'gpt4', 'deepseek', 'gen', 'sd', 'upscale', 'sticker', 'weather', 'ping', 'news', 'menu'];
++            
+             if (data.top_commands && data.top_commands.length > 0) {
+                 topList.innerHTML = data.top_commands.slice(0, 5).map(cmd => `
+                     <div class="flex items-center justify-between p-3 bg-slate-900/30 rounded-xl border border-slate-800/50">
+@@ -180,28 +212,46 @@
+                         <span class="bg-sky-500/10 text-sky-500 px-3 py-1 rounded-full text-xs font-bold">${cmd.count} ÏºÏ│Ï¬Ï╣┘àÏº┘ä</span>
+                     </div>
+                 `).join('');
++
++                const usedNames = data.top_commands.map(c => c.name);
++                const unused = allPrimaryCmds.filter(cmd => !usedNames.includes(cmd));
++                unusedList.innerHTML = unused.map(cmd => `
++                    <span class="px-3 py-1 bg-slate-800 rounded-full">.${cmd}</span>
++                `).join('');
++            } else {
++                unusedList.innerHTML = allPrimaryCmds.map(cmd => `
++                    <span class="px-3 py-1 bg-slate-800 rounded-full">.${cmd}</span>
++                `).join('');
+             }
+         }
+ 
+         async function fetchWASessions() {
+             const { data } = await supabase.from('whatsapp_auth').select('*');
+             const list = document.getElementById('wa-sessions-list');
++            
+             list.innerHTML = data && data.length ? '' : '<p class="text-slate-500 text-sm">┘äÏº ┘è┘êÏ¼Ï» Ï¿┘êÏ¬ÏºÏ¬ ┘àÏ¬ÏÁ┘äÏ® Ï¡Ïº┘ä┘èÏº┘ï.</p>';
+             data.forEach(wa => {
+                 const statusColor = wa.status === 'open' || wa.status === 'connected' ? 'bg-green-500' : 'bg-red-500';
++                const userCount = (globalStatsData.bot_user_counts && globalStatsData.bot_user_counts[wa.phone_number]) || 0;
++                
+                 list.innerHTML += `
+                     <div class="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800">
+                         <div class="flex items-center gap-3">
+                             <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-sky-400">WA</div>
+                             <div>
+                                 <p class="font-semibold">${wa.phone_number}</p>
+-                                <div class="flex items-center gap-1">
+-                                    <div class="w-2 h-2 rounded-full ${statusColor}"></div>
+-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">${wa.status || 'OFFLINE'}</span>
++                                <div class="flex items-center gap-2">
++                                    <div class="flex items-center gap-1">
++                                        <div class="w-2 h-2 rounded-full ${statusColor}"></div>
++                                        <span class="text-[10px] text-slate-500 uppercase font-bold">${wa.status || 'OFFLINE'}</span>
++                                    </div>
++                                    <span class="text-[10px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full font-bold">${userCount} Users</span>
+                                 </div>
+                             </div>
+                         </div>
+-                        <button class="text-slate-500 hover:text-red-400">Delete</button>
++                        <button onclick="deleteWA('${wa.phone_number}')" class="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-red-500/10 rounded-lg">
++                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
++                        </button>
+                     </div>
+                 `;
+             });
+@@ -219,7 +269,7 @@
+                             <span class="text-slate-500">${new Date(conf.created_at).toLocaleDateString()}</span>
+                         </div>
+                         <div class="flex gap-2">
+-                            <input type="password" value="${conf.bot_token}" class="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-sky-500">
++                            <input type="password" data-id="${conf.id}" value="${conf.bot_token}" class="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-sky-500">
+                             <button onclick="saveToken('${conf.id}')" class="px-4 py-2 bg-slate-800 text-xs rounded-xl hover:bg-slate-700 transition-all font-bold uppercase">Save</button>
+                         </div>
+                     </div>
+@@ -227,6 +277,11 @@
+             });
+         }
+ 
++        function showPairingCode(code) {
++            document.getElementById('pairing-section').classList.remove('hidden');
++            document.getElementById('pairing-code').innerText = code;
++        }
++
+         async function connectWA() {
+             const phone = document.getElementById('phone-input').value;
+             if (!phone) return alert('ÏúÏ»Ï«┘ä Ï▒┘é┘à Ïº┘ä┘çÏºÏ¬┘ü Ïú┘ê┘äÏº┘ï');
+@@ -251,11 +306,36 @@
+             }
+         }
+ 
+-        function showPairingCode(code) {
+-            document.getElementById('pairing-section').classList.remove('hidden');
+-            document.getElementById('pairing-code').innerText = code;
++        async function saveToken(id) {
++            const bot_token = document.querySelector(`input[data-id="${id}"]`).value;
++            if (!bot_token) return alert('ÏúÏ»Ï«┘ä Ïº┘äÏ¬┘ê┘â┘å Ïú┘ê┘äÏº┘ï');
++            try {
++                const resp = await fetch(`${KOYEB_API_URL}/update-config`, {
++                    method: 'POST',
++                    headers: { 'Content-Type': 'application/json' },
++                    body: JSON.stringify({ id, bot_token })
++                });
++                if (resp.ok) alert('Ô£à Ï¬┘à Ï¬Ï¡Ï»┘èÏ½ Ïº┘äÏ¬┘ê┘â┘å Ï¿┘åÏ¼ÏºÏ¡!');
++                else alert('ÔØî ┘üÏ┤┘ä Ïº┘äÏ¬Ï¡Ï»┘èÏ½.');
++            } catch (e) { alert('ÔØî Ï«ÏÀÏú ┘ü┘è Ïº┘äÏºÏ¬ÏÁÏº┘ä Ï¿Ïº┘ä┘Ç API.'); }
++        }
++
++        async function deleteWA(phone) {
++            if (!confirm(`┘ç┘ä Ïú┘åÏ¬ ┘àÏ¬Ïú┘âÏ» ┘à┘å Ï¡Ï░┘ü Ï¼┘äÏ│Ï® ${phone}Ïƒ`)) return;
++            try {
++                const resp = await fetch(`${KOYEB_API_URL}/delete-wa`, {
++                    method: 'POST',
++                    headers: { 'Content-Type': 'application/json' },
++                    body: JSON.stringify({ phone })
++                });
++                if (resp.ok) {
++                    alert('Ô£à Ï¬┘à Ï¡Ï░┘ü Ïº┘äÏ¼┘äÏ│Ï® Ï¿┘åÏ¼ÏºÏ¡.');
++                    fetchWASessions();
++                } else alert('ÔØî ┘üÏ┤┘ä Ïº┘äÏ¡Ï░┘ü.');
++            } catch (e) { alert('ÔØî Ï«ÏÀÏú ┘ü┘è Ïº┘äÏºÏ¬ÏÁÏº┘ä Ï¿Ïº┘ä┘Ç API.'); }
+         }
+ 
++        setInterval(fetchStats, 10000); // Auto-refresh stats
+         init();
+     </script>
+ </body>
+diff --git a/index.js b/index.js
+index 75d594f..a2a3160 100644
+--- a/index.js
++++ b/index.js
+@@ -21,13 +21,11 @@ const path = require("path");
+ const dns = require("dns");
+ const config = require("./config");
+ 
+-// --- DNS FIX ---
++// --- DNS FIX (Optional) ---
+ try {
+-  dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1']);
+-  console.log(chalk.green('Ô£à DNS Servers set to Cloudflare/Google (1.1.1.1)'));
+-} catch (e) {
+-  console.error(chalk.red('ÔØî Failed to set DNS servers:'), e.message);
+-}
++  console.log(chalk.cyan("­ƒöì Initializing Core Dependencies..."));
++  // dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1']);
++} catch (e) { }
+ 
+ const { handleAutoDL } = require('./lib/autodl');
+ const {
+@@ -71,15 +69,13 @@ const { db } = require("./lib/supabase");
+ const processedMessages = new Set();
+ const commandUsage = {};
+ const activeUsers = new Set();
++const botUsersMap = {}; // { 'phoneNumber': Set(['userJid']) }
+ 
+ const sessionBaseDir = path.join(__dirname, "sessions");
+ if (!fs.existsSync(sessionBaseDir)) fs.mkdirSync(sessionBaseDir, { recursive: true });
+ 
+-// Boot Sequence Delay
+-console.log(chalk.cyan("ÔÅ▒´©Å  Waiting 5 seconds... Instance created. Preparing to start..."));
+-setTimeout(() => {
+-  console.log(chalk.green("­ƒÜÇ Starting Hamza Chatbot with Enhanced Stability..."));
+-}, 5000);
++// Boot Sequence - Immediate
++console.log(chalk.green("­ƒÜÇ Starting Hamza Chatbot..."));
+ 
+ // Memory monitoring - Restart if RAM gets too high (Target: 512MB Server)
+ setInterval(() => {
+@@ -162,12 +158,45 @@ app.get("/", (req, res) => {
+ });
+ 
+ app.get("/health", (req, res) => res.status(200).json({ status: "healthy", uptime: getUptime() }));
+-app.get("/ping", (req, res) => res.status(200).send("pong"));
+ 
+-// ­ƒôè Get Bot Stats from Supabase
++// Enable CORS for Dashboard
++app.use((req, res, next) => {
++  res.header("Access-Control-Allow-Origin", "*");
++  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
++  next();
++});
++
++// ­ƒôè Get Bot Stats with Per-Bot counts
+ app.get("/stats", async (req, res) => {
+   const stats = await db.getStats();
+-  res.json(stats || { message: "No stats available" });
++  const traffic = getTrafficStats();
++  const botCounts = {};
++  Object.entries(botUsersMap).forEach(([phone, set]) => {
++    botCounts[phone] = set.size;
++  });
++  
++  res.status(200).json({ 
++    ...stats, 
++    visits: traffic.visits || 0,
++    impressions: traffic.impressions || 0,
++    bot_user_counts: botCounts // { 'phoneNumber': count }
++  });
++});
++
++// ­ƒùæ´©Å Delete WhatsApp Session
++app.post("/delete-wa", async (req, res) => {
++  const { phone } = req.body;
++  if (!phone) return res.status(400).json({ error: "Missing phone" });
++  const success = await db.deleteWhatsAppSession(phone);
++  res.status(success ? 200 : 500).json({ success });
++});
++
++// ÔÜÖ´©Å Update Bot Config (Manual Tokens)
++app.post("/update-config", async (req, res) => {
++  const { id, bot_token, bot_name } = req.body;
++  if (!id) return res.status(400).json({ error: "Missing ID" });
++  const success = await db.updateBotConfig(id, { bot_token, bot_name });
++  res.status(success ? 200 : 500).json({ success });
+ });
+ 
+ // ­ƒöù Trigger New WhatsApp Connection
+@@ -452,6 +481,12 @@ async function startBot(folderName, phoneNumber) {
+ 
+         const sender = msg.key.remoteJid;
+         logUser(sender);
++        
++        // Track unique users per bot
++        if (phoneNumber) {
++          if (!botUsersMap[phoneNumber]) botUsersMap[phoneNumber] = new Set();
++          botUsersMap[phoneNumber].add(sender);
++        }
+ 
+         if (body && !msg.key.fromMe) {
+           const skipAI = await handleAutoDL(sock, sender, msg, body, processedMessages, { sendFBVideo, sendYTVideo, getYupraVideoByUrl, getOkatsuVideoByUrl });
+@@ -562,7 +597,7 @@ async function startBot(folderName, phoneNumber) {
+             if (quotedText) body = `[Mktob: "${quotedText}"]\n\nRd: ${body}`;
+           }
+ 
+-          const context = getContext(sender);
++          const context = await getContext(sender);
+           const isRecentImg = context.lastImage && Date.now() - context.lastImage.timestamp < 5 * 60 * 1000;
+           if (isRecentImg && body.length > 2 && !body.startsWith(".")) {
+             try {
+@@ -605,8 +640,8 @@ async function startBot(folderName, phoneNumber) {
+         }
+ 
+         if (reply) {
+-          addToHistory(sender, "user", body);
+-          addToHistory(sender, "assistant", reply);
++          await addToHistory(sender, "user", body);
++          await addToHistory(sender, "assistant", reply);
+           await delayPromise;
+           await sock.sendMessage(sender, { text: reply }, { quoted: msg });
+         }
+diff --git a/lib/ai.js b/lib/ai.js
+index 0dc5ccd..4d2d5bf 100644
+--- a/lib/ai.js
++++ b/lib/ai.js
+@@ -2,20 +2,26 @@ const axios = require('axios');
+ const fs = require('fs-extra');
+ const path = require('path');
+ const config = require('../config');
++const { db } = require('./supabase');
++
+ 
+ // Conversation Memory Storage
+ const chatMemory = new Map();
+-const MAX_HISTORY = 50;
++const MAX_HISTORY = 30;
+ 
+-function getContext(jid) {
++async function getContext(jid) {
+     if (!chatMemory.has(jid)) {
+-        chatMemory.set(jid, { messages: [], lastImage: null });
++        const stored = await db.getAIMemory(jid);
++        chatMemory.set(jid, {
++            messages: stored.history || [],
++            lastImage: stored.last_image || null
++        });
+     }
+     return chatMemory.get(jid);
+ }
+ 
+-function addToHistory(jid, role, content, image = null) {
+-    const context = getContext(jid);
++async function addToHistory(jid, role, content, image = null) {
++    const context = await getContext(jid);
+     context.messages.push({ role, content });
+     if (image) {
+         context.lastImage = {
+@@ -24,6 +30,9 @@ function addToHistory(jid, role, content, image = null) {
+         };
+     }
+     if (context.messages.length > MAX_HISTORY) context.messages.shift();
++    
++    // Auto-Sync to Supabase
++    await db.updateAIMemory(jid, context.messages, context.lastImage);
+ }
+ 
+ async function translateToEn(text) {
+diff --git a/lib/facebook.js b/lib/facebook.js
+index 08b1ef4..324f0c0 100644
+--- a/lib/facebook.js
++++ b/lib/facebook.js
+@@ -299,7 +299,7 @@ async function handleFacebookMessage(event) {
+             if (commandHandled) return;
+ 
+             // Follow-up on recent image
+-            const context = getContext(senderId);
++            const context = await getContext(senderId);
+             const isRecentImg = context.lastImage && Date.now() - context.lastImage.timestamp < 5 * 60 * 1000;
+             if (isRecentImg && text.length > 2 && !text.startsWith(".")) {
+                 try {
+@@ -336,8 +336,8 @@ async function handleFacebookMessage(event) {
+             }
+ 
+             if (reply) {
+-                addToHistory(senderId, 'user', text);
+-                addToHistory(senderId, 'assistant', reply);
++                await addToHistory(senderId, 'user', text);
++                await addToHistory(senderId, 'assistant', reply);
+                 await sendFacebookMessage(senderId, reply);
+             }
+         } catch (error) {
+diff --git a/lib/supabase.js b/lib/supabase.js
+index 996ffc8..74988e1 100644
+--- a/lib/supabase.js
++++ b/lib/supabase.js
+@@ -6,77 +6,203 @@ const supabaseKey = process.env.SUPABASE_KEY || config.supabaseKey;
+ 
+ let supabase = null;
+ if (supabaseUrl && supabaseKey) {
+-    supabase = createClient(supabaseUrl, supabaseKey);
++    try {
++        supabase = createClient(supabaseUrl, supabaseKey);
++    } catch (e) {
++        console.error('[Supabase] Initialization Error:', e.message);
++    }
+ }
+ 
+ const db = {
+     // ­ƒñû Bot Configs (Telegram/Facebook Tokens)
+     async getBotConfigs() {
+         if (!supabase) return [];
+-        const { data, error } = await supabase.from('bot_configs').select('*').eq('is_active', true);
+-        if (error) { console.error('[Supabase] Error fetching bot_configs:', error.message); return []; }
+-        return data;
++        try {
++            const { data, error } = await supabase.from('bot_configs').select('*').eq('is_active', true);
++            if (error) throw error;
++            return data;
++        } catch (e) {
++            console.error('[Supabase] getBotConfigs Error:', e.message);
++            return [];
++        }
+     },
+ 
+     // ­ƒÆ¼ WhatsApp Auth (Sessions & Pairing Codes)
+     async getWhatsAppAuth(phoneNumber) {
+         if (!supabase) return null;
+-        const { data, error } = await supabase.from('whatsapp_auth').select('*').eq('phone_number', phoneNumber).single();
+-        if (error) return null;
+-        return data;
++        try {
++            const { data, error } = await supabase.from('whatsapp_auth').select('*').eq('phone_number', phoneNumber).single();
++            if (error && error.code !== 'PGRST116') throw error;
++            return data;
++        } catch (e) {
++            return null;
++        }
+     },
+ 
+     async getAllWhatsAppAuth() {
+         if (!supabase) return [];
+-        const { data, error } = await supabase.from('whatsapp_auth').select('*');
+-        if (error) return [];
+-        return data;
++        try {
++            const { data, error } = await supabase.from('whatsapp_auth').select('*');
++            if (error) throw error;
++            return data;
++        } catch (e) {
++            console.error('[Supabase] getAllWhatsAppAuth Error:', e.message);
++            return [];
++        }
+     },
+ 
+     async updateWhatsAppSession(phoneNumber, sessionData) {
+         if (!supabase) return;
+-        const { error } = await supabase.from('whatsapp_auth').upsert({
+-            phone_number: phoneNumber,
+-            session_data: sessionData,
+-            updated_at: new Date().toISOString()
+-        }, { onConflict: 'phone_number' });
+-        if (error) console.error('[Supabase] Error updating WA session:', error.message);
++        try {
++            const { error } = await supabase.from('whatsapp_auth').upsert({
++                phone_number: phoneNumber,
++                session_data: sessionData,
++                updated_at: new Date().toISOString()
++            }, { onConflict: 'phone_number' });
++            if (error) throw error;
++        } catch (e) {
++            console.error('[Supabase] updateWhatsAppSession Error:', e.message);
++        }
+     },
+ 
+     async updatePairingCode(phoneNumber, pairingCode, status = 'connecting') {
+         if (!supabase) return;
+-        const { error } = await supabase.from('whatsapp_auth').upsert({
+-            phone_number: phoneNumber,
+-            pairing_code: pairingCode,
+-            status: status,
+-            updated_at: new Date().toISOString()
+-        }, { onConflict: 'phone_number' });
+-        if (error) console.error('[Supabase] Error updating pairing code:', error.message);
++        try {
++            const { error } = await supabase.from('whatsapp_auth').upsert({
++                phone_number: phoneNumber,
++                pairing_code: pairingCode,
++                status: status,
++                updated_at: new Date().toISOString()
++            }, { onConflict: 'phone_number' });
++            if (error) throw error;
++        } catch (e) {
++            console.error('[Supabase] updatePairingCode Error:', e.message);
++        }
+     },
+ 
+     async updateWAStatus(phoneNumber, status) {
+         if (!supabase) return;
+-        const { error } = await supabase.from('whatsapp_auth').update({ status }).eq('phone_number', phoneNumber);
+-        if (error) console.error('[Supabase] Error updating WA status:', error.message);
++        try {
++            const { error } = await supabase.from('whatsapp_auth').update({ status }).eq('phone_number', phoneNumber);
++            if (error) throw error;
++        } catch (e) {
++            console.error('[Supabase] updateWAStatus Error:', e.message);
++        }
+     },
+ 
+     // ­ƒôè Bot Stats
+     async updateStats(stats) {
+         if (!supabase) return;
+-        const { error } = await supabase.from('bot_stats').upsert({
+-            id: 'ae6b896b-0b1a-42c2-b5e1-06103b6e82a3', // Use a fixed ID for global stats or manage per bot
+-            ...stats,
+-            last_update: new Date().toISOString()
+-        });
+-        if (error) console.error('[Supabase] Error updating stats:', error.message);
++        try {
++            const { error } = await supabase.from('bot_stats').upsert({
++                id: 'ae6b896b-0b1a-42c2-b5e1-06103b6e82a3', // Use a fixed ID for global stats
++                ...stats,
++                last_update: new Date().toISOString()
++            }, { onConflict: 'id' });
++            if (error) throw error;
++        } catch (e) {
++            console.error('[Supabase] updateStats Error:', e.message);
++        }
+     },
+ 
+     async getStats() {
+         if (!supabase) return null;
+-        const { data, error } = await supabase.from('bot_stats').select('*').single();
+-        if (error) return null;
+-        return data;
++        try {
++            // Get the main stats record
++            let { data, error } = await supabase.from('bot_stats').select('*').eq('id', 'ae6b896b-0b1a-42c2-b5e1-06103b6e82a3').single();
++            
++            // If it doesn't exist, create it
++            if (error && error.code === 'PGRST116') {
++                const initialStats = {
++                    id: 'ae6b896b-0b1a-42c2-b5e1-06103b6e82a3',
++                    messages_handled: 0,
++                    total_users: 0,
++                    ram_usage: '0MB',
++                    visits: 0,
++                    top_commands: []
++                };
++                await supabase.from('bot_stats').insert(initialStats);
++                data = initialStats;
++            }
++
++            // Dynamically calculate counts for accuracy
++            const { count: userCount } = await supabase.from('ai_memory').select('*', { count: 'exact', head: true });
++            const { count: botCount } = await supabase.from('whatsapp_auth').select('*', { count: 'exact', head: true });
++
++            return {
++                ...data,
++                total_users: userCount || (data ? data.total_users : 0),
++                active_bots: botCount || 0
++            };
++        } catch (e) {
++            console.error('[Supabase] getStats Error:', e.message);
++            return null;
++        }
++    },
++
++    // ­ƒºá AI Memory Management
++    async getAIMemory(jid) {
++        if (!supabase) return { jid, history: [], last_image: null };
++        try {
++            const { data, error } = await supabase.from('ai_memory').select('*').eq('jid', jid).single();
++            if (error && error.code !== 'PGRST116') throw error;
++            return data || { jid, history: [], last_image: null };
++        } catch (e) { 
++            return { jid, history: [], last_image: null }; 
++        }
++    },
++
++    async updateAIMemory(jid, history, lastImage) {
++        if (!supabase) return;
++        try {
++            const { error } = await supabase.from('ai_memory').upsert({
++                jid,
++                history,
++                last_image: lastImage,
++                updated_at: new Date().toISOString()
++            }, { onConflict: 'jid' });
++            if (error) throw error;
++        } catch (e) { 
++            console.error('[Supabase AI Update Error]:', e.message); 
++        }
++    },
++
++    // ÔÜÖ´©Å Config & Bot Management
++    async updateBotConfig(id, data) {
++        if (!supabase) return false;
++        try {
++            const { error } = await supabase.from('bot_configs').update(data).eq('id', id);
++            if (error) throw error;
++            return true;
++        } catch (e) { 
++            return false; 
++        }
++    },
++
++    async deleteWhatsAppSession(phoneNumber) {
++        if (!supabase) return false;
++        try {
++            const { error } = await supabase.from('whatsapp_auth').delete().eq('phone_number', phoneNumber);
++            if (error) throw error;
++            return true;
++        } catch (e) { 
++            return false; 
++        }
++    },
++
++    async updateWhatsAppAuth(phoneNumber, sessionData) {
++        if (!supabase) return;
++        try {
++            const { error } = await supabase.from('whatsapp_auth').upsert({
++                phone_number: phoneNumber,
++                session_data: sessionData,
++                updated_at: new Date().toISOString()
++            }, { onConflict: 'phone_number' });
++            if (error) throw error;
++        } catch (e) {
++            console.error('[Supabase] updateWhatsAppAuth Error:', e.message);
++        }
+     }
+ };
+ 
+-module.exports = { supabase, db };
++module.exports = { db };
+diff --git a/lib/telegram.js b/lib/telegram.js
+index dcc4cc0..c85a439 100644
+--- a/lib/telegram.js
++++ b/lib/telegram.js
+@@ -289,7 +289,7 @@ function startTelegramBot(manualToken) {
+             if (commandHandled || !text) return;
+ 
+             // Follow-up on recent image
+-            const context = getContext(chatId);
++            const context = await getContext(chatId);
+             const isRecentImg = context.lastImage && Date.now() - context.lastImage.timestamp < 5 * 60 * 1000;
+             if (isRecentImg && text.length > 2 && !text.startsWith(".")) {
+                 try {
+@@ -317,8 +317,8 @@ function startTelegramBot(manualToken) {
+             }
+ 
+             if (reply) {
+-                addToHistory(chatId, 'user', text);
+-                addToHistory(chatId, 'assistant', reply);
++                await addToHistory(chatId, 'user', text);
++                await addToHistory(chatId, 'assistant', reply);
+                 await bot.sendMessage(chatId, reply, {
+                     parse_mode: 'Markdown',
+                     reply_markup: {
